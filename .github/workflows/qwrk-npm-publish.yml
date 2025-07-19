@@ -1,16 +1,16 @@
-name: 📦 Qwrk-vite npm publish on tag
+name: 📦 Qwrk npm publish on tag
 
 on:
   push:
     tags:
-      - "qwrk-vite@*"
+      - "qwrk@*"
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: packages/qwrk-vite
+        working-directory: packages/qwrk
 
     permissions:
       contents: read
