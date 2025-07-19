@@ -6,5 +6,9 @@
   "type": "module",
   "types": "index.d.ts",
   "license": "MIT",
-  "author": "Srinath10X"
+  "author": "Srinath10X",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Srinath10X/qwrk.git"
+  }
 }
