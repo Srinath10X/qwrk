@@ -27,9 +27,6 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           always-auth: true
 
-      - name: Install dependencies
-        run: npm ci
-
       - name: Publish to npm registry
         run: npm publish --access public --provenance
         env:
