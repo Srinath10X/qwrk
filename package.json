@@ -1,0 +1,11 @@
+{
+  "name": "qwrk",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
