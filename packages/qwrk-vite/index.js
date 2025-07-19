@@ -4,8 +4,9 @@ export default function qwrk() {
     config() {
       return {
         esbuild: {
-          jsx: "automatic",
-          jsxImportSource: "qwrk",
+          jsxFactory: "createElement",
+          jsxFragment: "fragment",
+          jsxInject: "import {createElement,fragment} from 'qwrk'",
         },
       };
     },
