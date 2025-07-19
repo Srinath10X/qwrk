@@ -1,0 +1,10 @@
+{
+  "name": "qwrk-vite",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "author": "Srinath10X"
+}
