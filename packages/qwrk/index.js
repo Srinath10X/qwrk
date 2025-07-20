@@ -4,13 +4,19 @@ const isHTMLelement = (object) => instanceOf(object, HTMLElement);
 
 export const fragment = Symbol("fragment");
 
-export const effect = (callback) => {
+export const effect = (callback, deps = []) => {
+  deps.forEach((dep) => {
+    if (isReactive(dep)) {
+      dep.effect(callback);
+    }
+  });
+
   document.addEventListener("DOMContentLoaded", () => {
     callback();
   });
 };
 
-export const state = (initialValue) => {
+export function state(initialValue) {
   const effects = new Set();
   const currentValue = initialValue;
 
@@ -34,7 +40,7 @@ export const state = (initialValue) => {
       effects.forEach((fn) => fn(initialValue, currentValue));
     },
   };
-};
+}
 
 const setAttributes = (element, key, value) => {
   if (isReactive(value)) {
