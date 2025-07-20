@@ -1,4 +1,4 @@
-declare module "qwrk" {
+declare module "qwrk-vite" {
   interface Plugin {
     name: string;
     config?: () => {
