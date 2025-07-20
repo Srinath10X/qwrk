@@ -1,6 +1,6 @@
 {
   "name": "qwrk-vite",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "description": "qwrk plugin for vite",
   "main": "index.js",
   "type": "module",
