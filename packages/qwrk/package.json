@@ -1,6 +1,6 @@
 {
   "name": "qwrk",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "A minimalistic web framework, fast enough for your ideas.",
   "main": "index.js",
   "scripts": {
