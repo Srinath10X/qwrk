@@ -1,22 +1,28 @@
 const instanceOf = (a, b) => a instanceof b;
-const isReactive = (object) => object?.__reactiveVariable__;
+const isReactive = (object) => object?.__MagicVariable__;
 const isHTMLelement = (object) => instanceOf(object, HTMLElement);
 
-export const fragment = ({ children }) => children;
+export const fragment = Symbol("fragment");
 
-export const reactive = (value) => {
-  const oldValue = value;
+export const effect = (callback) => {
+  document.addEventListener("DOMContentLoaded", () => {
+    callback();
+  });
+};
+
+export const state = (initialValue) => {
   const effects = new Set();
+  const currentValue = initialValue;
 
   return {
-    __reactiveVariable__: true,
+    __MagicVariable__: true,
 
     get value() {
-      return value;
+      return initialValue;
     },
 
     set value(newValue) {
-      value = newValue;
+      initialValue = newValue;
       this.react();
     },
 
@@ -25,7 +31,7 @@ export const reactive = (value) => {
     },
 
     react() {
-      effects.forEach((fn) => fn(value, oldValue));
+      effects.forEach((fn) => fn(initialValue, currentValue));
     },
   };
 };
@@ -34,13 +40,16 @@ const setAttributes = (element, key, value) => {
   if (isReactive(value)) {
     element.setAttribute(key, value.value);
     value.effect((newValue) => element.setAttribute(key, newValue));
-  } else element.setAttribute(key, value);
+  } else {
+    element.setAttribute(key, value);
+  }
 };
 
 const createStatelessElement = (object) =>
   isHTMLelement(object) || instanceOf(object, Text)
     ? object
     : document.createTextNode(object);
+
 const createStatefullElement = (object) => {
   const element = createStatelessElement(object.value);
   object.effect((newValue) =>
