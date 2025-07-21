@@ -1,16 +1,16 @@
-name: 📦 Qwrk npm publish on tag
+name: create-qwrk-app npm publish on tag
 
 on:
   push:
     tags:
-      - "qwrk@*"
+      - "qwrk-app@*"
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: packages/qwrk
+        working-directory: packages/qwrk-app
 
     permissions:
       contents: read
