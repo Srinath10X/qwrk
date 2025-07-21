@@ -1,0 +1,20 @@
+{
+  "name": "create-qwrk-app",
+  "version": "0.0.1",
+  "main": "./bin/index.js",
+  "bin": {
+    "create-qwrk-app": "bin/index.js"
+  },
+  "keywords": [],
+  "license": "MIT",
+  "type": "module",
+  "author": "Srinath10X",
+  "dependencies": {
+    "fs-extra": "^11.3.0",
+    "inquirer": "^12.8.0"
+  },
+  "description": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
