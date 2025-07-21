@@ -1,13 +1,13 @@
 {
   "name": "create-qwrk-app",
-  "version": "0.0.2",
-  "main": "./bin/index.js",
+  "version": "0.0.8",
+  "type": "module",
+  "license": "MIT",
   "bin": {
     "create-qwrk-app": "bin/index.js"
   },
   "keywords": [],
   "license": "MIT",
-  "type": "module",
   "author": "Srinath10X",
   "dependencies": {
     "fs-extra": "^11.3.0",

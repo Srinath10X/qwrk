@@ -12,8 +12,6 @@ importers:
         specifier: ^5.8.3
         version: 5.8.3
 
-  packages/qwrk: {}
-
   packages/qwrk-app:
     dependencies:
       fs-extra:
