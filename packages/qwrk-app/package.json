@@ -13,8 +13,12 @@
     "fs-extra": "^11.3.0",
     "inquirer": "^12.8.0"
   },
-  "description": "",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  }
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Srinath10X/qwrk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Srinath10X/qwrk/issues"
+  },
+  "homepage": "https://github.com/Srinath10X/qwrk#readme"
 }
