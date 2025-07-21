@@ -1,0 +1,21 @@
+{
+  "name": "qwrk",
+  "version": "0.1.0",
+  "description": "A minimalistic web framework, fast enough for your ideas.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Srinath10X/qwrk.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Srinath10X/qwrk/issues"
+  },
+  "homepage": "https://github.com/Srinath10X/qwrk#readme"
+}
