@@ -1,3 +1,7 @@
 # node_modules and dists
-dist
-node_modules
+dist/
+node_modules/
+
+# vitepress
+docs/.vitepress/dist
+docs/.vitepress/cache
