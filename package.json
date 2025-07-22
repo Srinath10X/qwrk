@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "scripts": {
     "prepare": "husky",
+    "docs:dev": "pnpm --filter qwrk-docs run docs:dev",
+    "docs:build": "pnpm --filter qwrk-docs run docs:build",
+    "docs:preview": "pnpm --filter qwrk-docs run docs:preview",
     "prepare-templates": "rm -rf templates && cp -r packages/qwrk-app/templates ./templates"
   },
   "workspaces": [
