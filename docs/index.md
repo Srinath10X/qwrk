@@ -6,7 +6,7 @@ hero:
   text: "A reactive javascript micro-framework."
   tagline: Lightweight reactivity. No VDOM. Full control.
   image:
-    src: /assets/qwrk.svg
+    src: /qwrk.svg
     alt: VitePress
   actions:
     - theme: brand

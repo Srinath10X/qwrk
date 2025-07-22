@@ -9,12 +9,12 @@ export default defineConfig({
       {
         rel: "icon",
         type: "image/svg+xml",
-        href: "/assets/qwrk.svg",
+        href: "/qwrk.svg",
       },
     ],
   ],
   themeConfig: {
-    logo: "/assets/qwrk.svg",
+    logo: "/qwrk.svg",
     siteTitle: "Qwrk",
 
     search: {
