@@ -14,6 +14,7 @@
   "author": "",
   "license": "MIT",
   "type": "module",
+  "types": "./types/index.d.ts",
   "bugs": {
     "url": "https://github.com/Srinath10X/qwrk/issues"
   },

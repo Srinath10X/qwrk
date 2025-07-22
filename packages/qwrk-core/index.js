@@ -1,10 +1,11 @@
-const instanceOf = (a, b) => a instanceof b;
-const isReactive = (object) => object?.__MagicVariable__;
-const isHTMLelement = (object) => instanceOf(object, HTMLElement);
+import {
+  fragment,
+  isReactive,
+  instanceOf,
+  isHTMLelement,
+} from "./core/utils.js";
 
-export const fragment = Symbol("fragment");
-
-export const effect = (callback, deps = []) => {
+export function effect(callback, deps = []) {
   deps.forEach((dep) => {
     if (isReactive(dep)) {
       dep.effect(callback);
@@ -14,7 +15,7 @@ export const effect = (callback, deps = []) => {
   document.addEventListener("DOMContentLoaded", () => {
     callback();
   });
-};
+}
 
 export function state(initialValue) {
   const effects = new Set();
@@ -75,7 +76,7 @@ const processedChildren = (children) =>
         : createStatelessElement(child),
     );
 
-export const createElement = (tag, attributes, ...children) => {
+export function createElement(tag, attributes, ...children) {
   if (tag === fragment) return processedChildren(children);
   if (instanceOf(tag, Function)) return tag({ children, ...attributes });
 
@@ -91,4 +92,4 @@ export const createElement = (tag, attributes, ...children) => {
 
   element.append(...processedChildren(children));
   return element;
-};
+}
