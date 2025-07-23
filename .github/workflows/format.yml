@@ -20,7 +20,7 @@ jobs:
           node-version: 18
 
       - name: Install dependencies
-        run: pnpm install
+        run: npm install
 
       - name: Run Prettier check
-        run: pnpm run format:check
+        run: npm run format:check
