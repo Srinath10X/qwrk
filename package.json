@@ -9,9 +9,6 @@
     "docs:preview": "pnpm --filter qwrk-docs run docs:preview",
     "prepare-templates": "rm -rf templates && cp -r packages/qwrk-app/templates ./templates"
   },
-  "workspaces": [
-    "packages/*"
-  ],
   "devDependencies": {
     "husky": "^9.1.7",
     "typescript": "^5.8.3"
