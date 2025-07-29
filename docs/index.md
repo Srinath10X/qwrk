@@ -13,9 +13,6 @@ hero:
       text: What is Qwrk?
       link: /guide/
     - theme: alt
-      text: Quickstart
-      link: /guide/getting-started
-    - theme: alt
       text: Github
       link: https://github.com/srinath10x/Qwrk
 
