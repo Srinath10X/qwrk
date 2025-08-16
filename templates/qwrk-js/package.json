@@ -13,6 +13,6 @@
   },
   "devDependencies": {
     "qwrk-vite": "^0.1.0",
-    "vite": "^7.0.5"
+    "vite": "^7.1.2"
   }
 }
