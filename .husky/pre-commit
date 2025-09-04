@@ -1,2 +1,3 @@
 pnpm prepare-templates
 git add templates
+pnpm run format:check
