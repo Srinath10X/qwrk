@@ -6,6 +6,10 @@ import inquirer from "inquirer";
 import { fileURLToPath } from "url";
 import { TITLE, INTRO } from "./const.js";
 
+process.on("SIGINT", () => {
+  process.exit(0);
+});
+
 const args = process.argv.slice(2);
 
 let inputPath = args[0];
