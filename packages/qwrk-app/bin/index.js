@@ -19,14 +19,23 @@ process.stdout.write(TITLE);
 process.stdout.write(INTRO);
 
 if (!inputPath) {
-  const { project_name } = await inquirer.prompt({
-    name: "project_name",
-    type: "input",
-    message: "What is your project name?",
-    default: "qwrk-app",
-  });
+  try {
+    const { project_name } = await inquirer.prompt({
+      name: "project_name",
+      type: "input",
+      message: "What is your project name?",
+      default: "qwrk-app",
+    });
 
-  projectName = project_name;
+    projectName = project_name;
+  } catch (err) {
+    if (err.name === "ExitPromptError") {
+      process.stdout.write("❌ Operation cancelled.\n");
+      process.exit(0);
+    }
+
+    throw err;
+  }
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
