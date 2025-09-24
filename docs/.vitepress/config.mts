@@ -31,6 +31,13 @@ export default defineConfig({
         text: "Introduction",
         items: [{ text: "What is Qwrk?", link: "/guide" }],
       },
+      {
+        text: "APIs",
+        items: [
+          { text: "State API", link: "/api/01_state" },
+          { text: "Effect API", link: "/api/02_effect" },
+        ],
+      },
     ],
 
     socialLinks: [
