@@ -13,3 +13,38 @@
 <p align="center">
   <strong>Qwrk</strong> is a minimalistic, reactive javascript micro-framework built for raw speed, minimalism, and full control.
 </p>
+
+## 🚀 Getting started
+Create a new project:
+```bash
+npx create-qwrk-app@latest
+```
+A simple example:
+```jsx
+import { state } from "qwrk";
+
+function App() {
+  const count = state(0);
+
+  return (
+    <>
+      <h1>{count}</h1>
+      <button onClick={() => count.value++}>+</button>
+      <button onClick={() => count.value--}>-</button>
+    </>
+  );
+}
+
+document.getElementById("root").append(...App());
+```
+
+## 📚 Documentation
+visit <a href="https://qwrk.srinath.website">https://qwrk.srinath.website</a> to
+view the full documentation
+
+## 🔐 Security 
+
+If you believe you have discovered a security vulnerability in Qwrk, I request that you
+responsibly disclose it by emailing <a href="mailto:srinath10x@protonmail">srinath10x@proton.me</a> with the relevant details.
+
+Do not publicly disclose the issue before it is resolved.
