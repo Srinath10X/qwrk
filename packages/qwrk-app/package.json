@@ -4,12 +4,13 @@
   "type": "module",
   "license": "MIT",
   "bin": {
-    "create-qwrk-app": "bin/index.js"
+    "create-qwrk-app": "dist/index.js"
   },
   "keywords": [],
-  "license": "MIT",
   "author": "Srinath10X",
   "dependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/inquirer": "^9.0.9",
     "fs-extra": "^11.3.0",
     "inquirer": "^12.8.0"
   },
