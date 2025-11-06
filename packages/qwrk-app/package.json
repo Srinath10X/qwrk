@@ -1,6 +1,6 @@
 {
   "name": "create-qwrk-app",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "license": "MIT",
   "bin": {
@@ -9,11 +9,15 @@
   "keywords": [],
   "author": "Srinath10X",
   "dependencies": {
-    "@types/fs-extra": "^11.0.4",
-    "@types/inquirer": "^9.0.9",
+    "inquirer": "^12.8.0",
     "fs-extra": "^11.3.0",
-    "inquirer": "^12.8.0"
+    "@types/inquirer": "^9.0.9",
+    "@types/fs-extra": "^11.0.4"
   },
+  "files": [
+    "dist",
+    "templates"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Srinath10X/qwrk.git"
