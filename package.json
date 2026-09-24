@@ -8,8 +8,7 @@
     "docs:build": "pnpm --filter qwrk-docs run docs:build",
     "docs:preview": "pnpm --filter qwrk-docs run docs:preview",
     "format:check": "prettier --check \"**/*.{js,ts,jsx,tsx}\"",
-    "format:write": "prettier --write \"**/*.{js,ts,jsx,tsx}\"",
-    "prepare-templates": "rm -rf templates && cp -r packages/qwrk-app/templates ./templates"
+    "format:write": "prettier --write \"**/*.{js,ts,jsx,tsx}\""
   },
   "devDependencies": {
     "husky": "^9.1.7",

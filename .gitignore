@@ -11,3 +11,6 @@ examples/*/package-lock.json
 examples/*/pnpm-lock.yaml
 examples/*/yarn.lock
 examples/*/bun.lock
+
+# copied from templates/ by the create-qwrk-app build
+packages/qwrk-app/templates/

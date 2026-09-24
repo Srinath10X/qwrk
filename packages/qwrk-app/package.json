@@ -9,7 +9,7 @@
   "keywords": [],
   "author": "Srinath10X",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc && node -e \"fs.rmSync('templates',{recursive:true,force:true});fs.cpSync('../../templates','templates',{recursive:true})\""
   },
   "files": [
     "dist",
