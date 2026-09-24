@@ -1,6 +1,6 @@
 {
   "name": "create-qwrk-app",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "license": "MIT",
   "bin": {
@@ -8,10 +8,6 @@
   },
   "keywords": [],
   "author": "Srinath10X",
-  "dependencies": {
-    "fs-extra": "^11.4.1",
-    "inquirer": "^14.2.2"
-  },
   "scripts": {
     "build": "tsc"
   },
@@ -28,7 +24,7 @@
   },
   "homepage": "https://github.com/Srinath10X/qwrk#readme",
   "devDependencies": {
-    "typescript": "^7.0.2",
-    "@types/fs-extra": "^11.0.4"
+    "@types/node": "^24.13.6",
+    "typescript": "^7.0.2"
   }
 }

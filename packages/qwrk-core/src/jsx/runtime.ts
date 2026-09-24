@@ -19,7 +19,7 @@ export function jsx(tag: any, { children, ...props }: Record<string, any>) {
 export { jsx as jsxs, jsx as jsxDEV, fragment as Fragment };
 
 export namespace JSX {
-  export type Element = any;
+  export type Element = Node;
   export interface IntrinsicElements {
     [tag: string]: Record<string, any>;
   }

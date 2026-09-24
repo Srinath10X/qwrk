@@ -1,7 +1,7 @@
 import { bindAttribute } from "./attributes.js";
 import { toNodes } from "./children.js";
 
-/** Marks a JSX fragment (`<>...</>`): its children are returned as a node array. */
+/** Marks a JSX fragment (`<>...</>`): its children are returned in a `DocumentFragment`. */
 export const fragment = Symbol("fragment");
 
 type Props = Record<string, any>;
@@ -10,7 +10,8 @@ type Component = (props: Props) => any;
 /**
  * Builds real DOM nodes from JSX.
  *
- * - `fragment` returns its children as an array of nodes.
+ * - `fragment` returns its children in a `DocumentFragment`, so
+ *   `root.append(App())` works for fragments and single elements alike.
  * - A function tag is called as a component with `{ ...props, children }`.
  * - A string tag creates an HTML element: `on*` function props become event
  *   listeners, everything else becomes an attribute.
@@ -24,7 +25,11 @@ export function createElement(
   props: Props | null,
   ...children: unknown[]
 ) {
-  if (tag === fragment) return toNodes(children);
+  if (tag === fragment) {
+    const nodes = document.createDocumentFragment();
+    nodes.append(...toNodes(children));
+    return nodes;
+  }
   if (typeof tag === "function") return tag({ ...props, children });
 
   const element = document.createElement(tag);

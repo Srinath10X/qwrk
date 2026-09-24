@@ -18,7 +18,11 @@
 Create a new project:
 ```bash
 npx create-qwrk-app@latest
+pnpm create qwrk-app
+yarn create qwrk-app
+bun create qwrk-app
 ```
+Skip the prompts with a name and template: `npx create-qwrk-app my-app --template ts` (`js` or `ts`).
 A simple example:
 ```jsx
 import { state } from "qwrk";
@@ -35,7 +39,7 @@ function App() {
   );
 }
 
-document.getElementById("root").append(...App());
+document.getElementById("root").append(App());
 ```
 
 ## 📚 Documentation
