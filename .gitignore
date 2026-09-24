@@ -5,3 +5,9 @@ node_modules/
 # vitepress
 docs/.vitepress/dist
 docs/.vitepress/cache
+
+# example lockfiles go stale; examples install from npm
+examples/*/package-lock.json
+examples/*/pnpm-lock.yaml
+examples/*/yarn.lock
+examples/*/bun.lock
