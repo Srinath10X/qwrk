@@ -3,18 +3,18 @@ layout: home
 
 hero:
   name: "Qwrk"
-  text: "A reactive javascript micro-framework."
+  text: "A reactive JavaScript micro-framework."
   tagline: Lightweight reactivity. No VDOM. Full control.
   image:
     src: /qwrk.svg
-    alt: VitePress
+    alt: Qwrk
   actions:
     - theme: brand
-      text: What is Qwrk?
-      link: /guide/
+      text: Get started
+      link: /guide/getting-started
     - theme: alt
-      text: Github
-      link: https://github.com/srinath10x/Qwrk
+      text: GitHub
+      link: https://github.com/Srinath10X/qwrk
 
 features:
   - title: Blazing Fast
@@ -23,7 +23,7 @@ features:
 
   - title: Fine-Grained Reactivity
     icon: 🧠 
-    details: Only the parts that change get updated no re-renders, no wasted work.
+    details: Only the parts that change get updated. No re-renders, no wasted work.
 
   - title: Featherlight
     icon: 📦 
@@ -31,13 +31,13 @@ features:
 
   - title: Simple API
     icon: 🛠️ 
-    details: Learn it in minutes. minimal surface area with maximum power. No boilerplate, just logic.
+    details: Learn it in minutes. Minimal surface area, maximum power. No boilerplate, just logic.
 
   - title: JSX Support
     icon: 🧩
     details: Bring your favorite syntax. Works seamlessly with JSX while keeping the runtime thin.
 
-  - title: Utility-First CLI
+  - title: Instant Setup
     icon: 🧰
-    details: create-qwrk-app gets you started instantly with a best-practice setup in seconds.
+    details: create-qwrk-app scaffolds a JavaScript or TypeScript project with npm, pnpm, yarn or bun.
 ---
