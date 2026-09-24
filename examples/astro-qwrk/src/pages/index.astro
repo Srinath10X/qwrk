@@ -10,11 +10,13 @@
 		<title>Astro + Qwrk</title>
 	</head>
 	<body>
-		<div id="root"></div>
-		<script>
-			import App from "../app.jsx";
+		<h1>Astro + Qwrk</h1>
+		<div id="counter"></div>
 
-			document.getElementById("root")!.append(App());
+		<script>
+			import Counter from "../components/Counter.jsx";
+
+			document.getElementById("counter")!.append(Counter());
 		</script>
 	</body>
 </html>
