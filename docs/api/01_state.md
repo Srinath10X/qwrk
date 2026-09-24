@@ -51,4 +51,4 @@ export default function App() {
 ```
 
 > [!NOTE]
-> Elements which has access to the state object have `__magicVariable__` property
+> Elements which has access to the state object have `__MagicVariable__` property
