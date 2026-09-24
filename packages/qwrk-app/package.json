@@ -9,10 +9,8 @@
   "keywords": [],
   "author": "Srinath10X",
   "dependencies": {
-    "inquirer": "^12.8.0",
-    "fs-extra": "^11.3.0",
-    "@types/inquirer": "^9.0.9",
-    "@types/fs-extra": "^11.0.4"
+    "fs-extra": "^11.4.1",
+    "inquirer": "^14.2.2"
   },
   "scripts": {
     "build": "tsc"
@@ -28,5 +26,9 @@
   "bugs": {
     "url": "https://github.com/Srinath10X/qwrk/issues"
   },
-  "homepage": "https://github.com/Srinath10X/qwrk#readme"
+  "homepage": "https://github.com/Srinath10X/qwrk#readme",
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "@types/fs-extra": "^11.0.4"
+  }
 }
