@@ -6,7 +6,7 @@
   "license": "MIT",
   "author": "Srinath10X",
   "devDependencies": {
-    "vitepress": "^1.6.3"
+    "vitepress": "^1.6.4"
   },
   "scripts": {
     "docs:dev": "vitepress dev",

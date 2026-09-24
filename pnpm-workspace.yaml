@@ -1,3 +1,5 @@
 packages:
   - "docs"
   - "packages/*"
+allowBuilds:
+  esbuild: true

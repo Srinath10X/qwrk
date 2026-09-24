@@ -1,6 +1,6 @@
 {
   "name": "qwrk-vite",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "qwrk plugin for vite",
   "main": "dist/index.js",
   "type": "module",
@@ -10,5 +10,14 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Srinath10X/qwrk.git"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "typescript": "^7.0.2"
   }
 }
