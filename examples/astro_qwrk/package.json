@@ -9,7 +9,7 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^5.17.0",
+    "astro": "^7.3.5",
     "qwrk": "^0.2.1"
   },
   "devDependencies": {
