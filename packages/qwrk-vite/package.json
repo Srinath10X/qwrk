@@ -10,5 +10,14 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Srinath10X/qwrk.git"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "typescript": "^7.0.2"
   }
 }
