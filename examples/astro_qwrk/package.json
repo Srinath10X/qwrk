@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "astro": "^5.17.0",
-    "qwrk": "^0.1.0"
+    "qwrk": "^0.2.0"
   },
   "devDependencies": {
-    "qwrk-vite": "^0.1.0"
+    "qwrk-vite": "^0.2.0"
   }
 }
