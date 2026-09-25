@@ -44,6 +44,9 @@ function build(
 
   const element = document.createElement(tag);
 
+  // Children first, so `<select value>` can select one of its options.
+  element.append(...toNodes(children));
+
   for (const [key, value] of Object.entries(props ?? {})) {
     if (key.startsWith("on") && typeof value === "function") {
       element.addEventListener(key.slice(2).toLowerCase(), value);
@@ -52,6 +55,5 @@ function build(
     }
   }
 
-  element.append(...toNodes(children));
   return element;
 }
