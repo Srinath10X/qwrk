@@ -30,6 +30,8 @@ export function bindAttribute(element: Element, key: string, value: unknown) {
 function setAttribute(element: Element, name: string, value: unknown) {
   if (PROPERTIES.has(name) && name in element) {
     (element as any)[name] = name === "value" ? toText(value) : !!value;
+  } else if (name === "style" && typeof value === "object" && value) {
+    setStyle(element as HTMLElement, value as Record<string, unknown>);
   } else if (value == null || value === false) {
     element.removeAttribute(name);
   } else {
@@ -41,3 +43,18 @@ function toText(value: unknown) {
   return value == null ? "" : String(value);
 }
 
+/**
+ * Replaces the inline style with `styles`. Keys are camelCase
+ * (`backgroundColor`), kebab-case or custom properties (`--gap`).
+ */
+function setStyle(element: HTMLElement, styles: Record<string, unknown>) {
+  element.removeAttribute("style");
+
+  for (const [key, value] of Object.entries(styles)) {
+    if (value == null || value === false) continue;
+    const property = key.startsWith("--")
+      ? key
+      : key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+    element.style.setProperty(property, String(value));
+  }
+}
