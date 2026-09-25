@@ -12,7 +12,7 @@ type Component = (props: Props) => any;
  * Builds real DOM nodes from JSX.
  *
  * - `fragment` returns its children in a `DocumentFragment`, so
- *   `root.append(App())` works for fragments and single elements alike.
+ *   `root.append(<App />)` works for fragments and single elements alike.
  * - A function tag is called as a component with `{ ...props, children }`.
  * - A string tag creates an HTML element: `on*` function props become event
  *   listeners, everything else becomes an attribute.

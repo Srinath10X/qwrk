@@ -11,4 +11,4 @@ function App() {
   );
 }
 
-document.getElementById("root").append(App());
+document.getElementById("root").append(<App />);
