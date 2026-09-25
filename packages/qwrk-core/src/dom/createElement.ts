@@ -1,5 +1,6 @@
-import { bindAttribute } from "./attributes.js";
-import { toNodes } from "./children.js";
+import { bindAttribute } from "#/dom/attributes.js";
+import { toNodes } from "#/dom/children.js";
+import { track } from "#/reactivity/state.js";
 
 /** Marks a JSX fragment (`<>...</>`): its children are returned in a `DocumentFragment`. */
 export const fragment = Symbol("fragment");
@@ -24,6 +25,15 @@ export function createElement(
   tag: string | Component | typeof fragment,
   props: Props | null,
   ...children: unknown[]
+) {
+  // Reads inside JSX (components, bindings) must not subscribe an outer derive().
+  return track(() => build(tag, props, children)).value;
+}
+
+function build(
+  tag: string | Component | typeof fragment,
+  props: Props | null,
+  children: unknown[],
 ) {
   if (tag === fragment) {
     const nodes = document.createDocumentFragment();

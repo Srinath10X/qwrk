@@ -1,4 +1,4 @@
-import { createElement, fragment } from "../dom/createElement.js";
+import { createElement, fragment } from "#/dom/createElement.js";
 
 /**
  * Automatic JSX runtime entry, used when a bundler is configured with

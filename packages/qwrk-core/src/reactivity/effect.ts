@@ -1,4 +1,4 @@
-import { isReactive } from "./state.js";
+import { isReactive } from "#/reactivity/state.js";
 
 /**
  * Runs `callback` once after the component is mounted, then again whenever

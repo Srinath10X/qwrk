@@ -25,6 +25,9 @@
   "devDependencies": {
     "typescript": "^7.0.2"
   },
+  "imports": {
+    "#/*": "./dist/*"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

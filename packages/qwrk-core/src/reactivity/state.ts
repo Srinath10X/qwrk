@@ -8,6 +8,23 @@ export interface State<T> {
   effect(fn: Effect<T>): void;
 }
 
+/** States read while {@link track} runs, or `null` outside of it. */
+let reads: Set<State<any>> | null = null;
+
+/**
+ * Runs `fn` and collects every state whose `.value` it reads.
+ */
+export function track<T>(fn: () => T) {
+  const outer = reads;
+  const collected = (reads = new Set<State<any>>());
+
+  try {
+    return { value: fn(), reads: collected };
+  } finally {
+    reads = outer;
+  }
+}
+
 /**
  * Creates a reactive state object. Writing to `.value` runs every registered
  * effect, which updates any DOM bound to it.
@@ -20,10 +37,11 @@ export interface State<T> {
 export function state<T>(value: T): State<T> {
   const effects = new Set<Effect<T>>();
 
-  return {
+  const self: State<T> = {
     __MagicVariable__: true,
 
     get value() {
+      reads?.add(self);
       return value;
     },
 
@@ -37,6 +55,8 @@ export function state<T>(value: T): State<T> {
       effects.add(fn);
     },
   };
+
+  return self;
 }
 
 /** Checks whether `object` was created by {@link state}. */
