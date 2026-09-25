@@ -5,7 +5,8 @@ export type Effect<T> = (value: T, oldValue: T) => void;
 export interface State<T> {
   __MagicVariable__: true;
   value: T;
-  effect(fn: Effect<T>): void;
+  /** Runs `fn` after every write. Returns a function that stops it. */
+  effect(fn: Effect<T>): () => void;
 }
 
 /** States read while {@link track} runs, or `null` outside of it. */
@@ -53,6 +54,7 @@ export function state<T>(value: T): State<T> {
 
     effect(fn) {
       effects.add(fn);
+      return () => effects.delete(fn);
     },
   };
 
