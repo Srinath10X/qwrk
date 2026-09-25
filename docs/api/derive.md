@@ -59,3 +59,20 @@ const panel = derive(() => (open.value ? <p>Details</p> : null));
 ```
 
 Every change calls `fn` again, so the element is created fresh each time.
+
+## Lists
+
+Return an array to render a list:
+
+```jsx
+const todos = state(["Write docs", "Ship it"]);
+const items = derive(() => todos.value.map((todo) => <li>{todo}</li>));
+
+<ul>{items}</ul>;
+
+todos.value = [...todos.value, "Celebrate"]; // re-renders the list
+```
+
+Assign a new array to update it. `todos.value.push(...)` changes the array without a write, so nothing updates.
+
+Each change rebuilds every item, so keep derived lists to a reasonable size.

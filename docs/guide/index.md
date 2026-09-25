@@ -23,7 +23,7 @@ function Counter() {
   return <button onClick={() => count.value++}>count is {count}</button>;
 }
 
-document.getElementById("root").append(Counter());
+document.getElementById("root").append(<Counter />);
 ```
 
 Clicking the button changes `count.value`, and Qwrk updates the button's text in place. `Counter` itself never runs again.
