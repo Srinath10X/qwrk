@@ -22,26 +22,31 @@ export default defineConfig({
     },
 
     nav: [
-      { text: "Home", link: "/" },
-      { text: "Guide", link: "/guide" },
+      { text: "Guide", link: "/guide/getting-started" },
+      { text: "API", link: "/api/state" },
     ],
 
     sidebar: [
       {
         text: "Introduction",
-        items: [{ text: "What is Qwrk?", link: "/guide" }],
+        items: [
+          { text: "What is Qwrk?", link: "/guide/" },
+          { text: "Getting Started", link: "/guide/getting-started" },
+          { text: "Components & JSX", link: "/guide/components" },
+        ],
       },
       {
-        text: "APIs",
+        text: "API",
         items: [
-          { text: "State API", link: "/api/01_state" },
-          { text: "Effect API", link: "/api/02_effect" },
+          { text: "state()", link: "/api/state" },
+          { text: "effect()", link: "/api/effect" },
+          { text: "createElement()", link: "/api/create-element" },
         ],
       },
     ],
 
     socialLinks: [
-      { icon: "github", link: "https://github.com/Srinath10X/Qwrk" },
+      { icon: "github", link: "https://github.com/Srinath10X/qwrk" },
     ],
   },
 });
