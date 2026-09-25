@@ -90,14 +90,44 @@ type AttributeProps<E> = {
   ]?: Reactive<E[K] | null | undefined>;
 };
 
+/** `style={{ backgroundColor: "red", "--gap": "4px" }}` */
+type StyleObject = {
+  [
+    K in keyof CSSStyleDeclaration as K extends string
+      ? CSSStyleDeclaration[K] extends string
+        ? K
+        : never
+      : never
+  ]?: string | number | null;
+} & { [property: `--${string}`]: string | number | null };
+
+type Style = Reactive<string | StyleObject | null | undefined>;
+
 /** Props of an HTML element in JSX. */
 export type HTMLProps<E> = AttributeProps<E> &
   EventProps<E> & {
     class?: Reactive<string | null | undefined>;
-    style?: Reactive<string | null | undefined>;
+    style?: Style;
     children?: unknown;
   };
 
+/**
+ * Props of an SVG element in JSX. SVG attributes (`viewBox`, `d`, `fill`...)
+ * aren't listed, so any attribute is accepted.
+ */
+export type SVGProps<E> = EventProps<E> & {
+  style?: Style;
+  children?: unknown;
+  [attribute: string]: unknown;
+};
+
+type SVGOnlyTags = Exclude<
+  keyof SVGElementTagNameMap,
+  keyof HTMLElementTagNameMap
+>;
+
 export type IntrinsicElements = {
   [K in keyof HTMLElementTagNameMap]: HTMLProps<HTMLElementTagNameMap[K]>;
+} & {
+  [K in SVGOnlyTags]: SVGProps<SVGElementTagNameMap[K]>;
 };
