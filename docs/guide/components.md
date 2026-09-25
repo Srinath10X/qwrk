@@ -104,6 +104,6 @@ view.value = null; // clears it
 
 Qwrk keeps its core small, so some things are deliberately not there yet:
 
-- **Conditions and lists are evaluated once.** `{show.value && <p />}` and `{items.map(...)}` don't update when the state changes. To swap content, store the element in a state as shown above.
+- **Conditions and lists are evaluated once.** `{show.value && <p />}` and `{items.map(...)}` don't update when the state changes. For conditions, use [`derive()`](/api/derive#conditional-content). Live lists aren't supported yet.
 - **HTML only.** Elements are created in the HTML namespace, so `<svg>` content won't render as SVG.
 - **No unmount or cleanup.** Removing elements from the page doesn't stop their effects.

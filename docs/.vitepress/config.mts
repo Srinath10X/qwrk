@@ -39,6 +39,7 @@ export default defineConfig({
         text: "API",
         items: [
           { text: "state()", link: "/api/state" },
+          { text: "derive()", link: "/api/derive" },
           { text: "effect()", link: "/api/effect" },
           { text: "createElement()", link: "/api/create-element" },
         ],
