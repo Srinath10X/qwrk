@@ -49,7 +49,9 @@ export function state<T>(value: T): State<T> {
     set value(next) {
       const old = value;
       value = next;
-      effects.forEach((fn) => fn(next, old));
+      // Copy so effects added while running wait for the next write, and run
+      // untracked so their reads don't subscribe whoever made this write.
+      track(() => [...effects].forEach((fn) => fn(next, old)));
     },
 
     effect(fn) {
