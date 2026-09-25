@@ -7,8 +7,8 @@ import { isReactive, type State } from "#/reactivity/state.js";
 export function toNodes(children: unknown[]): Node[] {
   return children
     .flat(Infinity)
-    .map((child) =>
-      isReactive(child) ? toReactiveNode(child) : toNode(child),
+    .flatMap((child) =>
+      isReactive(child) ? toReactiveNodes(child) : toNode(child),
     );
 }
 
@@ -26,21 +26,42 @@ function toNode(value: unknown): ChildNode {
 }
 
 /**
- * Text updates reuse the same node; switching to or from an element replaces it.
+ * Renders a state's value: a primitive, a node, a fragment or an array of
+ * them. Always returns at least one node, so the next update has a position.
  */
-function toReactiveNode(source: State<unknown>) {
-  let node = toNode(source.value);
+function render(value: unknown): ChildNode[] {
+  const nodes = [value]
+    .flat(Infinity)
+    .flatMap((item) =>
+      item instanceof DocumentFragment
+        ? [...(item.childNodes as NodeListOf<ChildNode>)]
+        : [toNode(item)],
+    );
+  return nodes.length ? nodes : [document.createTextNode("")];
+}
+
+/**
+ * Text updates reuse the same node; anything else replaces the nodes.
+ */
+function toReactiveNodes(source: State<unknown>) {
+  let nodes = render(source.value);
 
   source.effect((value) => {
-    if (node instanceof Text && !(value instanceof Node)) {
-      node.data = toText(value);
+    const [first] = nodes;
+    const isText = !(value instanceof Node) && !Array.isArray(value);
+
+    if (nodes.length === 1 && first instanceof Text && isText) {
+      first.data = toText(value);
       return;
     }
 
-    const next = toNode(value);
-    node.replaceWith(next);
-    node = next;
+    const next = render(value);
+    const anchor = document.createTextNode("");
+    first.before(anchor);
+    nodes.forEach((node) => node.remove());
+    anchor.replaceWith(...next);
+    nodes = next;
   });
 
-  return node;
+  return nodes;
 }
