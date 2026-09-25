@@ -101,7 +101,7 @@ Components return real DOM nodes, so mounting is one `append` call:
 ```jsx
 import App from "./App";
 
-document.getElementById("root").append(App());
+document.getElementById("root").append(<App />);
 ```
 
 This works whether `App` returns a single element or a fragment (`<>...</>`).

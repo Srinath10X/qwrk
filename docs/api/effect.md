@@ -32,7 +32,7 @@ document.getElementById("root").append(Counter());
 The first run is deferred until the component is in the page:
 
 - If the page is still loading, it runs on `DOMContentLoaded`.
-- Otherwise it runs on the next microtask, just after the synchronous `append(App())` that mounted it.
+- Otherwise it runs on the next microtask, just after the synchronous `append(<App />)` that mounted it.
 
 Without `deps`, the callback runs only that once.
 

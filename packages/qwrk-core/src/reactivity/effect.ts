@@ -5,7 +5,7 @@ import { isReactive } from "#/reactivity/state.js";
  * one of the reactive `deps` changes.
  *
  * The first run waits for `DOMContentLoaded`, or for a microtask when the
- * document is already loaded, so it happens after `append(App())`.
+ * document is already loaded, so it happens after `append(<App />)`.
  *
  * @param callback - Side effect to run.
  * @param deps - States that re-trigger the callback when written.
