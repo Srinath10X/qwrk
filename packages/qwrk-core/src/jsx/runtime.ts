@@ -1,4 +1,5 @@
 import { createElement, fragment } from "#/dom/createElement.js";
+import type { IntrinsicElements as Elements } from "#/jsx/types.js";
 
 /**
  * Automatic JSX runtime entry, used when a bundler is configured with
@@ -20,7 +21,5 @@ export { jsx as jsxs, jsx as jsxDEV, fragment as Fragment };
 
 export namespace JSX {
   export type Element = Node;
-  export interface IntrinsicElements {
-    [tag: string]: Record<string, any>;
-  }
+  export interface IntrinsicElements extends Elements {}
 }
