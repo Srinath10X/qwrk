@@ -1,6 +1,6 @@
-import { bindAttribute } from "./attributes.js";
-import { toNodes } from "./children.js";
-import { track } from "../reactivity/state.js";
+import { bindAttribute } from "#/dom/attributes.js";
+import { toNodes } from "#/dom/children.js";
+import { track } from "#/reactivity/state.js";
 
 /** Marks a JSX fragment (`<>...</>`): its children are returned in a `DocumentFragment`. */
 export const fragment = Symbol("fragment");

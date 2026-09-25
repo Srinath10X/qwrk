@@ -1,4 +1,4 @@
-import { state, track, type State } from "./state.js";
+import { state, track, type State } from "#/reactivity/state.js";
 
 /**
  * Creates a state whose value is `fn()`, recomputed whenever a state it

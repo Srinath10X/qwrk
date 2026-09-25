@@ -1,4 +1,4 @@
-import { isReactive, type State } from "../reactivity/state.js";
+import { isReactive, type State } from "#/reactivity/state.js";
 
 /**
  * Turns JSX children into DOM nodes. Nested arrays are flattened, and states

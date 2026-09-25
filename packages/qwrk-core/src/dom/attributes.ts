@@ -1,4 +1,4 @@
-import { isReactive } from "../reactivity/state.js";
+import { isReactive } from "#/reactivity/state.js";
 
 const ALIASES: Record<string, string> = { className: "class", htmlFor: "for" };
 
