@@ -1,20 +1,17 @@
-name: Qwrk npm publish on tag
+name: Qwrk tests
 
 on:
   push:
-    tags:
-      - "qwrk@*"
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
-  publish:
+  test:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: packages/qwrk-core
-
-    permissions:
-      contents: read
-      id-token: write
 
     steps:
       - name: Checkout code
@@ -24,13 +21,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: npm install
 
       - name: Build and test
         run: npm test
-
-      - name: Publish to npm registry
-        run: npm publish --access public --provenance
