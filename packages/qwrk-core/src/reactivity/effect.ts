@@ -11,13 +11,18 @@ import { isReactive, track } from "#/reactivity/state.js";
  * document is already loaded, so it happens after `append(<App />)`.
  *
  * @param callback - Side effect to run.
+ * An effect lives until stopped, even after its component leaves the page.
+ *
  * @param deps - States that re-run the callback, instead of detecting them.
+ * @returns A function that stops the effect.
  */
-export function effect(callback: () => void, deps?: unknown[]) {
+export function effect(callback: () => void, deps?: unknown[]): () => void {
   let running = false;
   let stops: (() => void)[] = [];
+  let stopped = false;
 
   function run() {
+    if (stopped) return;
     if (running) return;
     running = true;
 
@@ -37,4 +42,9 @@ export function effect(callback: () => void, deps?: unknown[]) {
   } else {
     queueMicrotask(run);
   }
+
+  return () => {
+    stopped = true;
+    stops.forEach((stop) => stop());
+  };
 }

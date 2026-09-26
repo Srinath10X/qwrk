@@ -54,6 +54,20 @@ describe("effect", () => {
     expect(runs).toBe(2);
   });
 
+  it("stops, before or after its first run", async () => {
+    const count = state(0);
+    let runs = 0;
+    const stopEarly = effect(() => (runs++, count.value));
+    stopEarly();
+    const stopLater = effect(() => (runs++, count.value));
+
+    await mount();
+    stopLater();
+    count.value = 1;
+
+    expect(runs).toBe(1);
+  });
+
   it("doesn't re-trigger itself when writing what it reads", async () => {
     const count = state(0);
     let runs = 0;
