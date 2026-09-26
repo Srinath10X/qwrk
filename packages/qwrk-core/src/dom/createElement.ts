@@ -19,7 +19,7 @@ const SVG_TAGS = new Set(
 );
 
 type Props = Record<string, any>;
-type Component = (props: Props) => any;
+type Component = (props: any) => any;
 
 /**
  * Builds real DOM nodes from JSX.
