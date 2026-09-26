@@ -1,10 +1,10 @@
 import {
   bind,
+  Binding,
   isReactive,
   peek,
   retain,
   watch,
-  type Computation,
 } from "#qwrk/reactivity/state.js";
 
 /**
@@ -25,21 +25,45 @@ export function append(parent: Node, children: unknown, marker?: Node | null) {
   if (Array.isArray(children)) {
     for (const child of children) append(parent, child, marker);
   } else if (typeof children === "function") {
-    const fn = children as () => unknown;
-    const slot = {} as Slot & Computation;
-    bind(slot, () => {
-      const value = read(fn());
-      if (slot.nodes) return update(slot, 0, value);
-      slot.nodes = render(value);
-      place(parent, slot, marker);
-    });
+    const slot = new Child(parent, marker, children as () => unknown);
+    bind(slot);
     if (slot.q != 3) for (const node of slot.nodes) retain(node, slot);
   } else if (isReactive(children)) {
     const slot: Slot = { nodes: render(peek(children)) };
     place(parent, slot, marker, true);
     watch(children, slot, update);
+  } else if (
+    !marker &&
+    !parent.hasChildNodes() &&
+    !(children instanceof Node)
+  ) {
+    parent.textContent = toText(children);
   } else {
     parent.insertBefore(toNode(children), marker ?? null);
+  }
+}
+
+/**
+ * A function child: renders what the function returns, again whenever a
+ * state it read changes.
+ */
+class Child extends Binding implements Slot {
+  nodes!: ChildNode[];
+
+  constructor(
+    private parent: Node | null,
+    private marker: Node | null | undefined,
+    readonly g: () => unknown,
+  ) {
+    super();
+  }
+
+  f() {
+    const value = read(this.g());
+    if (this.nodes) return update(this, 0, value);
+    this.nodes = render(value);
+    place(this.parent!, this, this.marker);
+    this.parent = this.marker = null;
   }
 }
 
@@ -66,7 +90,13 @@ function toNode(value: unknown): ChildNode {
  * them. Always returns at least one node, so the next update has a position.
  */
 function render(value: unknown): ChildNode[] {
-  const nodes = collect(value, []);
+  const nodes =
+    Array.isArray(value) ||
+    value instanceof DocumentFragment ||
+    typeof value === "function" ||
+    isReactive(value)
+      ? collect(value, [])
+      : [toNode(value)];
   return nodes.length ? nodes : [document.createTextNode("")];
 }
 
