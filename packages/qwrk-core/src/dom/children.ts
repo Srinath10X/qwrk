@@ -1,4 +1,9 @@
-import { isReactive, type State } from "#/reactivity/state.js";
+import { isReactive, retain, watch, type State } from "#/reactivity/state.js";
+
+/** The nodes a state currently renders as. Its nodes keep it alive. */
+interface Slot {
+  nodes: ChildNode[];
+}
 
 /**
  * Turns JSX children into DOM nodes. Nested arrays are flattened, and states
@@ -40,28 +45,30 @@ function render(value: unknown): ChildNode[] {
   return nodes.length ? nodes : [document.createTextNode("")];
 }
 
+function toReactiveNodes(source: State<unknown>) {
+  const slot: Slot = { nodes: render(source.value) };
+  slot.nodes.forEach((node) => retain(node, slot));
+  watch(source, slot, update);
+  return slot.nodes;
+}
+
 /**
  * Text updates reuse the same node; anything else replaces the nodes.
  */
-function toReactiveNodes(source: State<unknown>) {
-  let nodes = render(source.value);
+function update(slot: Slot, value: unknown) {
+  const [first] = slot.nodes;
+  const isText = !(value instanceof Node) && !Array.isArray(value);
 
-  source.effect((value) => {
-    const [first] = nodes;
-    const isText = !(value instanceof Node) && !Array.isArray(value);
+  if (slot.nodes.length === 1 && first instanceof Text && isText) {
+    first.data = toText(value);
+    return;
+  }
 
-    if (nodes.length === 1 && first instanceof Text && isText) {
-      first.data = toText(value);
-      return;
-    }
-
-    const next = render(value);
-    const anchor = document.createTextNode("");
-    first.before(anchor);
-    nodes.forEach((node) => node.remove());
-    anchor.replaceWith(...next);
-    nodes = next;
-  });
-
-  return nodes;
+  const next = render(value);
+  const anchor = document.createTextNode("");
+  first.before(anchor);
+  slot.nodes.forEach((node) => node.remove());
+  anchor.replaceWith(...next);
+  next.forEach((node) => retain(node, slot));
+  slot.nodes = next;
 }

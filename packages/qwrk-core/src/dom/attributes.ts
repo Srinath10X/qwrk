@@ -1,4 +1,4 @@
-import { isReactive } from "#/reactivity/state.js";
+import { isReactive, watch } from "#/reactivity/state.js";
 
 const ALIASES: Record<string, string> = { className: "class", htmlFor: "for" };
 
@@ -18,7 +18,7 @@ export function bindAttribute(element: Element, key: string, value: unknown) {
 
   if (isReactive(value)) {
     setAttribute(element, name, value.value);
-    value.effect((next) => setAttribute(element, name, next));
+    watch(value, element, (owner, next) => setAttribute(owner, name, next));
   } else {
     setAttribute(element, name, value);
   }

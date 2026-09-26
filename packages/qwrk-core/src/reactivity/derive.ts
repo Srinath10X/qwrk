@@ -1,4 +1,11 @@
-import { state, track, type State } from "#/reactivity/state.js";
+import { state, track, watch, type State } from "#/reactivity/state.js";
+
+/** Each derive's recompute function. Kept alive by the derive itself. */
+const updaters = new WeakMap<State<any>, () => void>();
+
+function recompute(derived: State<any>) {
+  updaters.get(derived)!();
+}
 
 /**
  * Creates a state whose value is `fn()`, recomputed whenever a state it
@@ -25,13 +32,14 @@ export function derive<T>(fn: () => T, deps?: State<any>[]): State<T> {
     try {
       const { value, reads } = track(fn);
       stops.forEach((stop) => stop());
-      stops = (deps ?? [...reads]).map((dep) => dep.effect(update));
+      stops = (deps ?? [...reads]).map((dep) => watch(dep, derived, recompute));
       derived.value = value;
     } finally {
       running = false;
     }
   }
 
+  updaters.set(derived, update);
   update();
   return derived;
 }
