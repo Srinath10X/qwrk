@@ -44,6 +44,28 @@ export function append(parent: Node, children: unknown, marker?: Node | null) {
 }
 
 /**
+ * Inserts a child where the template left its parent empty, so there is no
+ * marker and nothing to keep: a state becomes nodes that update in place,
+ * anything else becomes text. Anything a template can't hold as text falls
+ * back to {@link append}.
+ */
+export function text(parent: Node, value: unknown) {
+  if (isReactive(value)) {
+    const slot: Slot = { nodes: render(peek(value)) };
+    place(parent, slot, undefined, true);
+    watch(value, slot, update);
+  } else if (
+    value instanceof Node ||
+    Array.isArray(value) ||
+    typeof value === "function"
+  ) {
+    append(parent, value);
+  } else {
+    parent.textContent = toText(value);
+  }
+}
+
+/**
  * A function child: renders what the function returns, again whenever a
  * state it read changes.
  */

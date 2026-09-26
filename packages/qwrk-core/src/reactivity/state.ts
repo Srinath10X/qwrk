@@ -199,10 +199,13 @@ export function track(source: Signal<any>) {
   if (reads && !reads.has(source)) reads.set(source, source.v);
 }
 
-/** Returns the raw value of `source`, up to date, without tracking it. */
+/** Returns the raw value of `source`, up to date, without tracking it. Signals hold their value, so only derives refresh. */
 export function peek<T>(source: State<T>): T {
-  refresh(source as any);
-  return toRaw((source as Signal<T>)._);
+  const signal = source as Signal<T>;
+  if ((signal as unknown as { q?: number }).q === undefined)
+    return toRaw(signal._);
+  refresh(signal as any);
+  return toRaw(signal._);
 }
 
 /**

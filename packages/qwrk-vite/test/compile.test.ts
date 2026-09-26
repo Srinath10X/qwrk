@@ -57,7 +57,7 @@ describe("compile", () => {
       "_el$3 = _el$2.firstChild.nextSibling, _el$4 = _el$3.firstChild.nextSibling, _el$5 = _el$4.nextSibling.nextSibling;",
     );
     expect(code).toContain(
-      "_$insert(_el$3, b, _el$4); _$insert(_el$5, c); _el$4.remove();",
+      "_$insert(_el$3, b, _el$4); _$text(_el$5, c); _el$4.remove();",
     );
   });
 

@@ -43,7 +43,14 @@ type Slot = Element | Leaf;
 /** A step that runs on a clone of a template, see {@link render}. */
 type Operation =
   | { kind: "attr" | "event"; target: Element; name: string; value: Part[] }
-  | { kind: "insert"; target: Element; marker?: Slot; value: Part[] };
+  | {
+      kind: "insert";
+      target: Element;
+      marker?: Slot;
+      value: Part[];
+      /** The target is empty and this is its only insert: write text. */
+      text?: boolean;
+    };
 
 interface Context {
   code: string;
@@ -759,6 +766,19 @@ function template(context: Context, node: Node, tag: string): Part[] {
   const declarations = [`${root.ref} = ${name}()`];
   walk(context, root, declarations);
 
+  const appends = new Map<Element, Operation[]>();
+  for (const operation of operations) {
+    if (operation.kind === "insert" && !operation.marker) {
+      const list = appends.get(operation.target);
+      if (list) list.push(operation);
+      else appends.set(operation.target, [operation]);
+    }
+  }
+  for (const [target, list] of appends) {
+    if (list.length === 1 && target.children.length === 0)
+      (list[0] as Extract<Operation, { kind: "insert" }>).text = true;
+  }
+
   const parts: Part[] = [`(() => { const ${declarations.join(", ")}; `];
   for (const operation of operations) parts.push(...render(context, operation));
   for (const comment of comments) parts.push(`${comment.ref}.remove(); `);
@@ -1017,8 +1037,9 @@ function render(context: Context, operation: Operation): Part[] {
 
   if (operation.kind === "insert") {
     const marker = operation.marker ? `, ${operation.marker.ref}` : "";
+    const name = operation.text ? "text" : "insert";
     return [
-      `${helper(context, "insert")}(${target}, `,
+      `${helper(context, name)}(${target}, `,
       ...operation.value,
       `${marker}); `,
     ];

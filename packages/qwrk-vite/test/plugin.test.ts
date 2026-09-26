@@ -66,7 +66,7 @@ describe("qwrk-vite", () => {
 
     expect(
       transform("export const a = <p>{b}</p>;", "/src/a.jsx")!.code,
-    ).toContain("_$insert(");
+    ).toContain("_$text(");
     expect(
       transform("export const a = <p />;", "/src/a.tsx?v=1"),
     ).not.toBeNull();
