@@ -12,12 +12,16 @@
     "url": "git+https://github.com/Srinath10X/qwrk.git"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "test": "tsc && tsc -p test && vitest run"
   },
   "files": [
     "dist"
   ],
   "devDependencies": {
-    "typescript": "^7.0.2"
+    "happy-dom": "^20.14.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.1"
   }
 }

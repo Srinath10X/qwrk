@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "test": "tsc && vitest run"
+    "test": "tsc && tsc -p test && vitest run"
   },
   "repository": {
     "type": "git",
