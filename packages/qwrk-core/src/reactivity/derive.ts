@@ -15,10 +15,13 @@ import { state, track, type State } from "#/reactivity/state.js";
  */
 export function derive<T>(fn: () => T, deps?: State<any>[]): State<T> {
   const derived = state(undefined as T);
+  let stops: (() => void)[] = [];
 
   function update() {
     const { value, reads } = track(fn);
-    (deps ?? reads).forEach((dep) => dep.effect(update));
+    // Swap subscriptions, so states this run didn't read stop recomputing it.
+    stops.forEach((stop) => stop());
+    stops = (deps ?? [...reads]).map((dep) => dep.effect(update));
     derived.value = value;
   }
 

@@ -10,7 +10,7 @@ function createElement(
 ): Node;
 ```
 
-- A **string** tag creates an HTML element, with the [attribute and event rules](/guide/components#attributes) that JSX uses.
+- A **string** tag creates an HTML element, or an [SVG element](/guide/components#svg) for SVG tags like `svg` and `path`, with the [attribute and event rules](/guide/components#attributes) that JSX uses.
 - A **function** tag is called as a component with `{ ...props, children }`.
 - **`fragment`** returns the children in a `DocumentFragment`.
 

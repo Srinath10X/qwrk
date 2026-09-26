@@ -73,6 +73,14 @@ Any `on*` prop whose value is a function becomes an event listener. The event na
 | `disabled={true}` | `disabled=""` |
 | `hidden={false}`, `null`, `undefined` | attribute removed |
 | `data-id={7}` | `data-id="7"` |
+| `style="color: red"` | `style="color: red"` |
+
+`style` also takes an object with camelCase, kebab-case or custom property keys. Numbers get `px` where CSS needs a unit:
+
+```jsx
+<div style={{ backgroundColor: "red", width: 16, opacity: 0.5, "--gap": "4px" }} />
+// style="background-color: red; width: 16px; opacity: 0.5; --gap: 4px;"
+```
 
 Pass a state to keep an attribute in sync:
 
@@ -84,12 +92,38 @@ const disabled = state(true);
 disabled.value = false; // removes the disabled attribute
 ```
 
+### Form inputs
+
+`value`, `checked` and `selected` are set as properties, so they keep working after the user edits the field:
+
+```jsx
+const text = state("");
+
+<input value={text} onInput={(e) => (text.value = e.currentTarget.value)} />;
+
+text.value = ""; // clears the input, even after typing
+```
+
+`<select value={choice}>` selects the matching `<option>`.
+
+### SVG
+
+SVG tags such as `<svg>`, `<path>` and `<circle>` are created as SVG elements, so inline icons work:
+
+```jsx
+<svg viewBox="0 0 24 24" width="24" height="24">
+  <circle cx="12" cy="12" r="10" fill="currentColor" />
+</svg>
+```
+
+`<a>`, `<title>`, `<style>` and `<script>` exist in both HTML and SVG, and are always created as HTML, even inside `<svg>`.
+
 ## Children
 
 - Strings and numbers render as text, including `0`.
 - `false`, `true`, `null` and `undefined` render nothing.
 - Arrays are flattened, so `items.map(...)` works.
-- A state renders its value and updates in place. It can hold text, a number or an element:
+- A state renders its value and updates in place. It can hold text, a number, an element, a fragment or an array of them:
 
 ```jsx
 const view = state(<p>Loading...</p>);
@@ -97,13 +131,16 @@ const view = state(<p>Loading...</p>);
 <div>{view}</div>;
 
 view.value = <strong>Done</strong>; // swaps the element
+view.value = [<p>One</p>, <p>Two</p>]; // swaps in both
 view.value = null; // clears it
 ```
+
+For lists and conditions that follow a state, use [`derive()`](/api/derive#lists).
 
 ## Limitations
 
 Qwrk keeps its core small, so some things are deliberately not there yet:
 
-- **Conditions and lists are evaluated once.** `{show.value && <p />}` and `{items.map(...)}` don't update when the state changes. For conditions, use [`derive()`](/api/derive#conditional-content). Live lists aren't supported yet.
-- **HTML only.** Elements are created in the HTML namespace, so `<svg>` content won't render as SVG.
-- **No unmount or cleanup.** Removing elements from the page doesn't stop their effects.
+- **Plain expressions are evaluated once.** `{show.value && <p />}` and `{items.map(...)}` don't update when the state changes. Wrap them in [`derive()`](/api/derive).
+- **Lists re-render fully.** A derived list rebuilds every item on each change. That's fine for dozens of items, not thousands.
+- **No unmount.** Removing elements from the page doesn't stop their effects. `.effect()` returns a function to stop one by hand.

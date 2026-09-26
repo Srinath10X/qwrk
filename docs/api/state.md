@@ -20,6 +20,15 @@ count.value++; // works too
 
 Every write notifies, even when the new value equals the old one.
 
+Only assigning `.value` notifies. Changing an object or array in place doesn't, so assign a new one:
+
+```js
+const todos = state(["a"]);
+
+todos.value.push("b"); // no update
+todos.value = [...todos.value, "b"]; // updates
+```
+
 ## Using it in JSX
 
 Pass the state itself to keep the DOM in sync. Reading `.value` in JSX takes a one-time snapshot.
@@ -51,6 +60,15 @@ count.effect((value, oldValue) => {
 });
 
 count.value = 2; // logs "1 -> 2"
+```
+
+It returns a function that stops it:
+
+```js
+const stop = count.effect((value) => console.log(value));
+
+stop();
+count.value = 3; // logs nothing
 ```
 
 To run code once after mount as well as on changes, use [`effect()`](/api/effect).
