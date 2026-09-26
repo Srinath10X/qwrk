@@ -95,17 +95,18 @@ Every change calls `fn` again, so the element is created fresh each time, and th
 
 ## Lists
 
-Return an array to render a list:
+To render a list, use [`.map()`](/api/state#lists) on the state: it only updates the rows that changed.
 
 ```jsx
 const todos = state(["Write docs", "Ship it"]);
-const items = derive(() => todos.value.map((todo) => <li>{todo}</li>));
 
-<ul>{items}</ul>;
-
-todos.value.push("Celebrate"); // re-renders the list
+<ul>{todos.map((todo) => <li>{todo}</li>)}</ul>;
 ```
 
-`todos.value.push(...)`, `splice(...)` and other in-place changes update it too. See [arrays and objects](/api/state#arrays-and-objects).
+A derive can return an array too, but each change rebuilds every item:
 
-Each change rebuilds every item, so keep derived lists to a reasonable size.
+```jsx
+const items = derive(() => todos.value.map((todo) => <li>{todo}</li>));
+```
+
+`.map()` works on derives as well: `derive(() => todos.value.filter(isOpen)).map(...)` keeps the rows of the items that stay. See [Lists](/guide/lists).
