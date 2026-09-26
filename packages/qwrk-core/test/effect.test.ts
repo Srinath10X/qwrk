@@ -179,6 +179,85 @@ describe("effect", () => {
     expect(runs).toBe(1);
   });
 
+  it("keeps an effect created after the outer one stopped itself, even after gc", async () => {
+    const ready = state(false);
+    const count = state(0);
+    const seen: number[] = [];
+
+    function once() {
+      const stop = effect(() => {
+        if (!ready.value) return;
+        stop();
+        effect(() => seen.push(count.value));
+      });
+    }
+
+    once();
+    await mount();
+    ready.value = true;
+    await mount();
+
+    for (let i = 0; i < 3; i++) {
+      gc();
+      await mount();
+    }
+    count.value = 1;
+
+    expect(seen).toEqual([0, 1]);
+  });
+
+  it("updates the DOM before an effect that creates a derive runs", async () => {
+    const count = state(0);
+    const p = h("p", null, count);
+    const seen: string[] = [];
+    effect(() => {
+      seen.push(`${count.value}:${p.textContent}`);
+      derive(() => count.value * 2);
+    });
+
+    await mount();
+    count.value = 1;
+
+    expect(seen).toEqual(["0:0", "1:1"]);
+  });
+
+  it("keeps derives created by an effect or a .effect() after it re-runs", async () => {
+    const messages = state<string[]>([]);
+    const log = state(0);
+    const clock = state(0);
+    const list = h("ul", null);
+    const panel = h("div", null);
+    messages.effect((all) =>
+      list.append(
+        h(
+          "li",
+          null,
+          all.at(-1),
+          derive(() => clock.value),
+        ),
+      ),
+    );
+    effect(() =>
+      panel.append(
+        h(
+          "b",
+          null,
+          log.value,
+          derive(() => clock.value),
+        ),
+      ),
+    );
+
+    await mount();
+    messages.value = ["a"];
+    messages.value = ["a", "b"];
+    log.value = 1;
+    clock.value = 5;
+
+    expect(list.innerHTML).toBe("<li>a5</li><li>b5</li>");
+    expect(panel.innerHTML).toBe("<b>05</b><b>15</b>");
+  });
+
   it("runs every subscriber when one throws, then rethrows", () => {
     const count = state(0);
     const fn = vi.fn();

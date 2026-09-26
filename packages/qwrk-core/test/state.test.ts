@@ -161,6 +161,36 @@ describe("state", () => {
     expect(fn).not.toHaveBeenCalled();
   });
 
+  it("doesn't notify when an array or object is assigned to itself", () => {
+    const todos = state([{ done: false }]);
+    const user = state({ name: "Ada" });
+    const fn = vi.fn();
+    todos.effect(fn);
+    user.effect(fn);
+
+    todos.value = todos.value;
+    user.value = user.value;
+
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("passes the value its own write left as the next oldValue", () => {
+    const count = state(0);
+    const seen: number[][] = [];
+    count.effect((value, oldValue) => {
+      seen.push([value, oldValue]);
+      if (value > 10) count.value = 10;
+    });
+
+    count.value = 11;
+    count.value = 5;
+
+    expect(seen).toEqual([
+      [11, 0],
+      [5, 10],
+    ]);
+  });
+
   it("tracks reads through a proxy captured outside the derive", () => {
     const todos = state([{ text: "a" }]);
     const todo = todos.value[0];

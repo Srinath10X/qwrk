@@ -116,6 +116,76 @@ describe("memory", () => {
     expect(most).toBeLessThan(420);
   });
 
+  it("drops subscriptions of collected DOM and derives after a burst, without a write", async () => {
+    const theme = state("light");
+    const main = h("main", null);
+
+    for (let i = 0; i < 2000; i++) {
+      main.append(
+        h(
+          "p",
+          { title: theme },
+          derive(() => theme.value + i),
+        ),
+      );
+    }
+    main.replaceChildren();
+    await collect();
+
+    expect((theme as any).o.size).toBeLessThan(20);
+  });
+
+  it("stops the effects of a derive's output dropped without a re-run", async () => {
+    const tick = state(0);
+    let runs = 0;
+
+    function Row() {
+      effect(() => (tick.value, runs++));
+      return h("li", null);
+    }
+
+    let ul: Node | null = h(
+      "ul",
+      null,
+      derive(() => [1, 2, 3].map(() => h(Row, null))),
+    );
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(runs).toBe(3);
+    ul = null;
+    await collect();
+    tick.value++;
+
+    expect(ul).toBeNull();
+    expect(runs).toBe(3);
+  });
+
+  it("frees what a one-shot effect's derives and stopped effects captured", async () => {
+    const width = state(1);
+    const stops: (() => void)[] = [];
+    let runs = 0;
+    let freed = 0;
+    const registry = new FinalizationRegistry(() => freed++);
+
+    for (let i = 0; i < 50; i++) {
+      const div = h("div", null);
+      effect(() => {
+        const doubled = derive(() => (runs++, width.value * 2));
+        div.append(h("span", null, doubled));
+        stops.push(effect(() => div.setAttribute("title", `${width.value}`)));
+      }, []);
+      registry.register(div, null);
+    }
+    await new Promise((resolve) => setTimeout(resolve));
+    stops.forEach((stop) => stop());
+    stops.length = 0;
+    await collect();
+    runs = 0;
+    width.value = 2;
+
+    expect(freed).toBeGreaterThan(40);
+    expect(runs).toBeLessThan(10);
+  });
+
   it("keeps effects created inside an effect with no dependencies alive", async () => {
     const count = state(0);
     const seen: number[] = [];

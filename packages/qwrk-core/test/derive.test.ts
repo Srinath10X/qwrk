@@ -226,4 +226,21 @@ describe("derive", () => {
 
     expect(sum.value).toBe(7);
   });
+
+  it("re-runs when a derive it pulls writes a state it already read", () => {
+    const t = state(0);
+    const x = state(1);
+    const holder = state<State<number> | null>(null);
+    const both = derive(
+      () => `t=${t.value} x=${x.value} w=${holder.value?.value}`,
+    );
+    holder.value = derive(() => {
+      x.value = t.value * 10 + 1;
+      return t.value;
+    });
+
+    t.value = 1;
+
+    expect(both.value).toBe("t=1 x=11 w=1");
+  });
 });

@@ -61,7 +61,9 @@ stop(); // no more runs
 An effect also stops on its own in two cases:
 
 - An effect created while a derive runs, such as in a component a derive renders (a list item, conditional content), stops when that derive runs again. See [Ownership](/api/derive#ownership).
-- An effect created inside another effect stops when the outer one re-runs.
+- An effect or `.effect()` created while another effect or `.effect()` callback runs, including in a component it appends, stops when the outer one re-runs. If the outer one never runs again (`effect(fn, [])`, or one that stopped itself before creating it), the inner one lives until you stop it.
+
+Derives created while an effect runs don't stop with it: like any derive rendered in the page, they keep updating for as long as their DOM exists.
 
 ::: warning
 Any other effect lives until you stop it, even after its component leaves the page. An effect is a side effect you asked for, so Qwrk never drops it silently.

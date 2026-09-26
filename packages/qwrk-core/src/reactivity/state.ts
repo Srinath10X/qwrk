@@ -15,12 +15,13 @@ type Listener = (owner: any, data: any, value: any) => void;
 
 /**
  * A subscription to a state. It reaches its subscriber through a `WeakRef`,
- * so the subscriber can be garbage collected.
+ * so the subscriber can be garbage collected, and never references the state,
+ * whose value may hold the subscriber.
  */
 interface Entry {
   r: WeakRef<object>;
-  /** The source. */
-  s: Signal<any>;
+  /** The subscriptions of the source it belongs to. */
+  o: Set<Entry>;
   /** DOM bindings only: updates the owner. */
   f?: Listener;
   /** DOM bindings only: passed to `f`. */
@@ -55,23 +56,41 @@ export interface Computation {
 const KEEP = Symbol();
 const REF = Symbol();
 
-/** States read while a derive or an effect runs, or `null` outside of one. */
-let reads: Set<Signal<any>> | null = null;
+/**
+ * States read while a derive or an effect runs, with their version when first
+ * read, or `null` outside of one.
+ */
+let reads: Map<Signal<any>, number> | null = null;
 
-/** The derive or effect running now: it owns the derives and effects created. */
+/**
+ * The reads of the derive or effect running now, even inside {@link untrack}:
+ * its own writes update their versions, so they don't make it stale.
+ */
+let seen: Map<Signal<any>, number> | null = null;
+
+/** The derive or effect running now: it owns what it creates. */
 let owner: Computation | null = null;
 
 /** Above 0 inside {@link batch}, a run or a flush: changes wait for the flush. */
 let depth = 0;
 
-/** Stale derives, DOM bindings and stale effects, run in that order. */
-const queue = [new Set<any>(), new Set<Entry>(), new Set<any>()];
+/**
+ * Stale derives, DOM bindings with their source, and stale effects, run in
+ * that order.
+ */
+const queue: any[] = [new Set(), new Map(), new Set()];
 
 /** Effects created outside of a derive or an effect, alive until stopped. */
 const roots = new Set<Computation>();
 
 /** The first error a job threw in the running flush. */
 let error: [unknown] | undefined;
+
+/**
+ * Drops the subscriptions of garbage collected DOM bindings, derives and
+ * effects, even from a state that is never written again.
+ */
+const registry = new FinalizationRegistry<Entry>(unlink);
 
 class Signal<T> {
   /** The raw value. */
@@ -84,8 +103,6 @@ class Signal<T> {
   v = 0;
   /** Subscriptions. */
   o = new Set<Entry>();
-  /** Subscriptions left to add before dropping those of collected owners. */
-  n = 8;
 
   constructor(value: T) {
     this._ = toRaw(value);
@@ -93,7 +110,7 @@ class Signal<T> {
 
   get value(): T {
     refresh(this as any);
-    reads?.add(this);
+    track(this);
     return (this as any).f ? this._ : deep(this._, this);
   }
 
@@ -109,9 +126,11 @@ class Signal<T> {
     let old: T;
     let ran = false;
     return watcher(() => {
-      const prev = old;
-      old = this.value;
-      ran ? fn(old, prev) : (ran = true);
+      try {
+        ran ? fn(this.value, old) : (ran = true);
+      } finally {
+        old = this.value;
+      }
     }, [this]);
   }
 }
@@ -119,13 +138,14 @@ class Signal<T> {
 /** Records that `source` changed and notifies its subscribers. */
 export function touch(source: Signal<any>) {
   source.v++;
+  if (seen?.has(source)) seen.set(source, source.v);
   notify(source);
   depth || flush();
 }
 
 /** Tracks `source` as a dependency of the running derive or effect. */
 export function track(source: Signal<any>) {
-  reads?.add(source);
+  if (reads && !reads.has(source)) reads.set(source, source.v);
 }
 
 /** Returns the raw value of `source`, up to date, without tracking it. */
@@ -144,13 +164,16 @@ function notify(source: Signal<any>, deep?: boolean) {
     const sub = entry.r.deref() as Computation | undefined;
 
     if (!sub) source.o.delete(entry);
-    else if (entry.f) deep || queue[1].add(entry);
-    else if (!sub.q) {
-      sub.q = 1;
-      queue[sub.o ? 0 : 2].add(sub);
-      if (sub.o) notify(sub as any, true);
-    }
+    else if (entry.f) deep || queue[1].set(entry, source);
+    else if (!sub.q) stale(sub);
   }
+}
+
+/** Marks a derive or an effect stale and queues it, with what depends on it. */
+function stale(node: Computation) {
+  node.q = 1;
+  queue[node.o ? 0 : 2].add(node);
+  if (node.o) notify(node as any, true);
 }
 
 /**
@@ -183,9 +206,9 @@ function drain(last: number) {
 
     if (jobs.size) {
       if (++passes > 1e3) throw Error("qwrk: update loop");
-      queue[i] = new Set();
+      queue[i] = i == 1 ? new Map() : new Set();
 
-      for (const job of jobs) {
+      for (const job of jobs.keys()) {
         if (i > 1 && queue[0].size + queue[1].size) {
           try {
             drain(1);
@@ -197,7 +220,7 @@ function drain(last: number) {
         try {
           if (!job.r) refresh(job);
           else if ((target = job.r.deref())) {
-            job.f(target, job.d, peek(job.s));
+            job.f(target, job.d, peek(jobs.get(job)));
           }
         } catch (e) {
           error ??= [e];
@@ -229,12 +252,12 @@ function refresh(node: Computation) {
       node.q = 2;
 
       try {
-        for (const entry of node.s.values()) {
-          refresh(entry.s as any);
-          if (entry.v != entry.s.v) return run(node);
+        for (const [source, entry] of node.s) {
+          refresh(source as any);
+          if (entry.v != source.v) return run(node);
         }
-        for (const entry of node.s.values()) {
-          if (entry.v != entry.s.v) return run(node);
+        for (const [source, entry] of node.s) {
+          if (entry.v != source.v) return run(node);
         }
       } finally {
         if (node.q == 2) node.q = 0;
@@ -246,12 +269,17 @@ function refresh(node: Computation) {
 /**
  * Runs a derive or an effect: disposes what its last run created, tracks what
  * it reads, then subscribes to new dependencies and drops old ones. Changes
- * it makes wait until it's done, and don't re-run it.
+ * it makes wait until it's done, and don't re-run it. A state another derive
+ * wrote after this one read it makes it stale again.
+ *
+ * An unowned effect left with no dependencies never runs again, so it hands
+ * the effects it created over to the roots, and stops being one.
  */
 export function run(node: Computation) {
   if (node.q == 3) return;
-  const deps = node.d || new Set<Signal<any>>();
+  const reading = new Map<Signal<any>, number>();
   const outerReads = reads;
+  const outerSeen = seen;
   const outerOwner = owner;
 
   depth++;
@@ -259,38 +287,48 @@ export function run(node: Computation) {
   try {
     node.c.length && node.c.splice(0).forEach(dispose);
     node.q = 2;
-    reads = node.d ? null : deps;
+    reads = node.d ? null : reading;
+    seen = reading;
     owner = node;
     const value = node.f();
     if (node.o && (!Object.is(node._, value) || isPlain(value))) {
       node._ = value;
-      node.v!++;
-      notify(node as any);
+      touch(node as any);
     }
   } finally {
     reads = outerReads;
+    seen = outerSeen;
     owner = outerOwner;
 
     if (node.q == 2) {
       node.q = 0;
+      node.d?.forEach((source) => reading.set(source, source.v));
+      node.s.forEach(
+        (entry, source) =>
+          reading.has(source) || (unlink(entry), node.s.delete(source)),
+      );
+      reading.forEach((version, source) => {
+        let entry = node.s.get(source);
+        if (!entry) node.s.set(source, (entry = link(source, node)));
+        entry.v = version;
+        version == source.v || node.q || stale(node);
+      });
 
-      if (node.d && node.s.size) {
-        for (const entry of node.s.values()) entry.v = entry.s.v;
-      } else {
-        node.s.forEach(
-          (entry, source) =>
-            deps.has(source) || (unlink(entry), node.s.delete(source)),
-        );
-        deps.forEach((source) => {
-          let entry = node.s.get(source);
-          if (!entry) node.s.set(source, (entry = link(source, node)));
-          entry.v = source.v;
-        });
-        node.s.size || node.c.length || roots.delete(node);
+      if (!node.s.size && !node.o && !node.p) {
+        node.c.splice(0).forEach(adopt);
+        roots.delete(node);
       }
     }
 
     --depth || flush();
+  }
+}
+
+/** Makes an effect whose owner will never re-run a root, alive until stopped. */
+function adopt(node: Computation) {
+  if (node.q != 3) {
+    node.p = null;
+    roots.add(node);
   }
 }
 
@@ -309,21 +347,27 @@ export function dispose(node: Computation) {
   }
 }
 
-/** Makes `node` a derive or an effect, owned by the running one, if any. */
+/**
+ * Makes `node` a derive or an effect, owned by the running one, if any: a
+ * derive owns derives and effects, an effect owns only effects. A disposed one
+ * owns nothing, since it will never stop what it created.
+ */
 export function computation<T extends object>(
   node: T,
   fn: () => unknown,
   deps?: unknown[],
 ): T & Computation {
+  const parent =
+    owner?.q != 3 && (owner?.o || !(node instanceof Signal)) ? owner : null;
   const created = Object.assign(node, {
     f: fn,
     s: new Map(),
     d: deps && new Set(deps.filter(isReactive) as Signal<any>[]),
     c: [],
-    p: owner,
+    p: parent,
     q: 0,
   });
-  owner?.c.push(created);
+  parent?.c.push(created);
   return created;
 }
 
@@ -335,7 +379,7 @@ export function computation<T extends object>(
  */
 export function watcher(fn: () => void, deps?: unknown[], mounted?: boolean) {
   const node = computation({}, fn, deps);
-  owner || roots.add(node);
+  node.p || roots.add(node);
 
   function start() {
     run(node);
@@ -352,30 +396,24 @@ export function watcher(fn: () => void, deps?: unknown[], mounted?: boolean) {
 }
 
 /**
- * Subscribes `owner` to `source`, weakly. Every few subscriptions, drops those
- * of owners that were garbage collected, so they can't pile up.
+ * Subscribes `owner` to `source`, weakly, until it is unlinked or `owner` is
+ * garbage collected.
  */
 function link(source: Signal<any>, owner: object, f?: Listener, d?: unknown) {
   const entry: Entry = {
     r: ((owner as any)[REF] ??= new WeakRef(owner)),
-    s: source,
+    o: source.o,
     f,
     d,
   };
   source.o.add(entry);
-
-  if (!--source.n) {
-    source.n = 8;
-    for (const old of source.o) {
-      old.r.deref() ? source.n++ : source.o.delete(old);
-    }
-  }
-
+  registry.register(owner, entry, f ? undefined : entry);
   return entry;
 }
 
 function unlink(entry: Entry) {
-  entry.s.o.delete(entry);
+  entry.o.delete(entry);
+  registry.unregister(entry);
 }
 
 /** Keeps `target` alive for as long as `holder` is. */

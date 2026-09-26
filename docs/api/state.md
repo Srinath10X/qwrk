@@ -102,7 +102,7 @@ stop();
 count.value = 3; // logs nothing
 ```
 
-Inside a [`batch()`](/api/batch) it runs once, with the value from before the batch as `oldValue`. A `.effect()` created while a [derive](/api/derive#ownership) runs stops when the derive runs again.
+Inside a [`batch()`](/api/batch) it runs once, with the value from before the batch as `oldValue`. A `.effect()` created while a [derive](/api/derive#ownership) or an [effect](/api/effect#stopping) runs stops when that one runs again. Derives created in `fn` keep updating after `fn` runs again.
 
 To run code once after mount as well as on changes, use [`effect()`](/api/effect).
 
