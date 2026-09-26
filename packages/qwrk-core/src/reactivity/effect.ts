@@ -15,6 +15,7 @@ import { isReactive, track } from "#/reactivity/state.js";
  */
 export function effect(callback: () => void, deps?: unknown[]) {
   let running = false;
+  let stops: (() => void)[] = [];
 
   function run() {
     // A callback that writes a state it reads would otherwise call itself forever.
@@ -23,9 +24,11 @@ export function effect(callback: () => void, deps?: unknown[]) {
 
     try {
       const { reads } = track(callback);
-      (deps ?? [...reads]).forEach((dep) => {
-        if (isReactive(dep)) dep.effect(run);
-      });
+      // Swap subscriptions, so states this run didn't read stop re-running it.
+      stops.forEach((stop) => stop());
+      stops = (deps ?? [...reads])
+        .filter(isReactive)
+        .map((dep) => dep.effect(run));
     } finally {
       running = false;
     }
