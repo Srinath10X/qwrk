@@ -564,7 +564,7 @@ function link(
     entry.o = source;
     if (!source.m.has(source.k)) source.m.set(source.k, source);
   }
-  registry.register(owner, entry, f ? undefined : entry);
+  registry.register(owner, entry, entry);
   return entry;
 }
 
