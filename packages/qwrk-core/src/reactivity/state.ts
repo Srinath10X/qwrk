@@ -47,8 +47,6 @@ export function state<T>(value: T): State<T> {
   }
 
   function notify(old: T) {
-    // Copy so effects added while running wait for the next write, and run
-    // untracked so their reads don't subscribe whoever made this write.
     track(() => [...effects].forEach((fn) => fn(wrap(value), wrap(old))));
   }
 

@@ -50,7 +50,6 @@ function logo() {
   const width = LOGO[0].length;
 
   function color(x: number, y: number, layer: 38 | 48) {
-    // Same stops as the SVG: solid #89B4FA until 45%, then fade to #516B94.
     const t = Math.max(0, (x / width + y / height) / 2 - 0.45) / 0.55;
     const [r, g, b] = [
       [0x89, 0x51],
@@ -190,7 +189,6 @@ if (fs.existsSync(targetDir)) {
 }
 
 fs.cpSync(templateDir, targetDir, { recursive: true });
-// npm drops `.gitignore` from published packages, so templates ship `_gitignore`.
 fs.renameSync(
   path.join(targetDir, "_gitignore"),
   path.join(targetDir, ".gitignore"),
