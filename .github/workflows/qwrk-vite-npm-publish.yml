@@ -29,8 +29,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build
-        run: npm run build
+      - name: Build qwrk for the tests
+        working-directory: packages/qwrk-core
+        run: npm install && npm run build
+
+      - name: Build and test
+        run: npm test
 
       - name: Publish to npm registry
         run: npm publish --access public --provenance

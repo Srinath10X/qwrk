@@ -1,4 +1,4 @@
-name: Qwrk tests
+name: Tests
 
 on:
   push:
@@ -9,9 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/qwrk-core
 
     steps:
       - name: Checkout code
@@ -22,8 +19,14 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install dependencies
-        run: npm install
+      - name: Test qwrk
+        working-directory: packages/qwrk-core
+        run: npm install && npm test
 
-      - name: Build and test
-        run: npm test
+      - name: Test qwrk-vite
+        working-directory: packages/qwrk-vite
+        run: npm install && npm test
+
+      - name: Test create-qwrk-app
+        working-directory: packages/qwrk-app
+        run: npm install && npm test
