@@ -1,3 +1,5 @@
+import { deep, toRaw } from "#/reactivity/deep.js";
+
 /** Called with the new and previous value after every write. */
 export type Effect<T> = (value: T, oldValue: T) => void;
 
@@ -28,7 +30,8 @@ export function track<T>(fn: () => T) {
 
 /**
  * Creates a reactive state object. Writing to `.value` runs every registered
- * effect, which updates any DOM bound to it.
+ * effect, which updates any DOM bound to it. Arrays and plain objects notify
+ * when changed in place too: `list.value.push(x)`, `user.value.name = x`.
  *
  * @param value - Initial value.
  * @example
@@ -37,21 +40,30 @@ export function track<T>(fn: () => T) {
  */
 export function state<T>(value: T): State<T> {
   const effects = new Set<Effect<T>>();
+  const proxies = new WeakMap<object, object>();
+
+  function wrap(target: T) {
+    return deep(target, () => notify(value), proxies);
+  }
+
+  function notify(old: T) {
+    // Copy so effects added while running wait for the next write, and run
+    // untracked so their reads don't subscribe whoever made this write.
+    track(() => [...effects].forEach((fn) => fn(wrap(value), wrap(old))));
+  }
 
   const self: State<T> = {
     __MagicVariable__: true,
 
     get value() {
       reads?.add(self);
-      return value;
+      return wrap(value);
     },
 
     set value(next) {
       const old = value;
-      value = next;
-      // Copy so effects added while running wait for the next write, and run
-      // untracked so their reads don't subscribe whoever made this write.
-      track(() => [...effects].forEach((fn) => fn(next, old)));
+      value = toRaw(next);
+      notify(old);
     },
 
     effect(fn) {

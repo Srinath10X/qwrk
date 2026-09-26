@@ -20,14 +20,22 @@ count.value++; // works too
 
 Every write notifies, even when the new value equals the old one.
 
-Only assigning `.value` notifies. Changing an object or array in place doesn't, so assign a new one:
+## Arrays and objects
+
+Arrays and plain objects also notify when you change them in place, at any depth:
 
 ```js
-const todos = state(["a"]);
+const todos = state([{ text: "Write docs", done: false }]);
 
-todos.value.push("b"); // no update
-todos.value = [...todos.value, "b"]; // updates
+todos.value.push({ text: "Ship it", done: false });
+todos.value[0].done = true;
+todos.value.splice(1, 1);
+todos.value = []; // assigning still works too
 ```
+
+Each change notifies once, so `push()` updates the DOM once. Since the array is the same object before and after, `.effect()` receives the same value as `value` and `oldValue`.
+
+To do this, `.value` returns a `Proxy` of the array or object. It behaves like the original, and `todos.value === todos.value` holds. Only arrays and plain objects are wrapped: changes inside a `Map`, `Set`, `Date` or class instance don't notify, so assign a new one.
 
 ## Using it in JSX
 

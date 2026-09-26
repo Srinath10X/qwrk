@@ -70,9 +70,9 @@ const items = derive(() => todos.value.map((todo) => <li>{todo}</li>));
 
 <ul>{items}</ul>;
 
-todos.value = [...todos.value, "Celebrate"]; // re-renders the list
+todos.value.push("Celebrate"); // re-renders the list
 ```
 
-Assign a new array to update it. `todos.value.push(...)` changes the array without a write, so nothing updates.
+`todos.value.push(...)`, `splice(...)` and other in-place changes update it too. See [arrays and objects](/api/state#arrays-and-objects).
 
 Each change rebuilds every item, so keep derived lists to a reasonable size.
