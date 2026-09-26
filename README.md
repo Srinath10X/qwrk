@@ -49,6 +49,6 @@ view the full documentation
 ## 🔐 Security 
 
 If you believe you have discovered a security vulnerability in Qwrk, I request that you
-responsibly disclose it by emailing <a href="mailto:srinath10x@protonmail">srinath10x@proton.me</a> with the relevant details.
+responsibly disclose it by emailing <a href="mailto:srinath10x@proton.me">srinath10x@proton.me</a> with the relevant details.
 
 Do not publicly disclose the issue before it is resolved.
