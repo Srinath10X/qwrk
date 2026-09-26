@@ -75,11 +75,11 @@ Any `on*` prop whose value is a function becomes an event listener. The event na
 | `data-id={7}` | `data-id="7"` |
 | `style="color: red"` | `style="color: red"` |
 
-`style` also takes an object with camelCase, kebab-case or custom property keys:
+`style` also takes an object with camelCase, kebab-case or custom property keys. Numbers get `px` where CSS needs a unit:
 
 ```jsx
-<div style={{ backgroundColor: "red", "--gap": "4px" }} />
-// style="background-color: red; --gap: 4px;"
+<div style={{ backgroundColor: "red", width: 16, opacity: 0.5, "--gap": "4px" }} />
+// style="background-color: red; width: 16px; opacity: 0.5; --gap: 4px;"
 ```
 
 Pass a state to keep an attribute in sync:
@@ -114,6 +114,9 @@ SVG tags such as `<svg>`, `<path>` and `<circle>` are created as SVG elements, s
 <svg viewBox="0 0 24 24" width="24" height="24">
   <circle cx="12" cy="12" r="10" fill="currentColor" />
 </svg>
+```
+
+`<a>`, `<title>`, `<style>` and `<script>` exist in both HTML and SVG, and are always created as HTML, even inside `<svg>`.
 
 ## Children
 
