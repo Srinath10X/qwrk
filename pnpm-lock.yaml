@@ -54,6 +54,9 @@ importers:
 
   packages/qwrk-vite:
     devDependencies:
+      '@types/node':
+        specifier: ^24.13.6
+        version: 24.13.6
       happy-dom:
         specifier: ^20.14.5
         version: 20.14.5
@@ -62,10 +65,10 @@ importers:
         version: 7.0.2
       vite:
         specifier: ^8.3.1
-        version: 8.3.1(@types/node@26.6.2)
+        version: 8.3.1(@types/node@24.13.6)
       vitest:
         specifier: ^5.0.1
-        version: 5.0.1(@types/node@26.6.2)(happy-dom@20.14.5)(vite@8.3.1(@types/node@26.6.2))
+        version: 5.0.1(@types/node@24.13.6)(happy-dom@20.14.5)(vite@8.3.1(@types/node@24.13.6))
 
 packages:
 
