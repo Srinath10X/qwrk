@@ -9,7 +9,8 @@
   "keywords": [],
   "author": "Srinath10X",
   "scripts": {
-    "build": "tsc && node -e \"fs.rmSync('templates',{recursive:true,force:true});fs.cpSync('../../templates','templates',{recursive:true})\""
+    "build": "tsc && node -e \"fs.rmSync('templates',{recursive:true,force:true});fs.cpSync('../../templates','templates',{recursive:true})\"",
+    "test": "npm run build && tsc -p test && vitest run"
   },
   "files": [
     "dist",
@@ -25,7 +26,8 @@
   "homepage": "https://github.com/Srinath10X/qwrk#readme",
   "devDependencies": {
     "@types/node": "^24.13.6",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
   },
   "dependencies": {
     "@clack/prompts": "^1.8.1"

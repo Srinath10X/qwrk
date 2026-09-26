@@ -33,6 +33,9 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      vitest:
+        specifier: ^5.0.1
+        version: 5.0.1(@types/node@24.13.6)(happy-dom@20.14.5)(vite@8.3.1(@types/node@24.13.6))
 
   packages/qwrk-core:
     devDependencies:
@@ -51,9 +54,18 @@ importers:
 
   packages/qwrk-vite:
     devDependencies:
+      happy-dom:
+        specifier: ^20.14.5
+        version: 20.14.5
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      vite:
+        specifier: ^8.3.1
+        version: 8.3.1(@types/node@26.6.2)
+      vitest:
+        specifier: ^5.0.1
+        version: 5.0.1(@types/node@26.6.2)(happy-dom@20.14.5)(vite@8.3.1(@types/node@26.6.2))
 
 packages:
 
@@ -1942,6 +1954,15 @@ snapshots:
       vite: 5.4.21(@types/node@26.6.2)(lightningcss@1.33.0)
       vue: 3.5.43(typescript@7.0.2)
 
+  '@vitest/mocker@5.0.1(vite@8.3.1(@types/node@24.13.6))':
+    dependencies:
+      '@jridgewell/trace-mapping': 0.3.31
+      '@vitest/spy': 5.0.1
+      estree-walker: 3.0.3
+      magic-string: 1.4.2
+    optionalDependencies:
+      vite: 8.3.1(@types/node@24.13.6)
+
   '@vitest/mocker@5.0.1(vite@8.3.1(@types/node@26.6.2))':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
@@ -2502,6 +2523,17 @@ snapshots:
       fsevents: 2.3.3
       lightningcss: 1.33.0
 
+  vite@8.3.1(@types/node@24.13.6):
+    dependencies:
+      lightningcss: 1.33.0
+      picomatch: 4.0.7
+      postcss: 8.5.28
+      rolldown: 1.2.11
+      tinyglobby: 0.2.17
+    optionalDependencies:
+      '@types/node': 24.13.6
+      fsevents: 2.3.3
+
   vite@8.3.1(@types/node@26.6.2):
     dependencies:
       lightningcss: 1.33.0
@@ -2562,6 +2594,28 @@ snapshots:
       - terser
       - typescript
       - universal-cookie
+
+  vitest@5.0.1(@types/node@24.13.6)(happy-dom@20.14.5)(vite@8.3.1(@types/node@24.13.6)):
+    dependencies:
+      '@types/chai': 5.2.3
+      '@vitest/mocker': 5.0.1(vite@8.3.1(@types/node@24.13.6))
+      chai: 6.2.2
+      es-module-lexer: 2.3.2
+      expect-type: 1.4.0
+      magic-string: 1.4.2
+      obug: 2.2.1
+      picomatch: 4.0.7
+      std-env: 4.2.0
+      tinybench: 6.1.4
+      tinyexec: 1.3.0
+      tinyglobby: 0.2.17
+      vite: 8.3.1(@types/node@24.13.6)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 24.13.6
+      happy-dom: 20.14.5
+    transitivePeerDependencies:
+      - msw
 
   vitest@5.0.1(@types/node@26.6.2)(happy-dom@20.14.5)(vite@8.3.1(@types/node@26.6.2)):
     dependencies:
