@@ -14,9 +14,6 @@ importers:
       prettier:
         specifier: ^3.9.9
         version: 3.9.9
-      typescript:
-        specifier: ^7.0.2
-        version: 7.0.2
 
   docs:
     devDependencies:

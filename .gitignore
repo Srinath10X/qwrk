@@ -3,7 +3,6 @@ dist/
 node_modules/
 
 # vitepress
-docs/.vitepress/dist
 docs/.vitepress/cache
 
 # example lockfiles go stale; examples install from npm
