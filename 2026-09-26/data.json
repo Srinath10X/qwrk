@@ -1,0 +1,331 @@
+{
+  "frameworks": [
+    "Qwrk",
+    "vanilla JS",
+    "Solid",
+    "Svelte 5",
+    "React 19"
+  ],
+  "tests": {
+    "01_run1k": {
+      "Qwrk": {
+        "total": 88.9,
+        "script": 30.1,
+        "paint": 58.4
+      },
+      "vanilla JS": {
+        "total": 68.5,
+        "script": 5.2,
+        "paint": 61.6
+      },
+      "Solid": {
+        "total": 69.7,
+        "script": 9.2,
+        "paint": 60.6
+      },
+      "Svelte 5": {
+        "total": 71.7,
+        "script": 11,
+        "paint": 59.8
+      },
+      "React 19": {
+        "total": 82.9,
+        "script": 20.1,
+        "paint": 61.2
+      }
+    },
+    "02_replace1k": {
+      "Qwrk": {
+        "total": 92.6,
+        "script": 31.7,
+        "paint": 58.8
+      },
+      "vanilla JS": {
+        "total": 70.6,
+        "script": 10,
+        "paint": 59.1
+      },
+      "Solid": {
+        "total": 74.9,
+        "script": 13.2,
+        "paint": 59.1
+      },
+      "Svelte 5": {
+        "total": 75.9,
+        "script": 15.5,
+        "paint": 59.4
+      },
+      "React 19": {
+        "total": 88.5,
+        "script": 26.9,
+        "paint": 59.6
+      }
+    },
+    "03_update10th1k_x16": {
+      "Qwrk": {
+        "total": 29.8,
+        "script": 2,
+        "paint": 25.6
+      },
+      "vanilla JS": {
+        "total": 28.1,
+        "script": 0.7,
+        "paint": 25.3
+      },
+      "Solid": {
+        "total": 30.1,
+        "script": 2,
+        "paint": 26.5
+      },
+      "Svelte 5": {
+        "total": 30.6,
+        "script": 2.5,
+        "paint": 26.1
+      },
+      "React 19": {
+        "total": 38.2,
+        "script": 9.3,
+        "paint": 27.2
+      }
+    },
+    "04_select1k": {
+      "Qwrk": {
+        "total": 12.8,
+        "script": 6.1,
+        "paint": 5.5
+      },
+      "vanilla JS": {
+        "total": 7.1,
+        "script": 0.7,
+        "paint": 5.4
+      },
+      "Solid": {
+        "total": 8.6,
+        "script": 1.7,
+        "paint": 5.6
+      },
+      "Svelte 5": {
+        "total": 11.9,
+        "script": 5.1,
+        "paint": 5.8
+      },
+      "React 19": {
+        "total": 12.8,
+        "script": 5.5,
+        "paint": 6
+      }
+    },
+    "05_swap1k": {
+      "Qwrk": {
+        "total": 390.6,
+        "script": 156.1,
+        "paint": 235
+      },
+      "vanilla JS": {
+        "total": 34.9,
+        "script": 0.5,
+        "paint": 32.3
+      },
+      "Solid": {
+        "total": 36.6,
+        "script": 2.1,
+        "paint": 31.2
+      },
+      "Svelte 5": {
+        "total": 37.7,
+        "script": 2.9,
+        "paint": 32.4
+      },
+      "React 19": {
+        "total": 286.7,
+        "script": 39.1,
+        "paint": 242.5
+      }
+    },
+    "06_remove-one-1k": {
+      "Qwrk": {
+        "total": 198.7,
+        "script": 79.8,
+        "paint": 117.9
+      },
+      "vanilla JS": {
+        "total": 31.7,
+        "script": 0.8,
+        "paint": 29.5
+      },
+      "Solid": {
+        "total": 33.9,
+        "script": 1,
+        "paint": 30.9
+      },
+      "Svelte 5": {
+        "total": 32.2,
+        "script": 1.4,
+        "paint": 29.8
+      },
+      "React 19": {
+        "total": 34.1,
+        "script": 2.8,
+        "paint": 29.9
+      }
+    },
+    "07_create10k": {
+      "Qwrk": {
+        "total": 873.2,
+        "script": 266.5,
+        "paint": 609.7
+      },
+      "vanilla JS": {
+        "total": 650.4,
+        "script": 57.9,
+        "paint": 591.9
+      },
+      "Solid": {
+        "total": 694.8,
+        "script": 75.9,
+        "paint": 620.1
+      },
+      "Svelte 5": {
+        "total": 697.9,
+        "script": 67.4,
+        "paint": 622.5
+      },
+      "React 19": {
+        "total": 905.1,
+        "script": 278.7,
+        "paint": 621.4
+      }
+    },
+    "08_create1k-after1k_x2": {
+      "Qwrk": {
+        "total": 186,
+        "script": 57.2,
+        "paint": 127
+      },
+      "vanilla JS": {
+        "total": 69.9,
+        "script": 4.7,
+        "paint": 63.6
+      },
+      "Solid": {
+        "total": 75,
+        "script": 8.7,
+        "paint": 65.2
+      },
+      "Svelte 5": {
+        "total": 72.3,
+        "script": 7.8,
+        "paint": 62.9
+      },
+      "React 19": {
+        "total": 84.1,
+        "script": 17.2,
+        "paint": 66
+      }
+    },
+    "09_clear1k_x8": {
+      "Qwrk": {
+        "total": 30.8,
+        "script": 27.6,
+        "paint": 3.1
+      },
+      "vanilla JS": {
+        "total": 23,
+        "script": 19.6,
+        "paint": 2.7
+      },
+      "Solid": {
+        "total": 29.6,
+        "script": 25.9,
+        "paint": 2.7
+      },
+      "Svelte 5": {
+        "total": 26.4,
+        "script": 22.7,
+        "paint": 3
+      },
+      "React 19": {
+        "total": 42.1,
+        "script": 38.2,
+        "paint": 3.1
+      }
+    },
+    "21_ready-memory": {
+      "Qwrk": 0.5848760604858398,
+      "vanilla JS": 0.5729169845581055,
+      "Solid": 0.5939340591430664,
+      "Svelte 5": 0.6665105819702148,
+      "React 19": 1.1882266998291016
+    },
+    "22_run-memory": {
+      "Qwrk": 3.8383264541625977,
+      "vanilla JS": 1.882399559020996,
+      "Solid": 2.6833600997924805,
+      "Svelte 5": 2.8722171783447266,
+      "React 19": 4.4308881759643555
+    },
+    "25_run-clear-memory": {
+      "Qwrk": 1.1122732162475586,
+      "vanilla JS": 0.6491107940673828,
+      "Solid": 0.7804546356201172,
+      "Svelte 5": 0.9835243225097656,
+      "React 19": 1.9803457260131836
+    },
+    "41_size-uncompressed": {
+      "Qwrk": 6.8,
+      "vanilla JS": 11.3,
+      "Solid": 11.5,
+      "Svelte 5": 26.6,
+      "React 19": 190.3
+    },
+    "42_size-compressed": {
+      "Qwrk": 2.8,
+      "vanilla JS": 2.5,
+      "Solid": 4.5,
+      "Svelte 5": 9.7,
+      "React 19": 51.4
+    },
+    "43_first-paint": {
+      "Qwrk": 164.9,
+      "vanilla JS": 150.9,
+      "Solid": 146.2,
+      "Svelte 5": 198.4,
+      "React 19": 413.5
+    },
+    "lh_interactive": {
+      "Qwrk": 1804.9442,
+      "vanilla JS": 1955.3446000000001,
+      "Solid": 1954.2422000000001,
+      "Svelte 5": 1953.964,
+      "React 19": 2900.3677
+    },
+    "lh_bootup-time": {
+      "Qwrk": 18.22,
+      "vanilla JS": 22.099999999999998,
+      "Solid": 17.255999999999997,
+      "Svelte 5": 17.695999999999998,
+      "React 19": 91.64800000000001
+    },
+    "lh_mainthread-work-breakdown": {
+      "Qwrk": 409.832,
+      "vanilla JS": 526.1360000000001,
+      "Solid": 424.6120000000001,
+      "Svelte 5": 417.41999999999996,
+      "React 19": 428.58799999999997
+    },
+    "lh_first-contentful-paint": {
+      "Qwrk": 1804.7114000000001,
+      "vanilla JS": 1805.3446000000001,
+      "Solid": 1804.2422,
+      "Svelte 5": 1953.964,
+      "React 19": 2820.0899
+    }
+  },
+  "geomean": {
+    "Qwrk": 2.175658361066457,
+    "vanilla JS": 1,
+    "Solid": 1.0978656954739243,
+    "Svelte 5": 1.1243264328306697,
+    "React 19": 1.6693803555092197
+  }
+}
