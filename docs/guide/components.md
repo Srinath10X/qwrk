@@ -135,13 +135,13 @@ view.value = [<p>One</p>, <p>Two</p>]; // swaps in both
 view.value = null; // clears it
 ```
 
-For lists that follow a state, use [`.map()`](/guide/lists). For conditions, use [`derive()`](/api/derive).
+For lists that follow a state, use [`.map()`](/guide/lists). For conditions, the [compiler](/guide/compiler) makes `{show.value && <p />}` reactive automatically; without it, use [`derive()`](/api/derive).
 
 ## Limitations
 
 Qwrk keeps its core small, so some things are deliberately not there yet:
 
-- **Plain expressions are evaluated once.** `{show.value && <p />}` and `{todos.value.map(...)}` don't update when the state changes. Wrap conditions in [`derive()`](/api/derive), and render lists with [`todos.map(...)`](/guide/lists).
+- **Plain expressions are evaluated once without the compiler.** `{show.value && <p />}` and `{todos.value.map(...)}` don't update when the state changes. With the [compiler](/guide/compiler) they are reactive; without it, wrap conditions in [`derive()`](/api/derive), and render lists with [`todos.map(...)`](/guide/lists).
 - **Effects created outside a derive outlive their component.** `effect()` and `.effect()` created in a component that no derive renders keep running until you stop them. Inside a derive, or inside another effect's callback, they stop when that one runs again.
 
 ## Memory

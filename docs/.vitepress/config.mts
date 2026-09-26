@@ -33,6 +33,7 @@ export default defineConfig({
           { text: "What is Qwrk?", link: "/guide/" },
           { text: "Getting Started", link: "/guide/getting-started" },
           { text: "Components & JSX", link: "/guide/components" },
+          { text: "Compiler", link: "/guide/compiler" },
           { text: "Lists", link: "/guide/lists" },
         ],
       },

@@ -110,6 +110,16 @@ Rows are keyed by the items themselves, compared with `===`: numbers and strings
 
 A derive that maps the array, `derive(() => todos.value.map(...))`, still works, but rebuilds every row on each change. See [Lists](/guide/lists).
 
+## Keyed selection
+
+`.is(key)` compares with `Object.is` and, inside a tracked context, subscribes only to `key` instead of the whole state. Changing selection re-runs only the two affected rows:
+
+```jsx
+<tr class={selected.value === row.id ? "danger" : ""}>
+```
+
+The compiler rewrites this to `selected.is(row.id)`. States that never call `.is()` pay nothing.
+
 ## Subscribing to changes
 
 `.effect(fn)` runs `fn` after every change, after the DOM is updated, with the new and previous values:
