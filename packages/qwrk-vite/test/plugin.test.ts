@@ -22,6 +22,7 @@ async function bundle(root: string) {
           find: /^qwrk\/jsx-(dev-)?runtime$/,
           replacement: `${core}jsx/runtime.js`,
         },
+        { find: /^qwrk\/internal$/, replacement: `${core}internal.js` },
         { find: /^qwrk$/, replacement: `${core}index.js` },
       ],
     },
@@ -50,6 +51,7 @@ function run(code: string) {
 describe("qwrk-vite", () => {
   it("uses oxc on Vite 8 and esbuild before it", () => {
     const plugin = qwrk();
+    expect(plugin.enforce).toBe("pre");
 
     expect(plugin.config.call({ meta: { rolldownVersion: "1.0.0" } })).toEqual({
       oxc: { jsx: { runtime: "automatic", importSource: "qwrk" } },
@@ -59,10 +61,30 @@ describe("qwrk-vite", () => {
     });
   });
 
+  it("compiles JSX modules and skips the rest", () => {
+    const { transform } = qwrk();
+
+    expect(
+      transform("export const a = <p>{b}</p>;", "/src/a.jsx")!.code,
+    ).toContain("_$insert(");
+    expect(
+      transform("export const a = <p />;", "/src/a.tsx?v=1"),
+    ).not.toBeNull();
+    expect(transform("export const a = <p />;", "/src/a.jsx?raw")).toBeNull();
+    expect(transform("export const a = 1;", "/src/a.ts")).toBeNull();
+    expect(
+      transform("export const a = <p />;", "/node_modules/x/a.js"),
+    ).toBeNull();
+    expect(transform("a { color: red }", "/src/a.css")).toBeNull();
+  });
+
   it.each(["qwrk-js", "qwrk-ts"])(
     "builds and runs the %s template",
     async (template) => {
-      const document = run(await bundle(templates + template));
+      const code = await bundle(templates + template);
+      expect(code).not.toContain("jsx(");
+      expect(code).toContain("cloneNode");
+      const document = run(code);
       const button = document.querySelector("button")!;
       expect(button.textContent).toBe("count is 0");
 
