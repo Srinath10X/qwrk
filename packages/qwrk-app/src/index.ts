@@ -118,6 +118,18 @@ function packageManager() {
 }
 
 /**
+ * Turns a folder name into a valid npm package name: `My App` becomes `my-app`.
+ */
+function packageName(dir: string) {
+  const name = path
+    .basename(dir)
+    .toLowerCase()
+    .replace(/[^a-z0-9._~-]+/g, "-")
+    .replace(/^[._-]+|-+$/g, "");
+  return name || "qwrk-app";
+}
+
+/**
  * Runs `<pm> install` in `cwd`, rejecting with its stderr when it fails.
  */
 function install(pm: string, cwd: string) {
@@ -193,6 +205,11 @@ fs.renameSync(
   path.join(targetDir, "_gitignore"),
   path.join(targetDir, ".gitignore"),
 );
+
+const packageJson = path.join(targetDir, "package.json");
+const pkg = JSON.parse(fs.readFileSync(packageJson, "utf8"));
+pkg.name = packageName(targetDir);
+fs.writeFileSync(packageJson, `${JSON.stringify(pkg, null, 2)}\n`);
 p.log.success(`Created ${styleText("cyan", projectName)}`);
 
 const pm = packageManager();
