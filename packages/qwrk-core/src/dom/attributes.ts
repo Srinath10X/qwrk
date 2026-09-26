@@ -45,7 +45,8 @@ function toText(value: unknown) {
 
 /**
  * Replaces the inline style with `styles`. Keys are camelCase
- * (`backgroundColor`), kebab-case or custom properties (`--gap`).
+ * (`backgroundColor`), kebab-case or custom properties (`--gap`). Numbers get
+ * `px` when CSS rejects them without a unit: `width: 16` but `opacity: 0.5`.
  */
 function setStyle(element: HTMLElement, styles: Record<string, unknown>) {
   element.removeAttribute("style");
@@ -56,5 +57,12 @@ function setStyle(element: HTMLElement, styles: Record<string, unknown>) {
       ? key
       : key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
     element.style.setProperty(property, String(value));
+
+    if (
+      typeof value === "number" &&
+      !element.style.getPropertyValue(property)
+    ) {
+      element.style.setProperty(property, `${value}px`);
+    }
   }
 }
