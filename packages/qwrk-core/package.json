@@ -4,7 +4,8 @@
   "description": "A minimalistic web framework, fast enough for your ideas.",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "test": "tsc && vitest run"
   },
   "repository": {
     "type": "git",
@@ -23,7 +24,10 @@
     "dist"
   ],
   "devDependencies": {
-    "typescript": "^7.0.2"
+    "happy-dom": "^20.14.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.1"
   },
   "imports": {
     "#/*": "./dist/*"
