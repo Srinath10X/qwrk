@@ -1,4 +1,5 @@
-import { isReactive, peek, watch } from "#qwrk/reactivity/state.js";
+import { read } from "#qwrk/dom/children.js";
+import { bind, isReactive, peek, watch } from "#qwrk/reactivity/state.js";
 
 const ALIASES: Record<string, string> = { className: "class", htmlFor: "for" };
 
@@ -9,14 +10,21 @@ const ALIASES: Record<string, string> = { className: "class", htmlFor: "for" };
 const PROPERTIES = new Set(["value", "checked", "selected"]);
 
 /**
- * Sets an attribute from a JSX prop, keeping it in sync when the value is a state.
+ * Sets an attribute from a JSX prop, keeping it in sync when the value is a
+ * state, or a function, called again whenever a state it reads changes.
  *
  * `className`/`htmlFor` map to `class`/`for`.
  */
 export function bindAttribute(element: Element, key: string, value: unknown) {
   const name = ALIASES[key] ?? key;
 
-  if (isReactive(value)) {
+  if (typeof value === "function") {
+    bind(
+      {},
+      () => setAttribute(element, name, read((value as () => unknown)())),
+      element,
+    );
+  } else if (isReactive(value)) {
     setAttribute(element, name, peek(value));
     watch(value, element, setAttribute, name);
   } else {

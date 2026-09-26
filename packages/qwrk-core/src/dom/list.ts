@@ -3,6 +3,7 @@ import { deep, toRaw } from "#qwrk/reactivity/deep.js";
 import {
   computation,
   dispose,
+  isReactive,
   own,
   peek,
   retain,
@@ -42,7 +43,7 @@ interface List extends Row {
 export function list(source: State<unknown>, fn: (item: any) => unknown) {
   const nodes = document.createDocumentFragment();
   const self = computation(
-    { o: new Set(), k: [], g: source, h: text(), t: text() },
+    { c: [], k: [], g: source, h: text(), t: text() },
     fn as () => unknown,
   ) as unknown as List;
 
@@ -169,7 +170,7 @@ function insert(
   const source = self.g as any;
 
   for (let j = from; j < to; j++) {
-    const row = { s: self.s, o: self.o, c: [], p: self, q: 0 } as any as Row;
+    const row = { s: self.s, p: self, q: 0 } as any as Row;
     const item = source.f ? items[j] : deep(items[j], source);
     const result: any = own(row, self.f, item);
 
@@ -213,4 +214,13 @@ function sequence(values: Int32Array) {
     tails[i] = at;
   }
   return tails;
+}
+
+/**
+ * Calls `items.map(fn)`, or renders a keyed list with {@link list} when
+ * `items` is a state. Compiled JSX calls it for `.map()` with a callback that
+ * returns JSX, so only apps that render lists ship them.
+ */
+export function map(items: any, fn: (item: any) => unknown) {
+  return isReactive(items) ? list(items, fn) : items.map(fn);
 }

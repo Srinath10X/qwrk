@@ -1,31 +1,51 @@
 import {
+  bind,
   isReactive,
   peek,
   retain,
   watch,
-  type State,
+  type Computation,
 } from "#qwrk/reactivity/state.js";
 
-/** The nodes a state currently renders as. Its nodes keep it alive. */
+/**
+ * The nodes a state or a function currently renders as. Its nodes keep it
+ * alive.
+ */
 interface Slot {
   nodes: ChildNode[];
 }
 
 /**
- * Appends JSX children to `parent` one at a time, so any number of them fits.
- * Nested arrays are flattened, and states become nodes that update in place
- * when written.
+ * Inserts JSX children into `parent`, before `marker` or at the end, one at a
+ * time, so any number of them fits. Nested arrays are flattened, and states
+ * and functions become nodes that update in place: a function is called
+ * again whenever a state it reads changes.
  */
-export function append(parent: Node, children: unknown) {
+export function append(parent: Node, children: unknown, marker?: Node | null) {
   if (Array.isArray(children)) {
-    for (const child of children) append(parent, child);
+    for (const child of children) append(parent, child, marker);
+  } else if (typeof children === "function") {
+    const fn = children as () => unknown;
+    const slot = {} as Slot & Computation;
+    bind(slot, () => {
+      const value = read(fn());
+      if (slot.nodes) return update(slot, 0, value);
+      slot.nodes = render(value);
+      place(parent, slot, marker);
+    });
+    if (slot.q != 3) for (const node of slot.nodes) retain(node, slot);
   } else if (isReactive(children)) {
     const slot: Slot = { nodes: render(peek(children)) };
-    place(parent, slot);
+    place(parent, slot, marker, true);
     watch(children, slot, update);
   } else {
-    parent.appendChild(toNode(children));
+    parent.insertBefore(toNode(children), marker ?? null);
   }
+}
+
+/** The value of a state, read so the running computation tracks it, or `value`. */
+export function read(value: unknown) {
+  return isReactive(value) ? value.value : value;
 }
 
 /**
@@ -50,22 +70,33 @@ function render(value: unknown): ChildNode[] {
   return nodes.length ? nodes : [document.createTextNode("")];
 }
 
+/**
+ * States and functions nested in the value render between two empty texts,
+ * so that the nodes they swap stay between the first and last nodes.
+ */
 function collect(value: unknown, nodes: ChildNode[]) {
   if (Array.isArray(value)) {
     for (const item of value) collect(item, nodes);
   } else if (value instanceof DocumentFragment) {
     for (const node of value.childNodes) nodes.push(node);
+  } else if (typeof value === "function" || isReactive(value)) {
+    const group = document.createDocumentFragment();
+    append(group, ["", value, ""]);
+    collect(group, nodes);
   } else {
     nodes.push(toNode(value));
   }
   return nodes;
 }
 
-/** Appends the slot's nodes to `parent`, and makes each keep the slot alive. */
-function place(parent: Node, slot: Slot) {
+/**
+ * Inserts the slot's nodes into `parent`, and with `keep`, makes each keep
+ * the slot alive.
+ */
+function place(parent: Node, slot: Slot, marker?: Node | null, keep?: boolean) {
   for (const node of slot.nodes) {
-    retain(node, slot);
-    parent.appendChild(node);
+    if (keep) retain(node, slot);
+    parent.insertBefore(node, marker ?? null);
   }
 }
 
@@ -77,7 +108,8 @@ function place(parent: Node, slot: Slot) {
 function update(slot: Slot, _: unknown, value: unknown) {
   const [first] = slot.nodes;
   const last = slot.nodes[slot.nodes.length - 1];
-  const isText = !(value instanceof Node) && !Array.isArray(value);
+  const isText =
+    value === null || (typeof value != "object" && typeof value != "function");
 
   if (first === last && first instanceof Text && isText) {
     first.data = toText(value);
@@ -90,7 +122,7 @@ function update(slot: Slot, _: unknown, value: unknown) {
   if (last.parentNode === anchor.parentNode) relocate(first, last);
   else slot.nodes.forEach((node) => node.remove());
   slot.nodes = render(value);
-  place(nodes, slot);
+  place(nodes, slot, null, true);
   anchor.replaceWith(nodes);
 }
 

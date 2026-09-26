@@ -15,6 +15,7 @@
   "author": "Srinath10X",
   "license": "MIT",
   "type": "module",
+  "sideEffects": false,
   "types": "dist/index.d.ts",
   "bugs": {
     "url": "https://github.com/Srinath10X/qwrk/issues"
@@ -36,6 +37,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./internal": {
+      "types": "./dist/internal.d.ts",
+      "default": "./dist/internal.js"
     },
     "./jsx-runtime": {
       "types": "./dist/jsx/runtime.d.ts",
