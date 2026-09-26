@@ -11,6 +11,56 @@ export interface State<T> {
   effect(fn: Effect<T>): () => void;
 }
 
+/** Receives the subscriber's owner, if it has one, and the new and old value. */
+type Listener = (owner: any, value: any, oldValue: any) => void;
+
+/** A subscription. Weak ones hold their owner through a `WeakRef`. */
+interface Entry {
+  owner?: WeakRef<object>;
+  fn: Listener;
+}
+
+/** Weak subscribe of each state, used by {@link watch}. */
+const subscribers = new WeakMap<
+  State<any>,
+  (owner: object, fn: Listener) => () => void
+>();
+
+/** States with `.effect()` subscribers, kept alive until they stop. */
+const roots = new Set<State<any>>();
+
+/** Objects each holder keeps alive, see {@link retain}. */
+const retained = new WeakMap<object, Set<unknown>>();
+
+/** Removes weak subscriptions once their owner is garbage collected. */
+const cleanup = new FinalizationRegistry<() => void>((remove) => remove());
+
+/** Keeps `target` alive for as long as `holder` is. */
+export function retain(holder: object, target: unknown) {
+  let targets = retained.get(holder);
+  if (!targets) retained.set(holder, (targets = new Set()));
+  targets.add(target);
+}
+
+/**
+ * Subscribes to `source` for as long as `owner` is alive, and keeps `source`
+ * alive for as long as `owner` is. `fn` receives the owner, so it must not
+ * capture it, or the owner could never be collected.
+ *
+ * DOM bindings and derives use this, so a node removed from the page frees
+ * its subscriptions without an unmount step.
+ *
+ * @returns A function that unsubscribes.
+ */
+export function watch<T, O extends object>(
+  source: State<T>,
+  owner: O,
+  fn: (owner: O, value: T, oldValue: T) => void,
+) {
+  retain(owner, source);
+  return subscribers.get(source)!(owner, fn);
+}
+
 /** States read while {@link track} runs, or `null` outside of it. */
 let reads: Set<State<any>> | null = null;
 
@@ -39,15 +89,33 @@ export function track<T>(fn: () => T) {
  * count.value++;
  */
 export function state<T>(value: T): State<T> {
-  const effects = new Set<Effect<T>>();
+  const entries = new Set<Entry>();
   const proxies = new WeakMap<object, object>();
+  let strong = 0;
 
   function wrap(target: T) {
     return deep(target, () => notify(value), proxies);
   }
 
   function notify(old: T) {
-    track(() => [...effects].forEach((fn) => fn(wrap(value), wrap(old))));
+    track(() => {
+      for (const entry of [...entries]) {
+        const owner = entry.owner?.deref();
+        if (entry.owner && !owner) entries.delete(entry);
+        else entry.fn(owner, wrap(value), wrap(old));
+      }
+    });
+  }
+
+  function subscribe(owner: object, fn: Listener) {
+    const entry: Entry = { owner: new WeakRef(owner), fn };
+    entries.add(entry);
+    cleanup.register(owner, () => entries.delete(entry), entry);
+
+    return () => {
+      entries.delete(entry);
+      cleanup.unregister(entry);
+    };
   }
 
   const self: State<T> = {
@@ -65,11 +133,19 @@ export function state<T>(value: T): State<T> {
     },
 
     effect(fn) {
-      effects.add(fn);
-      return () => effects.delete(fn);
+      const entry: Entry = { fn: (_, value, old) => fn(value, old) };
+      entries.add(entry);
+      strong++;
+      roots.add(self);
+
+      return () => {
+        if (!entries.delete(entry)) return;
+        if (--strong === 0) roots.delete(self);
+      };
     },
   };
 
+  subscribers.set(self, subscribe);
   return self;
 }
 

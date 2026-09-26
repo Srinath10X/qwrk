@@ -143,4 +143,12 @@ Qwrk keeps its core small, so some things are deliberately not there yet:
 
 - **Plain expressions are evaluated once.** `{show.value && <p />}` and `{items.map(...)}` don't update when the state changes. Wrap them in [`derive()`](/api/derive).
 - **Lists re-render fully.** A derived list rebuilds every item on each change. That's fine for dozens of items, not thousands.
-- **No unmount.** Removing elements from the page doesn't stop their effects. `.effect()` returns a function to stop one by hand.
+- **Effects outlive their component.** `effect()` and `.effect()` keep running after their elements leave the page, until you stop them.
+
+## Memory
+
+There's no unmount step. States hold their DOM bindings and derives weakly, so once a node leaves the page and nothing else references it, the browser's garbage collector frees it along with its subscriptions. For example, every `<li>` a derived list rebuilds away is freed, even when it shows a state the whole app shares.
+
+A node you keep a reference to, such as an element stored in a state, stays alive and keeps updating, so you can put it back in the page later.
+
+`effect()` and `.effect()` are the exception: they live until you stop them, and they keep the states they read alive.

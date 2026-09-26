@@ -70,7 +70,7 @@ count.effect((value, oldValue) => {
 count.value = 2; // logs "1 -> 2"
 ```
 
-It returns a function that stops it:
+It returns a function that stops it. Until then, the effect keeps the state alive:
 
 ```js
 const stop = count.effect((value) => console.log(value));
