@@ -86,19 +86,21 @@ describe("effect", () => {
 
   it("updates the DOM before effects run, and before the write returns", async () => {
     const count = state(0);
+    const seen: string[] = [];
+    let bound: Node | undefined;
+    effect(() => seen.push(`${count.value}:${bound?.textContent ?? "-"}`));
+
+    await mount();
     const p = h(
       "p",
       null,
       derive(() => count.value * 2),
     );
-    const seen: string[] = [];
-    effect(() => seen.push(`${count.value}:${p.textContent}`));
-
-    await mount();
+    bound = p;
     count.value = 1;
 
     expect(p.textContent).toBe("2");
-    expect(seen).toEqual(["0:0", "1:2"]);
+    expect(seen).toEqual(["0:-", "1:2"]);
   });
 
   it("stops effects created by a derive's last run", async () => {
