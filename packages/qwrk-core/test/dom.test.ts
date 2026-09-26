@@ -164,3 +164,29 @@ describe("elements", () => {
     expect(root.innerHTML).toBe("<h1>a</h1><p></p>");
   });
 });
+
+describe("huge lists", () => {
+  it("renders 200,000 children through h and through a state child", () => {
+    const items = Array.from({ length: 200_000 }, (_, i) => i);
+    expect(h("ul", null, items).childNodes.length).toBe(200_000);
+    expect(h("ul", null, state(items)).childNodes.length).toBe(200_000);
+  });
+
+  it("accepts 200,000 children from the JSX runtime", () => {
+    const items = Array.from({ length: 200_000 }, (_, i) => i);
+    expect(jsx("ul", { children: items }).childNodes.length).toBe(200_000);
+  });
+
+  it("updates a state to 70,000 nodes, past happy-dom's spread limit", () => {
+    const n = state(1);
+    const ul = h(
+      "ul",
+      null,
+      derive(() => Array.from({ length: n.value }, () => new Text())),
+    );
+
+    n.value = 70_000;
+
+    expect(ul.childNodes.length).toBe(70_000);
+  }, 20_000);
+});

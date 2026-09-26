@@ -1,4 +1,10 @@
-import { isReactive, retain, watch, type State } from "#/reactivity/state.js";
+import {
+  isReactive,
+  peek,
+  retain,
+  watch,
+  type State,
+} from "#qwrk/reactivity/state.js";
 
 /** The nodes a state currently renders as. Its nodes keep it alive. */
 interface Slot {
@@ -6,15 +12,20 @@ interface Slot {
 }
 
 /**
- * Turns JSX children into DOM nodes. Nested arrays are flattened, and states
- * become nodes that update in place when written.
+ * Appends JSX children to `parent` one at a time, so any number of them fits.
+ * Nested arrays are flattened, and states become nodes that update in place
+ * when written.
  */
-export function toNodes(children: unknown[]): Node[] {
-  return children
-    .flat(Infinity)
-    .flatMap((child) =>
-      isReactive(child) ? toReactiveNodes(child) : toNode(child),
-    );
+export function append(parent: Node, children: unknown) {
+  if (Array.isArray(children)) {
+    for (const child of children) append(parent, child);
+  } else if (isReactive(children)) {
+    const slot: Slot = { nodes: render(peek(children)) };
+    place(parent, slot);
+    watch(children, slot, update);
+  } else {
+    parent.appendChild(toNode(children));
+  }
 }
 
 /**
@@ -35,27 +46,33 @@ function toNode(value: unknown): ChildNode {
  * them. Always returns at least one node, so the next update has a position.
  */
 function render(value: unknown): ChildNode[] {
-  const nodes = [value]
-    .flat(Infinity)
-    .flatMap((item) =>
-      item instanceof DocumentFragment
-        ? [...(item.childNodes as NodeListOf<ChildNode>)]
-        : [toNode(item)],
-    );
+  const nodes = collect(value, []);
   return nodes.length ? nodes : [document.createTextNode("")];
 }
 
-function toReactiveNodes(source: State<unknown>) {
-  const slot: Slot = { nodes: render(source.value) };
-  slot.nodes.forEach((node) => retain(node, slot));
-  watch(source, slot, update);
-  return slot.nodes;
+function collect(value: unknown, nodes: ChildNode[]) {
+  if (Array.isArray(value)) {
+    for (const item of value) collect(item, nodes);
+  } else if (value instanceof DocumentFragment) {
+    for (const node of value.childNodes) nodes.push(node);
+  } else {
+    nodes.push(toNode(value));
+  }
+  return nodes;
+}
+
+/** Appends the slot's nodes to `parent`, and makes each keep the slot alive. */
+function place(parent: Node, slot: Slot) {
+  for (const node of slot.nodes) {
+    retain(node, slot);
+    parent.appendChild(node);
+  }
 }
 
 /**
  * Text updates reuse the same node; anything else replaces the nodes.
  */
-function update(slot: Slot, value: unknown) {
+function update(slot: Slot, _: unknown, value: unknown) {
   const [first] = slot.nodes;
   const isText = !(value instanceof Node) && !Array.isArray(value);
 
@@ -64,11 +81,11 @@ function update(slot: Slot, value: unknown) {
     return;
   }
 
-  const next = render(value);
   const anchor = document.createTextNode("");
+  const nodes = document.createDocumentFragment();
   first.before(anchor);
   slot.nodes.forEach((node) => node.remove());
-  anchor.replaceWith(...next);
-  next.forEach((node) => retain(node, slot));
-  slot.nodes = next;
+  slot.nodes = render(value);
+  place(nodes, slot);
+  anchor.replaceWith(nodes);
 }

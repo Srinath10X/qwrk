@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createElement as h, derive, effect, state } from "../dist/index.js";
+import {
+  createElement as h,
+  derive,
+  effect,
+  state,
+  type State,
+} from "../dist/index.js";
 
 declare const gc: () => void;
 
@@ -62,5 +68,51 @@ describe("memory", () => {
     count.value = 2;
 
     expect(seen).toEqual([3, 4, 6]);
+  });
+
+  it("releases a state a derive stopped reading", async () => {
+    let freed = 0;
+    const registry = new FinalizationRegistry(() => freed++);
+    const useA = state(true);
+    const b = state(2);
+    const holder: { a: State<number> | null } = { a: state(1) };
+    registry.register(holder.a!, null);
+    const picked = derive(() => (useA.value ? holder.a!.value : b.value));
+
+    useA.value = false;
+    holder.a = null;
+    await collect();
+
+    expect(picked.value).toBe(2);
+    expect(freed).toBe(1);
+  });
+
+  it("frees what a one-shot effect captured", async () => {
+    let freed = 0;
+    const registry = new FinalizationRegistry(() => freed++);
+
+    for (let i = 0; i < 50; i++) {
+      const p = h("p", null);
+      effect(() => p.setAttribute("id", "x"), []);
+      registry.register(p, null);
+    }
+    await collect();
+
+    expect(freed).toBeGreaterThan(40);
+  });
+
+  it("drops subscriptions of collected DOM on a state that is never written", async () => {
+    const count = state(0);
+    let most = 0;
+
+    for (let round = 0; round < 40; round++) {
+      for (let i = 0; i < 100; i++) h("p", { title: count }, count);
+      gc();
+      await new Promise((resolve) => setTimeout(resolve));
+      gc();
+      most = Math.max(most, (count as any).o.size);
+    }
+
+    expect(most).toBeLessThan(420);
   });
 });

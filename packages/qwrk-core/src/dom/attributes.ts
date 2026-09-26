@@ -1,4 +1,4 @@
-import { isReactive, watch } from "#/reactivity/state.js";
+import { isReactive, peek, watch } from "#qwrk/reactivity/state.js";
 
 const ALIASES: Record<string, string> = { className: "class", htmlFor: "for" };
 
@@ -17,15 +17,11 @@ export function bindAttribute(element: Element, key: string, value: unknown) {
   const name = ALIASES[key] ?? key;
 
   if (isReactive(value)) {
-    setAttribute(element, name, value.value);
-    watch(value, element, update, name);
+    setAttribute(element, name, peek(value));
+    watch(value, element, setAttribute, name);
   } else {
     setAttribute(element, name, value);
   }
-}
-
-function update(element: Element, value: unknown, _: unknown, name: string) {
-  setAttribute(element, name, value);
 }
 
 /**
