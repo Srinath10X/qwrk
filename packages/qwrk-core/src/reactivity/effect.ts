@@ -18,13 +18,11 @@ export function effect(callback: () => void, deps?: unknown[]) {
   let stops: (() => void)[] = [];
 
   function run() {
-    // A callback that writes a state it reads would otherwise call itself forever.
     if (running) return;
     running = true;
 
     try {
       const { reads } = track(callback);
-      // Swap subscriptions, so states this run didn't read stop re-running it.
       stops.forEach((stop) => stop());
       stops = (deps ?? [...reads])
         .filter(isReactive)

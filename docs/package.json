@@ -1,8 +1,7 @@
 {
   "name": "qwrk-docs",
+  "private": true,
   "version": "0.0.1",
-  "description": "",
-  "keywords": [],
   "license": "MIT",
   "author": "Srinath10X",
   "devDependencies": {

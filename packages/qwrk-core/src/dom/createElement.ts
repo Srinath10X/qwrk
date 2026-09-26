@@ -40,7 +40,6 @@ export function createElement(
   props: Props | null,
   ...children: unknown[]
 ) {
-  // Reads inside JSX (components, bindings) must not subscribe an outer derive().
   return track(() => build(tag, props, children)).value;
 }
 
@@ -61,7 +60,6 @@ function build(
       ? document.createElementNS("http://www.w3.org/2000/svg", tag)
       : document.createElement(tag);
 
-  // Children first, so `<select value>` can select one of its options.
   element.append(...toNodes(children));
 
   for (const [key, value] of Object.entries(props ?? {})) {

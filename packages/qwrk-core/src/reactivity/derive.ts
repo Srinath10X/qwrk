@@ -19,14 +19,11 @@ export function derive<T>(fn: () => T, deps?: State<any>[]): State<T> {
   let running = false;
 
   function update() {
-    // `fn` changing a state it reads (`list.value.sort()`) would otherwise
-    // recompute forever.
     if (running) return;
     running = true;
 
     try {
       const { value, reads } = track(fn);
-      // Swap subscriptions, so states this run didn't read stop recomputing it.
       stops.forEach((stop) => stop());
       stops = (deps ?? [...reads]).map((dep) => dep.effect(update));
       derived.value = value;
