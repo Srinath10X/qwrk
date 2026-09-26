@@ -108,7 +108,8 @@ function collect(value: unknown, nodes: ChildNode[]) {
   if (Array.isArray(value)) {
     for (const item of value) collect(item, nodes);
   } else if (value instanceof DocumentFragment) {
-    for (const node of value.childNodes) nodes.push(node);
+    const kids = value.childNodes;
+    for (let i = 0; i < kids.length; i++) nodes.push(kids[i]);
   } else if (typeof value === "function" || isReactive(value)) {
     const group = document.createDocumentFragment();
     append(group, ["", value, ""]);
