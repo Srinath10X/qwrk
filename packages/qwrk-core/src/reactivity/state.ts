@@ -70,6 +70,9 @@ const queue = [new Set<any>(), new Set<Entry>(), new Set<any>()];
 /** Effects created outside of a derive or an effect, alive until stopped. */
 const roots = new Set<Computation>();
 
+/** The first error a job threw in the running flush. */
+let error: [unknown] | undefined;
+
 class Signal<T> {
   /** The raw value. */
   declare _: T;
@@ -151,49 +154,67 @@ function notify(source: Signal<any>, deep?: boolean) {
 }
 
 /**
- * Runs everything queued: stale derives, then DOM bindings, then effects, so
- * each sees settled values. After any of them ran, it starts over from the
- * derives. An error doesn't stop the rest; the first one is rethrown.
+ * Runs everything queued, then rethrows the first error a job threw.
  */
 function flush() {
-  let error: [unknown] | undefined;
-  let target: object | undefined;
-  let passes = 0;
   depth++;
 
   try {
-    for (let i = 0; i < 3; i++) {
-      const queued = queue[i];
+    drain(2);
+    if (error) throw error[0];
+  } finally {
+    depth--;
+    error = undefined;
+  }
+}
 
-      if (queued.size) {
-        if (++passes > 1e3) throw Error("qwrk: update loop");
-        const jobs = [...queued];
-        queued.clear();
-        i = -1;
+/**
+ * Runs the queues up to `last`: stale derives, then DOM bindings, then effects,
+ * so each sees settled values. After any of them ran, it starts over from the
+ * derives. Before each effect, it settles the derives and DOM that the effects
+ * before it changed. An error doesn't stop the rest.
+ */
+function drain(last: number) {
+  let target: object | undefined;
+  let passes = 0;
 
-        for (const job of jobs) {
+  for (let i = 0; i <= last; i++) {
+    const jobs = queue[i];
+
+    if (jobs.size) {
+      if (++passes > 1e3) throw Error("qwrk: update loop");
+      queue[i] = new Set();
+
+      for (const job of jobs) {
+        if (i > 1 && queue[0].size + queue[1].size) {
           try {
-            if (!job.r) refresh(job);
-            else if ((target = job.r.deref())) {
-              job.f(target, job.d, peek(job.s));
-            }
+            drain(1);
           } catch (e) {
             error ??= [e];
           }
         }
-      }
-    }
-  } finally {
-    depth--;
-  }
 
-  if (error) throw error[0];
+        try {
+          if (!job.r) refresh(job);
+          else if ((target = job.r.deref())) {
+            job.f(target, job.d, peek(job.s));
+          }
+        } catch (e) {
+          error ??= [e];
+        }
+      }
+
+      i = -1;
+    }
+  }
 }
 
 /**
  * Brings a stale derive or effect up to date: its owner first, since re-running
- * the owner disposes it, then its sources, re-running it if one changed. While
- * it checks, it counts as running, so a derive that reads itself doesn't loop.
+ * the owner disposes it, then its sources, re-running it if one changed. A
+ * source derive can write a source checked before it, so the versions are
+ * compared once more at the end. While it checks, it counts as running, so a
+ * derive that reads itself doesn't loop.
  */
 function refresh(node: Computation) {
   if (node.q == 1) {
@@ -212,6 +233,9 @@ function refresh(node: Computation) {
           refresh(entry.s as any);
           if (entry.v != entry.s.v) return run(node);
         }
+        for (const entry of node.s.values()) {
+          if (entry.v != entry.s.v) return run(node);
+        }
       } finally {
         if (node.q == 2) node.q = 0;
       }
@@ -226,16 +250,16 @@ function refresh(node: Computation) {
  */
 export function run(node: Computation) {
   if (node.q == 3) return;
-  const reading = new Set<Signal<any>>();
+  const deps = node.d || new Set<Signal<any>>();
   const outerReads = reads;
   const outerOwner = owner;
 
   depth++;
 
   try {
-    node.c.splice(0).forEach(dispose);
+    node.c.length && node.c.splice(0).forEach(dispose);
     node.q = 2;
-    reads = node.d ? null : reading;
+    reads = node.d ? null : deps;
     owner = node;
     const value = node.f();
     if (node.o && (!Object.is(node._, value) || isPlain(value))) {
@@ -248,18 +272,22 @@ export function run(node: Computation) {
     owner = outerOwner;
 
     if (node.q == 2) {
-      const deps = node.d ?? reading;
       node.q = 0;
-      node.s.forEach(
-        (entry, source) =>
-          deps.has(source) || (unlink(entry), node.s.delete(source)),
-      );
-      deps.forEach((source) => {
-        let entry = node.s.get(source);
-        if (!entry) node.s.set(source, (entry = link(source, node)));
-        entry.v = source.v;
-      });
-      node.s.size || roots.delete(node);
+
+      if (node.d && node.s.size) {
+        for (const entry of node.s.values()) entry.v = entry.s.v;
+      } else {
+        node.s.forEach(
+          (entry, source) =>
+            deps.has(source) || (unlink(entry), node.s.delete(source)),
+        );
+        deps.forEach((source) => {
+          let entry = node.s.get(source);
+          if (!entry) node.s.set(source, (entry = link(source, node)));
+          entry.v = source.v;
+        });
+        node.s.size || node.c.length || roots.delete(node);
+      }
     }
 
     --depth || flush();
@@ -273,6 +301,7 @@ export function run(node: Computation) {
 export function dispose(node: Computation) {
   if (node.q != 3) {
     node.q = 3;
+    node.p = null;
     node.c.splice(0).forEach(dispose);
     node.s.forEach(unlink);
     node.s.clear();

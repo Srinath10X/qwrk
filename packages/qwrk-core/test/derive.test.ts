@@ -211,4 +211,19 @@ describe("derive", () => {
     n.value = 4;
     expect(p.textContent).toBe("0.25");
   });
+
+  it("re-runs when a derive it reads writes a state it read before", () => {
+    const x = state(0);
+    const a = state(0);
+    const positive = derive(() => x.value >= 0);
+    const copy = derive(() => {
+      a.value = x.value;
+      return 0;
+    });
+    const sum = derive(() => a.value + copy.value + (positive.value ? 0 : 1));
+
+    x.value = 7;
+
+    expect(sum.value).toBe(7);
+  });
 });

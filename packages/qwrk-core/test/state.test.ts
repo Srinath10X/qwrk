@@ -170,4 +170,19 @@ describe("state", () => {
 
     expect(upper.value).toBe("B");
   });
+
+  it("skips writing back an item of an array built from proxies", () => {
+    const list = state([{ id: 1 }, { id: 2 }]);
+    const obj = state({ child: { x: 1 } });
+    list.value = list.value.filter((item) => item.id > 0);
+    obj.value = { ...obj.value };
+    const fn = vi.fn();
+    list.effect(fn);
+    obj.effect(fn);
+
+    list.value[0] = list.value[0];
+    obj.value.child = obj.value.child;
+
+    expect(fn).not.toHaveBeenCalled();
+  });
 });

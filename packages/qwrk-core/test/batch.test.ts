@@ -47,4 +47,22 @@ describe("batch", () => {
     a.value = 3;
     expect(fn).toHaveBeenCalledTimes(2);
   });
+
+  it("reads a derive whose source another derive wrote inside the batch", () => {
+    const x = state(0);
+    const a = state(0);
+    const copy = derive(() => {
+      a.value = x.value;
+      return 0;
+    });
+    const sum = derive(() => a.value + copy.value);
+
+    const inside = batch(() => {
+      x.value = 5;
+      return sum.value;
+    });
+
+    expect(inside).toBe(5);
+    expect(sum.value).toBe(5);
+  });
 });

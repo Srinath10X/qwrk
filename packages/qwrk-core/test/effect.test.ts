@@ -247,4 +247,21 @@ describe("effect", () => {
 
     expect(seen).toEqual([1, 0.5]);
   });
+
+  it("updates the DOM an earlier effect changed before the next effect runs", async () => {
+    const tick = state(0);
+    const copy = state(0);
+    const p = h("p", null, copy);
+    const seen: string[] = [];
+    effect(() => (copy.value = tick.value));
+    effect(() => {
+      tick.value;
+      seen.push(`${copy.value}:${p.textContent}`);
+    });
+
+    await mount();
+    tick.value = 1;
+
+    expect(seen).toEqual(["0:0", "1:1"]);
+  });
 });

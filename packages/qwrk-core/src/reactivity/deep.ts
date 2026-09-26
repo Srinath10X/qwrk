@@ -49,7 +49,7 @@ function handler(source: Signal<any>): ProxyHandler<any> {
 
     set(target, key, next) {
       const raw = toRaw(next);
-      const change = !(key in target) || !Object.is(target[key], raw);
+      const change = !(key in target) || !Object.is(toRaw(target[key]), raw);
       const done = Reflect.set(target, key, raw);
       if (change) touch(source);
       return done;
