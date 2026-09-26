@@ -70,13 +70,16 @@ function place(parent: Node, slot: Slot) {
 }
 
 /**
- * Text updates reuse the same node; anything else replaces the nodes.
+ * Text updates reuse the same node; anything else replaces the nodes. When
+ * its first and last nodes are still in place, everything between them goes
+ * too, such as the rows a list added since.
  */
 function update(slot: Slot, _: unknown, value: unknown) {
   const [first] = slot.nodes;
+  const last = slot.nodes[slot.nodes.length - 1];
   const isText = !(value instanceof Node) && !Array.isArray(value);
 
-  if (slot.nodes.length === 1 && first instanceof Text && isText) {
+  if (first === last && first instanceof Text && isText) {
     first.data = toText(value);
     return;
   }
@@ -84,8 +87,25 @@ function update(slot: Slot, _: unknown, value: unknown) {
   const anchor = document.createTextNode("");
   const nodes = document.createDocumentFragment();
   first.before(anchor);
-  slot.nodes.forEach((node) => node.remove());
+  if (last.parentNode === anchor.parentNode) relocate(first, last);
+  else slot.nodes.forEach((node) => node.remove());
   slot.nodes = render(value);
   place(nodes, slot);
   anchor.replaceWith(nodes);
+}
+
+/**
+ * Moves `first`, `last` and the nodes between them before `anchor`, or removes
+ * them when there is no `anchor`.
+ */
+export function relocate(
+  first: ChildNode,
+  last: ChildNode,
+  anchor?: ChildNode,
+) {
+  for (let node = first, next; ; node = next) {
+    next = node.nextSibling!;
+    anchor ? anchor.before(node) : node.remove();
+    if (node === last || !next) return;
+  }
 }

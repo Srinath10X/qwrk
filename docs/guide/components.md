@@ -122,7 +122,7 @@ SVG tags such as `<svg>`, `<path>` and `<circle>` are created as SVG elements, s
 
 - Strings and numbers render as text, including `0`.
 - `false`, `true`, `null` and `undefined` render nothing.
-- Arrays are flattened, so `items.map(...)` works.
+- Arrays are flattened, so a plain array's `items.map(...)` works.
 - A state renders its value and updates in place. It can hold text, a number, an element, a fragment or an array of them:
 
 ```jsx
@@ -135,19 +135,18 @@ view.value = [<p>One</p>, <p>Two</p>]; // swaps in both
 view.value = null; // clears it
 ```
 
-For lists and conditions that follow a state, use [`derive()`](/api/derive#lists).
+For lists that follow a state, use [`.map()`](/guide/lists). For conditions, use [`derive()`](/api/derive).
 
 ## Limitations
 
 Qwrk keeps its core small, so some things are deliberately not there yet:
 
-- **Plain expressions are evaluated once.** `{show.value && <p />}` and `{items.map(...)}` don't update when the state changes. Wrap them in [`derive()`](/api/derive).
-- **Lists re-render fully.** A derived list rebuilds every item on each change. That's fine for dozens of items, not thousands.
+- **Plain expressions are evaluated once.** `{show.value && <p />}` and `{todos.value.map(...)}` don't update when the state changes. Wrap conditions in [`derive()`](/api/derive), and render lists with [`todos.map(...)`](/guide/lists).
 - **Effects created outside a derive outlive their component.** `effect()` and `.effect()` created in a component that no derive renders keep running until you stop them. Inside a derive, or inside another effect's callback, they stop when that one runs again.
 
 ## Memory
 
-There's no unmount step. States hold their DOM bindings and derives weakly, so once a node leaves the page and nothing else references it, the browser's garbage collector frees it along with its subscriptions. For example, every `<li>` a derived list rebuilds away is freed, even when it shows a state the whole app shares.
+There's no unmount step. States hold their DOM bindings and derives weakly, so once a node leaves the page and nothing else references it, the browser's garbage collector frees it along with its subscriptions. For example, every `<li>` removed from a [list](/guide/lists) is freed, even when it shows a state the whole app shares.
 
 A node you keep a reference to, such as an element stored in a state, stays alive and keeps updating, so you can put it back in the page later.
 

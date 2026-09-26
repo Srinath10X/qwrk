@@ -1,3 +1,4 @@
+import { list } from "#qwrk/dom/list.js";
 import { deep, isPlain, toRaw } from "#qwrk/reactivity/deep.js";
 
 /** Called with the new and previous value after every change. */
@@ -8,6 +9,16 @@ export interface State<T> {
   value: T;
   /** Runs `fn` after every change. Returns a function that stops it. */
   effect(fn: Effect<T>): () => void;
+  /**
+   * Renders one row per item of the array, keyed by the item itself: `fn`
+   * runs once per new item, and a change only adds, removes and moves the
+   * rows that changed. Removing a row stops the derives and effects it
+   * created.
+   */
+  map<I>(
+    this: State<readonly I[] | null | undefined>,
+    fn: (item: I) => unknown,
+  ): DocumentFragment;
 }
 
 /** Updates a DOM binding's owner with the data given to {@link watch} and the new value. */
@@ -47,7 +58,11 @@ export interface Computation {
   p: Computation | null;
   /** 0 up to date, 1 stale, 2 running, 3 disposed. */
   q: number;
-  /** Derives only: their subscribers, value and version. */
+  /**
+   * Derives only: their subscribers, value and version. Lists and their rows
+   * have an unused `o` too, so that, like a derive, they own the derives
+   * created in them.
+   */
   o?: Set<Entry>;
   _?: unknown;
   v?: number;
@@ -120,6 +135,10 @@ class Signal<T> {
       this._ = next;
       touch(this);
     }
+  }
+
+  map(fn: (item: any) => unknown) {
+    return list(this, fn);
   }
 
   effect(fn: Effect<T>) {
@@ -348,17 +367,17 @@ export function dispose(node: Computation) {
 }
 
 /**
- * Makes `node` a derive or an effect, owned by the running one, if any: a
- * derive owns derives and effects, an effect owns only effects. A disposed one
- * owns nothing, since it will never stop what it created.
+ * Makes `node` a derive, an effect or a list, owned by the running derive,
+ * effect or list row, if any: an effect owns only effects, the others own all
+ * three. A disposed one owns nothing, since it will never stop what it
+ * created.
  */
 export function computation<T extends object>(
   node: T,
   fn: () => unknown,
   deps?: unknown[],
 ): T & Computation {
-  const parent =
-    owner?.q != 3 && (owner?.o || !(node instanceof Signal)) ? owner : null;
+  const parent = owner?.q != 3 && (owner?.o || !(node as any).o) ? owner : null;
   const created = Object.assign(node, {
     f: fn,
     s: new Map(),
@@ -448,13 +467,28 @@ export function watch<T, O extends object, D = undefined>(
  * Runs `fn` without collecting the states it reads.
  */
 export function untrack<T>(fn: () => T): T {
-  const outer = reads;
+  return own(owner, fn);
+}
+
+/**
+ * Calls `fn(arg)` without collecting the states it reads, with `scope` owning
+ * the derives and effects it creates.
+ */
+export function own<A, T>(
+  scope: Computation | null,
+  fn: (arg?: A) => T,
+  arg?: A,
+): T {
+  const outerReads = reads;
+  const outerOwner = owner;
   reads = null;
+  owner = scope;
 
   try {
-    return fn();
+    return fn(arg);
   } finally {
-    reads = outer;
+    reads = outerReads;
+    owner = outerOwner;
   }
 }
 

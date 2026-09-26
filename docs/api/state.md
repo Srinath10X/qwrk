@@ -79,6 +79,37 @@ export default function App() {
 
 States work as attributes too: `<button disabled={isSaving}>`. See [Components & JSX](/guide/components#attributes).
 
+## Lists
+
+`.map(fn)` renders an array state as a list that updates in place:
+
+```jsx
+const todos = state([{ text: "Write docs" }, { text: "Ship it" }]);
+
+<ul>
+  {todos.map((todo) => (
+    <li>{todo.text}</li>
+  ))}
+</ul>;
+
+todos.value.push({ text: "Celebrate" }); // adds one <li>
+```
+
+Rows are keyed by the items themselves, compared with `===`: numbers and strings by value, objects by identity, so an object and its proxy count as the same item.
+
+- `fn` runs once per new item. An item that stays keeps its row and its DOM nodes, so an input keeps its value and focus while other rows move.
+- A change only adds, removes and moves the rows that changed: a `push` inserts one row, swapping two items moves two rows, a `splice` removes one.
+- Replacing an item with a new object, even an equal one, rebuilds its row. Change the object in place instead, or keep the same objects when you build a new array: `todos.value = todos.value.filter((todo) => !todo.done)`.
+- The same item twice renders two rows.
+- `fn` receives the item as reading `todos.value[i]` returns it, so `todo.done = true` notifies `todos`. There is no index argument, since the index changes whenever rows move.
+- Reading `todo.text` inside a derive or an effect subscribes it to all of `todos`, like reading `todos.value` would. Read it once in `fn` when it doesn't change.
+- Removing a row stops the derives and effects its `fn` created. A list created while a derive runs stops when the derive runs again.
+- `null` and `undefined` render nothing.
+
+`.map()` returns a `DocumentFragment` holding the rows between two empty text nodes that mark the list's place. It works anywhere a node does: as a JSX child, in `root.append(...)`, or as the value of a derive.
+
+A derive that maps the array, `derive(() => todos.value.map(...))`, still works, but rebuilds every row on each change. See [Lists](/guide/lists).
+
 ## Subscribing to changes
 
 `.effect(fn)` runs `fn` after every change, after the DOM is updated, with the new and previous values:
@@ -108,7 +139,7 @@ To run code once after mount as well as on changes, use [`effect()`](/api/effect
 
 ## TypeScript
 
-`state` infers its type from the initial value, or you can set it explicitly. The `State<T>` type is exported:
+`state` infers its type from the initial value, or you can set it explicitly. `.map()` only type-checks on states of arrays, which may also be `null` or `undefined`. The `State<T>` type is exported:
 
 ```ts
 import { state, type State } from "qwrk";

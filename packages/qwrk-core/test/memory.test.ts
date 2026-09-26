@@ -18,6 +18,52 @@ async function collect() {
 }
 
 describe("memory", () => {
+  it("frees a keyed list swapped out by a derive, and its removed rows", async () => {
+    const page = state(0);
+    const tick = state(0);
+    const todos = state([{ n: 0 }, { n: 1 }, { n: 2 }]);
+    let runs = 0;
+    let freed = 0;
+    const registry = new FinalizationRegistry(() => freed++);
+    const root = h(
+      "div",
+      null,
+      derive(() =>
+        page.value === 0
+          ? h(
+              "ul",
+              null,
+              todos.map((todo) => {
+                const li = h("li", { title: tick }, todo.n);
+                registry.register(li, null);
+                effect(() => (tick.value, runs++));
+                return li;
+              }),
+            )
+          : "gone",
+      ),
+    );
+    document.body.append(root);
+    await new Promise((resolve) => setTimeout(resolve));
+
+    todos.value.shift();
+    await collect();
+    expect(freed).toBe(1);
+
+    page.value = 1;
+    todos.value.push({ n: 3 });
+    runs = 0;
+    tick.value++;
+    await collect();
+
+    expect(root.textContent).toBe("gone");
+    expect(runs).toBe(0);
+    expect(freed).toBe(3);
+    expect((tick as any).o.size).toBe(0);
+    expect((todos as any).o.size).toBe(0);
+    root.remove();
+  });
+
   it("frees list items that were rebuilt away, even when they bind a shared state", async () => {
     const count = state(0);
     const todos = state([0]);
