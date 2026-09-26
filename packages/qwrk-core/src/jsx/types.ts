@@ -1,4 +1,4 @@
-import type { State } from "#/reactivity/state.js";
+import type { State } from "#qwrk/reactivity/state.js";
 
 /** A plain value, or a state that keeps the attribute in sync. */
 type Reactive<T> = T | State<T>;

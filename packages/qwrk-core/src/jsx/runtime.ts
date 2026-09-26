@@ -1,5 +1,6 @@
-import { createElement, fragment } from "#/dom/createElement.js";
-import type { IntrinsicElements as Elements } from "#/jsx/types.js";
+import { build, fragment } from "#qwrk/dom/createElement.js";
+import type { IntrinsicElements as Elements } from "#qwrk/jsx/types.js";
+import { untrack } from "#qwrk/reactivity/state.js";
 
 /**
  * Automatic JSX runtime entry, used when a bundler is configured with
@@ -9,11 +10,16 @@ import type { IntrinsicElements as Elements } from "#/jsx/types.js";
  * @param props - Props including `children`.
  */
 export function jsx(tag: any, { children, ...props }: Record<string, any>) {
-  if (children === undefined) return createElement(tag, props);
-  return createElement(
-    tag,
-    props,
-    ...(Array.isArray(children) ? children : [children]),
+  return untrack(() =>
+    build(
+      tag,
+      props,
+      children === undefined
+        ? []
+        : Array.isArray(children)
+          ? children
+          : [children],
+    ),
   );
 }
 

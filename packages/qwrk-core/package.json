@@ -30,7 +30,7 @@
     "vitest": "^5.0.1"
   },
   "imports": {
-    "#/*": "./dist/*"
+    "#qwrk/*": "./dist/*"
   },
   "exports": {
     ".": {

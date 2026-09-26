@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { state } from "../dist/index.js";
+import { derive, state } from "../dist/index.js";
 
 describe("state", () => {
-  it("notifies with the new and old value on every write", () => {
+  it("notifies with the new and old value on every change", () => {
     const count = state(0);
     const fn = vi.fn();
     count.effect(fn);
@@ -10,10 +10,7 @@ describe("state", () => {
     count.value = 1;
     count.value = 1;
 
-    expect(fn.mock.calls).toEqual([
-      [1, 0],
-      [1, 1],
-    ]);
+    expect(fn.mock.calls).toEqual([[1, 0]]);
   });
 
   it("stops notifying after unsubscribe", () => {
@@ -85,5 +82,137 @@ describe("state", () => {
     expect(state(map).value).toBe(map);
     expect(state(date).value).toBe(date);
     expect(state(node).value).toBe(node);
+  });
+
+  it("never wraps a state stored in a state", () => {
+    const label = state("a");
+    const rows = state([{ label }]);
+    const outer = vi.fn();
+    const inner = vi.fn();
+    rows.effect(outer);
+    label.effect(inner);
+
+    expect(rows.value[0].label).toBe(label);
+    rows.value[0].label.value = "b";
+
+    expect(outer).not.toHaveBeenCalled();
+    expect(inner).toHaveBeenCalledOnce();
+  });
+
+  it("finds raw objects and proxies", () => {
+    const item = { id: 1 };
+    const list = state<{ id: number }[]>([]);
+    list.value.push(item, { id: 2 }, item);
+
+    expect(list.value.includes(item)).toBe(true);
+    expect(list.value.indexOf(item)).toBe(0);
+    expect(list.value.lastIndexOf(item)).toBe(2);
+    expect(list.value.lastIndexOf(item, 1)).toBe(0);
+    expect(list.value.indexOf(list.value[1])).toBe(1);
+    expect(list.value[0]).toBe(list.value[2]);
+  });
+
+  it("finds items after assigning an array built from proxies", () => {
+    const a = { id: 1 };
+    const list = state([a, { id: 2 }]);
+    const first = list.value[0];
+    list.value = list.value.filter((item) => item.id !== 2);
+
+    expect(list.value[0]).toBe(first);
+    expect(list.value.indexOf(a)).toBe(0);
+    expect(list.value.includes(first)).toBe(true);
+  });
+
+  it("skips writes of an equal primitive", () => {
+    const count = state(1);
+    const nan = state(NaN);
+    const fn = vi.fn();
+    count.effect(fn);
+    nan.effect(fn);
+
+    count.value = 1;
+    nan.value = NaN;
+
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("skips deep writes of an equal value, not new keys or deletes", () => {
+    const obj = state<Record<string, unknown>>({ n: 1 });
+    const fn = vi.fn();
+    obj.effect(fn);
+
+    obj.value.n = 1;
+    delete obj.value.missing;
+    expect(fn).not.toHaveBeenCalled();
+
+    obj.value.added = undefined;
+    delete obj.value.n;
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it("doesn't notify when the same object is assigned again", () => {
+    const tags = state(new Set<string>());
+    const fn = vi.fn();
+    tags.effect(fn);
+
+    tags.value.add("a");
+    tags.value = tags.value;
+
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("doesn't notify when an array or object is assigned to itself", () => {
+    const todos = state([{ done: false }]);
+    const user = state({ name: "Ada" });
+    const fn = vi.fn();
+    todos.effect(fn);
+    user.effect(fn);
+
+    todos.value = todos.value;
+    user.value = user.value;
+
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("passes the value its own write left as the next oldValue", () => {
+    const count = state(0);
+    const seen: number[][] = [];
+    count.effect((value, oldValue) => {
+      seen.push([value, oldValue]);
+      if (value > 10) count.value = 10;
+    });
+
+    count.value = 11;
+    count.value = 5;
+
+    expect(seen).toEqual([
+      [11, 0],
+      [5, 10],
+    ]);
+  });
+
+  it("tracks reads through a proxy captured outside the derive", () => {
+    const todos = state([{ text: "a" }]);
+    const todo = todos.value[0];
+    const upper = derive(() => todo.text.toUpperCase());
+
+    todo.text = "b";
+
+    expect(upper.value).toBe("B");
+  });
+
+  it("skips writing back an item of an array built from proxies", () => {
+    const list = state([{ id: 1 }, { id: 2 }]);
+    const obj = state({ child: { x: 1 } });
+    list.value = list.value.filter((item) => item.id > 0);
+    obj.value = { ...obj.value };
+    const fn = vi.fn();
+    list.effect(fn);
+    obj.effect(fn);
+
+    list.value[0] = list.value[0];
+    obj.value.child = obj.value.child;
+
+    expect(fn).not.toHaveBeenCalled();
   });
 });

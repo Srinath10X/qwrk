@@ -37,6 +37,8 @@ document.getElementById("root").append(<Counter />);
 
 Dependencies are detected on every run, like [`derive()`](/api/derive#dependencies).
 
+Effects run after derives settle and the DOM is updated, before the write that triggered them returns.
+
 An effect that writes a state it reads doesn't trigger itself again, so `effect(() => { if (count.value > 10) count.value = 10; })` is safe.
 
 ## When the first run happens
@@ -56,6 +58,19 @@ const stop = effect(() => console.log(count.value));
 stop(); // no more runs
 ```
 
+An effect also stops on its own in two cases:
+
+- An effect created while a derive runs, such as in a component a derive renders (a list item, conditional content), stops when that derive runs again. See [Ownership](/api/derive#ownership).
+- An effect or `.effect()` created while another effect or `.effect()` callback runs, including in a component it appends, stops when the outer one re-runs. If the outer one never runs again (`effect(fn, [])`, or one that stopped itself before creating it), the inner one lives until you stop it.
+
+Derives created while an effect runs don't stop with it: like any derive rendered in the page, they keep updating for as long as their DOM exists.
+
 ::: warning
-An effect lives until you stop it, even after its component leaves the page. DOM bindings and `derive()` clean up on their own (see [Memory](/guide/components#memory)), but an effect is a side effect you asked for, so Qwrk never drops it silently. Stop effects you create inside list items or other content that comes and goes.
+Any other effect lives until you stop it, even after its component leaves the page. An effect is a side effect you asked for, so Qwrk never drops it silently.
 :::
+
+## Errors
+
+An effect that throws doesn't stop the others: every subscriber still runs, and the first error is rethrown by the write that triggered it.
+
+Two effects that keep writing each other's states would never settle, so after 1000 rounds the write throws `Error("qwrk: update loop")` instead of hanging.

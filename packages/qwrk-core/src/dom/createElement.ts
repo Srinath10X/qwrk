@@ -1,6 +1,6 @@
-import { bindAttribute } from "#/dom/attributes.js";
-import { toNodes } from "#/dom/children.js";
-import { untrack } from "#/reactivity/state.js";
+import { bindAttribute } from "#qwrk/dom/attributes.js";
+import { append } from "#qwrk/dom/children.js";
+import { untrack } from "#qwrk/reactivity/state.js";
 
 /** Marks a JSX fragment (`<>...</>`): its children are returned in a `DocumentFragment`. */
 export const fragment = Symbol("fragment");
@@ -43,14 +43,15 @@ export function createElement(
   return untrack(() => build(tag, props, children));
 }
 
-function build(
+/** {@link createElement} with the children in an array, of any length. */
+export function build(
   tag: string | Component | typeof fragment,
   props: Props | null,
   children: unknown[],
 ) {
   if (tag === fragment) {
     const nodes = document.createDocumentFragment();
-    nodes.append(...toNodes(children));
+    append(nodes, children);
     return nodes;
   }
   if (typeof tag === "function") return tag({ ...props, children });
@@ -60,9 +61,10 @@ function build(
       ? document.createElementNS("http://www.w3.org/2000/svg", tag)
       : document.createElement(tag);
 
-  element.append(...toNodes(children));
+  append(element, children);
 
-  for (const [key, value] of Object.entries(props ?? {})) {
+  for (const key in props) {
+    const value = props[key];
     if (key.startsWith("on") && typeof value === "function") {
       element.addEventListener(key.slice(2).toLowerCase(), value);
     } else {

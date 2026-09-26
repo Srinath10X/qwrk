@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createElement as h, derive, effect, state } from "../dist/index.js";
+import {
+  createElement as h,
+  derive,
+  effect,
+  state,
+  type State,
+} from "../dist/index.js";
 
 declare const gc: () => void;
 
@@ -62,5 +68,177 @@ describe("memory", () => {
     count.value = 2;
 
     expect(seen).toEqual([3, 4, 6]);
+  });
+
+  it("releases a state a derive stopped reading", async () => {
+    let freed = 0;
+    const registry = new FinalizationRegistry(() => freed++);
+    const useA = state(true);
+    const b = state(2);
+    const holder: { a: State<number> | null } = { a: state(1) };
+    registry.register(holder.a!, null);
+    const picked = derive(() => (useA.value ? holder.a!.value : b.value));
+
+    useA.value = false;
+    holder.a = null;
+    await collect();
+
+    expect(picked.value).toBe(2);
+    expect(freed).toBe(1);
+  });
+
+  it("frees what a one-shot effect captured", async () => {
+    let freed = 0;
+    const registry = new FinalizationRegistry(() => freed++);
+
+    for (let i = 0; i < 50; i++) {
+      const p = h("p", null);
+      effect(() => p.setAttribute("id", "x"), []);
+      registry.register(p, null);
+    }
+    await collect();
+
+    expect(freed).toBeGreaterThan(40);
+  });
+
+  it("drops subscriptions of collected DOM on a state that is never written", async () => {
+    const count = state(0);
+    let most = 0;
+
+    for (let round = 0; round < 40; round++) {
+      for (let i = 0; i < 100; i++) h("p", { title: count }, count);
+      gc();
+      await new Promise((resolve) => setTimeout(resolve));
+      gc();
+      most = Math.max(most, (count as any).o.size);
+    }
+
+    expect(most).toBeLessThan(420);
+  });
+
+  it("drops subscriptions of collected DOM and derives after a burst, without a write", async () => {
+    const theme = state("light");
+    const main = h("main", null);
+
+    for (let i = 0; i < 2000; i++) {
+      main.append(
+        h(
+          "p",
+          { title: theme },
+          derive(() => theme.value + i),
+        ),
+      );
+    }
+    main.replaceChildren();
+    await collect();
+
+    expect((theme as any).o.size).toBeLessThan(20);
+  });
+
+  it("stops the effects of a derive's output dropped without a re-run", async () => {
+    const tick = state(0);
+    let runs = 0;
+
+    function Row() {
+      effect(() => (tick.value, runs++));
+      return h("li", null);
+    }
+
+    let ul: Node | null = h(
+      "ul",
+      null,
+      derive(() => [1, 2, 3].map(() => h(Row, null))),
+    );
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(runs).toBe(3);
+    ul = null;
+    await collect();
+    tick.value++;
+
+    expect(ul).toBeNull();
+    expect(runs).toBe(3);
+  });
+
+  it("frees what a one-shot effect's derives and stopped effects captured", async () => {
+    const width = state(1);
+    const stops: (() => void)[] = [];
+    let runs = 0;
+    let freed = 0;
+    const registry = new FinalizationRegistry(() => freed++);
+
+    for (let i = 0; i < 50; i++) {
+      const div = h("div", null);
+      effect(() => {
+        const doubled = derive(() => (runs++, width.value * 2));
+        div.append(h("span", null, doubled));
+        stops.push(effect(() => div.setAttribute("title", `${width.value}`)));
+      }, []);
+      registry.register(div, null);
+    }
+    await new Promise((resolve) => setTimeout(resolve));
+    stops.forEach((stop) => stop());
+    stops.length = 0;
+    await collect();
+    runs = 0;
+    width.value = 2;
+
+    expect(freed).toBeGreaterThan(40);
+    expect(runs).toBeLessThan(10);
+  });
+
+  it("keeps effects created inside an effect with no dependencies alive", async () => {
+    const count = state(0);
+    const seen: number[] = [];
+    const watched: number[] = [];
+    effect(() => {
+      effect(() => seen.push(count.value));
+    }, []);
+    effect(() => {
+      count.effect((value) => watched.push(value));
+    });
+
+    await new Promise((resolve) => setTimeout(resolve));
+    count.value = 1;
+    await collect();
+    count.value = 2;
+
+    expect(seen).toEqual([0, 1, 2]);
+    expect(watched).toEqual([1, 2]);
+  });
+
+  it("frees the output of a disposed derive while one of its effects is held", async () => {
+    const page = state(0);
+    const tick = state(0);
+    const stops: (() => void)[] = [];
+    let freed = 0;
+    const registry = new FinalizationRegistry(() => freed++);
+
+    function Row({ i }: { i: number }) {
+      if (i === 0) stops.push(effect(() => tick.value));
+      const li = h("li", null, i);
+      registry.register(li, null);
+      return li;
+    }
+
+    const root = h(
+      "div",
+      null,
+      derive(() =>
+        page.value === 0
+          ? h(
+              "ul",
+              null,
+              derive(() => [0, 1, 2, 3, 4].map((i) => h(Row, { i }))),
+            )
+          : "gone",
+      ),
+    );
+    await new Promise((resolve) => setTimeout(resolve));
+    page.value = 1;
+    await collect();
+
+    expect(root.textContent).toBe("gone");
+    expect(stops).toHaveLength(1);
+    expect(freed).toBe(5);
   });
 });
