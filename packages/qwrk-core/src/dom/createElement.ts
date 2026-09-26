@@ -1,6 +1,16 @@
 import { bindAttribute } from "#qwrk/dom/attributes.js";
 import { append } from "#qwrk/dom/children.js";
-import { untrack } from "#qwrk/reactivity/state.js";
+import { list } from "#qwrk/dom/list.js";
+import { Signal, untrack, type State } from "#qwrk/reactivity/state.js";
+
+/**
+ * Adds {@link State.map} to states. It lives here, with the rest of the
+ * runtime JSX, so that compiled apps, which import the list helper directly,
+ * only ship lists when they render one.
+ */
+Signal.prototype.map = function (this: State<any>, fn: (item: any) => unknown) {
+  return list(this, fn);
+};
 
 /** Marks a JSX fragment (`<>...</>`): its children are returned in a `DocumentFragment`. */
 export const fragment = Symbol("fragment");

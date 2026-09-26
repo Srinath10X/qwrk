@@ -1,14 +1,25 @@
-import { list } from "#qwrk/dom/list.js";
 import { deep, isPlain, toRaw } from "#qwrk/reactivity/deep.js";
 
 /** Called with the new and previous value after every change. */
 export type Effect<T> = (value: T, oldValue: T) => void;
 
-/** A reactive value created by {@link state} or {@link derive}. */
+/**
+ * A reactive value created by {@link state} or {@link derive}.
+ *
+ * `map` is added by the module that renders JSX at runtime, and compiled JSX
+ * imports it as a function, so an app that renders no list doesn't ship it.
+ */
 export interface State<T> {
   value: T;
   /** Runs `fn` after every change. Returns a function that stops it. */
   effect(fn: Effect<T>): () => void;
+  /**
+   * Whether the value is `key`, compared unwrapped with `Object.is`. In a
+   * derive, an effect or a compiled JSX expression, it re-runs only when the
+   * answer changes: a write re-runs the readers of the old and the new value
+   * only. The compiler turns `a.value === b` in JSX into it.
+   */
+  is(key: unknown): boolean;
   /**
    * Renders one row per item of the array, keyed by the item itself: `fn`
    * runs once per new item, and a change only adds, removes and moves the
@@ -31,8 +42,10 @@ type Listener = (owner: any, data: any, value: any) => void;
  */
 interface Entry {
   r: WeakRef<object>;
-  /** The subscriptions of the source it belongs to. */
-  o: Set<Entry>;
+  /** The subscriptions of the source it belongs to, or the key it belongs to. */
+  o: Entry[] | Key;
+  /** Its position in them. */
+  i: number;
   /** DOM bindings only: updates the owner. */
   f?: Listener;
   /** DOM bindings only: passed to `f`. */
@@ -42,34 +55,33 @@ interface Entry {
 }
 
 /**
- * A derive or an effect. Its fields live on the derive's state, or on a plain
- * object for effects.
+ * A derive, an effect or a DOM binding. Its fields live on the derive's state,
+ * or on a plain object for the others.
  */
 export interface Computation {
   /** Runs it. A derive's value is the result. */
   f: () => unknown;
-  /** The states it depends on, with their subscriptions. */
-  s: Map<Signal<any>, Entry>;
+  /** The states it depends on, each followed by its subscription. */
+  s: any[];
   /** Explicit dependencies, instead of tracking reads. */
   d?: Set<Signal<any>>;
-  /** The derives and effects its last run created. */
-  c: Computation[];
+  /** What its last run created, once it created something. */
+  c?: Computation[];
   /** The computation whose run created it. */
   p: Computation | null;
   /** 0 up to date, 1 stale, 2 running, 3 disposed. */
   q: number;
-  /**
-   * Derives only: their subscribers, value and version. Lists and their rows
-   * have an unused `o` too, so that, like a derive, they own the derives
-   * created in them.
-   */
-  o?: Set<Entry>;
+  /** Derives only: their subscribers, value and version. */
+  o?: Entry[];
   _?: unknown;
   v?: number;
+  /** Effects only: they run after the DOM bindings, and own only effects. */
+  e?: 1;
 }
 
 const KEEP = Symbol();
 const REF = Symbol();
+const NONE: any[] = [];
 
 /**
  * States read while a derive or an effect runs, with their version when first
@@ -90,8 +102,8 @@ let owner: Computation | null = null;
 let depth = 0;
 
 /**
- * Stale derives, DOM bindings with their source, and stale effects, run in
- * that order.
+ * Stale derives, DOM bindings (with their source, or stale ones), and stale
+ * effects, run in that order.
  */
 const queue: any[] = [new Set(), new Map(), new Set()];
 
@@ -117,7 +129,11 @@ class Signal<T> {
   /** Bumped on every change. */
   v = 0;
   /** Subscriptions. */
-  o = new Set<Entry>();
+  o: Entry[] = NONE;
+  /** The subscriptions of each key read with {@link is}. */
+  declare k?: Map<unknown, Key>;
+  /** Added by the module that renders JSX at runtime, see {@link State}. */
+  declare map: State<T>["map"];
 
   constructor(value: T) {
     this._ = toRaw(value);
@@ -130,15 +146,13 @@ class Signal<T> {
   }
 
   set value(next: T) {
+    const old = this._;
     next = toRaw(next);
-    if (!Object.is(this._, next)) {
+    if (!Object.is(old, next)) {
       this._ = next;
+      this.k && select(this, old);
       touch(this);
     }
-  }
-
-  map(fn: (item: any) => unknown) {
-    return list(this, fn);
   }
 
   effect(fn: Effect<T>) {
@@ -152,14 +166,32 @@ class Signal<T> {
       }
     }, [this]);
   }
+
+  is(key: unknown) {
+    return is(this, key);
+  }
 }
 
 /** Records that `source` changed and notifies its subscribers. */
 export function touch(source: Signal<any>) {
+  mark(source);
+  depth || flush();
+}
+
+/** Bumps the version of a state or a key, and notifies its subscribers. */
+export function mark(source: Signal<any>) {
   source.v++;
   if (seen?.has(source)) seen.set(source, source.v);
   notify(source);
-  depth || flush();
+}
+
+/** Notifies the readers of the old and the new key of a changed state. */
+function select(source: Signal<any>, old: unknown) {
+  const keys = source.k!;
+  const before = keys.get(old);
+  const after = keys.get(source._);
+  if (before) mark(before as any);
+  if (after && after !== before) mark(after as any);
 }
 
 /** Tracks `source` as a dependency of the running derive or effect. */
@@ -167,32 +199,48 @@ export function track(source: Signal<any>) {
   if (reads && !reads.has(source)) reads.set(source, source.v);
 }
 
-/** Returns the raw value of `source`, up to date, without tracking it. */
+/** Returns the raw value of `source`, up to date, without tracking it. Signals hold their value, so only derives refresh. */
 export function peek<T>(source: State<T>): T {
-  refresh(source as any);
-  return toRaw((source as Signal<T>)._);
+  const signal = source as Signal<T>;
+  if ((signal as unknown as { q?: number }).q === undefined)
+    return toRaw(signal._);
+  refresh(signal as any);
+  return toRaw(signal._);
 }
 
 /**
- * Queues `source`'s DOM bindings, and marks its derives and effects stale,
+ * Queues `source`'s DOM bindings, and marks its computations stale,
  * with everything that depends on them. With `deep`, DOM bindings are
  * skipped: a stale derive queues its own once its value actually changes.
  */
 function notify(source: Signal<any>, deep?: boolean) {
-  for (const entry of source.o) {
+  const entries = source.o;
+
+  for (let i = 0; i < entries.length;) {
+    const entry = entries[i];
     const sub = entry.r.deref() as Computation | undefined;
 
-    if (!sub) source.o.delete(entry);
-    else if (entry.f) deep || queue[1].set(entry, source);
+    if (!sub) {
+      unlink(entry);
+      continue;
+    }
+    if (entry.f) deep || queue[1].set(entry, source);
     else if (!sub.q) stale(sub);
+    i++;
   }
 }
 
-/** Marks a derive or an effect stale and queues it, with what depends on it. */
+/** Marks a computation stale and queues it, with what depends on it. */
 function stale(node: Computation) {
   node.q = 1;
-  queue[node.o ? 0 : 2].add(node);
-  if (node.o) notify(node as any, true);
+  if (node.o) {
+    queue[0].add(node);
+    notify(node as any, true);
+  } else if (node.e) {
+    queue[2].add(node);
+  } else {
+    queue[1].set(node);
+  }
 }
 
 /**
@@ -271,12 +319,13 @@ function refresh(node: Computation) {
       node.q = 2;
 
       try {
-        for (const [source, entry] of node.s) {
-          refresh(source as any);
-          if (entry.v != source.v) return run(node);
+        const { s } = node;
+        for (let i = 0; i < s.length; i += 2) {
+          refresh(s[i]);
+          if (s[i + 1].v != s[i].v) return run(node);
         }
-        for (const [source, entry] of node.s) {
-          if (entry.v != source.v) return run(node);
+        for (let i = 0; i < s.length; i += 2) {
+          if (s[i + 1].v != s[i].v) return run(node);
         }
       } finally {
         if (node.q == 2) node.q = 0;
@@ -296,6 +345,7 @@ function refresh(node: Computation) {
  */
 export function run(node: Computation) {
   if (node.q == 3) return;
+  const old = node._;
   const reading = new Map<Signal<any>, number>();
   const outerReads = reads;
   const outerSeen = seen;
@@ -304,14 +354,15 @@ export function run(node: Computation) {
   depth++;
 
   try {
-    node.c.length && node.c.splice(0).forEach(dispose);
+    node.c?.length && node.c.splice(0).forEach(dispose);
     node.q = 2;
     reads = node.d ? null : reading;
     seen = reading;
     owner = node;
     const value = node.f();
-    if (node.o && (!Object.is(node._, value) || isPlain(value))) {
+    if (node.o && (!Object.is(old, value) || isPlain(value))) {
       node._ = value;
+      (node as any).k && select(node as any, old);
       touch(node as any);
     }
   } finally {
@@ -322,19 +373,10 @@ export function run(node: Computation) {
     if (node.q == 2) {
       node.q = 0;
       node.d?.forEach((source) => reading.set(source, source.v));
-      node.s.forEach(
-        (entry, source) =>
-          reading.has(source) || (unlink(entry), node.s.delete(source)),
-      );
-      reading.forEach((version, source) => {
-        let entry = node.s.get(source);
-        if (!entry) node.s.set(source, (entry = link(source, node)));
-        entry.v = version;
-        version == source.v || node.q || stale(node);
-      });
+      subscribe(node, reading);
 
-      if (!node.s.size && !node.o && !node.p) {
-        node.c.splice(0).forEach(adopt);
+      if (!node.s.length && node.e && !node.p) {
+        node.c?.splice(0).forEach((child) => adopt(child, null));
         roots.delete(node);
       }
     }
@@ -343,11 +385,47 @@ export function run(node: Computation) {
   }
 }
 
-/** Makes an effect whose owner will never re-run a root, alive until stopped. */
-function adopt(node: Computation) {
+/**
+ * Replaces the dependencies of `node` with the states it just read, keeping
+ * the subscriptions it still needs, in an array of the exact size.
+ */
+function subscribe(node: Computation, reading: Map<Signal<any>, number>) {
+  const old = node.s;
+  const s = (node.s = reading.size ? Array(reading.size * 2) : NONE);
+  let n = 0;
+
+  for (let i = 0; i < old.length; i += 2) {
+    const version = reading.get(old[i]);
+
+    if (version === undefined) {
+      unlink(old[i + 1]);
+    } else {
+      reading.delete(old[i]);
+      old[i + 1].v = version;
+      s[n++] = old[i];
+      s[n++] = old[i + 1];
+    }
+  }
+  reading.forEach((version, source) => {
+    s[n++] = source;
+    s[n++] = link(source, node);
+    s[n - 1].v = version;
+  });
+  for (let i = 0; i < n; i += 2) {
+    s[i + 1].v == s[i].v || node.q || stale(node);
+  }
+}
+
+/**
+ * Hands `node` over to `parent`, since its owner will never re-run. Without a
+ * parent, an effect becomes a root, alive until stopped, and the rest live as
+ * long as their DOM.
+ */
+function adopt(node: Computation, parent: Computation | null) {
   if (node.q != 3) {
-    node.p = null;
-    roots.add(node);
+    node.p = parent;
+    if (parent) attach(parent, node);
+    else if (node.e) roots.add(node);
   }
 }
 
@@ -359,35 +437,69 @@ export function dispose(node: Computation) {
   if (node.q != 3) {
     node.q = 3;
     node.p = null;
-    node.c.splice(0).forEach(dispose);
-    node.s.forEach(unlink);
-    node.s.clear();
+    node.c?.splice(0).forEach(dispose);
+    for (let i = 1; i < node.s.length; i += 2) unlink(node.s[i]);
+    node.s = NONE;
     roots.delete(node);
   }
 }
 
 /**
- * Makes `node` a derive, an effect or a list, owned by the running derive,
- * effect or list row, if any: an effect owns only effects, the others own all
- * three. A disposed one owns nothing, since it will never stop what it
- * created.
+ * Makes `node` a derive, an effect or a list, owned by the running
+ * computation or list row, if any: an effect owns only effects, the others
+ * own everything. A disposed one owns nothing, since it will never stop what
+ * it created.
  */
 export function computation<T extends object>(
   node: T,
   fn: () => unknown,
   deps?: unknown[],
 ): T & Computation {
-  const parent = owner?.q != 3 && (owner?.o || !(node as any).o) ? owner : null;
+  const parent = owner?.q != 3 && (!owner?.e || (node as any).e) ? owner : null;
   const created = Object.assign(node, {
     f: fn,
-    s: new Map(),
+    s: NONE,
     d: deps && new Set(deps.filter(isReactive) as Signal<any>[]),
-    c: [],
     p: parent,
     q: 0,
   });
-  parent?.c.push(created);
+  if (parent) attach(parent, created);
   return created;
+}
+
+/**
+ * A DOM binding: a computation whose `f` updates the DOM, and that runs
+ * before the effects. Subclasses add the fields `f` reads, so a binding is one
+ * object, without closures.
+ */
+export abstract class Binding implements Computation {
+  s = NONE;
+  p: Computation | null = null;
+  q = 0;
+  c?: Computation[] = undefined;
+  [REF]?: WeakRef<object> = undefined;
+  abstract f(): unknown;
+}
+
+/**
+ * Runs `node` now, and again whenever a state it read changes. The running
+ * derive, binding or list row owns it, like a derive, and when there is none,
+ * `holder` keeps it alive. One that read no state will never run again, so it
+ * hands what it created over to its owner.
+ */
+export function bind(node: Binding, holder?: object) {
+  const parent = owner?.q != 3 && !owner?.e ? owner : null;
+  node.p = parent;
+  run(node);
+
+  if (!node.s.length) {
+    node.q = 3;
+    node.c?.splice(0).forEach((child) => adopt(child, parent));
+  } else if (parent) {
+    attach(parent, node);
+  } else if (holder) {
+    retain(holder, node);
+  }
 }
 
 /**
@@ -397,7 +509,7 @@ export function computation<T extends object>(
  * @returns A function that stops it.
  */
 export function watcher(fn: () => void, deps?: unknown[], mounted?: boolean) {
-  const node = computation({}, fn, deps);
+  const node = computation({ e: 1 }, fn, deps);
   node.p || roots.add(node);
 
   function start() {
@@ -414,24 +526,51 @@ export function watcher(fn: () => void, deps?: unknown[], mounted?: boolean) {
   return () => dispose(node);
 }
 
+/** Adds `node` to what `parent` created. */
+function attach(parent: Computation, node: Computation) {
+  if (parent.c) parent.c.push(node);
+  else parent.c = [node];
+}
+
 /**
  * Subscribes `owner` to `source`, weakly, until it is unlinked or `owner` is
- * garbage collected.
+ * garbage collected. A key that left its map goes back in.
  */
-function link(source: Signal<any>, owner: object, f?: Listener, d?: unknown) {
-  const entry: Entry = {
-    r: ((owner as any)[REF] ??= new WeakRef(owner)),
-    o: source.o,
-    f,
-    d,
-  };
-  source.o.add(entry);
+function link(
+  source: Signal<any> | Key,
+  owner: object,
+  f?: Listener,
+  d?: unknown,
+) {
+  const key = source instanceof Key;
+  const r = ((owner as any)[REF] ??= new WeakRef(owner));
+  const o = source.o;
+  const entry: Entry = f ? { r, o, i: o.length, f, d } : { r, o, i: o.length };
+
+  if (entry.i) source.o.push(entry);
+  else entry.o = source.o = [entry];
+  if (key) {
+    entry.o = source;
+    if (!source.m.has(source.k)) source.m.set(source.k, source);
+  }
   registry.register(owner, entry, f ? undefined : entry);
   return entry;
 }
 
+/**
+ * Drops a subscription, moving the last one into its place. A key left
+ * without any leaves its map.
+ */
 function unlink(entry: Entry) {
-  entry.o.delete(entry);
+  const holder = entry.o;
+  const entries = holder instanceof Key ? holder.o : holder;
+  const i = entry.i;
+
+  if (entries[i] === entry) {
+    const last = entries.pop()!;
+    if (last !== entry) (entries[i] = last).i = i;
+    if (!entries.length && holder instanceof Key) holder.m.delete(holder.k);
+  }
   registry.unregister(entry);
 }
 
@@ -464,10 +603,50 @@ export function watch<T, O extends object, D = undefined>(
 }
 
 /**
- * Runs `fn` without collecting the states it reads.
+ * Calls `fn(arg)` without collecting the states it reads.
  */
-export function untrack<T>(fn: () => T): T {
-  return own(owner, fn);
+export function untrack<A, T>(fn: (arg: A) => T, arg?: A): T {
+  return own(owner, fn as (arg?: A) => T, arg);
+}
+
+/**
+ * Whether the value of `source` is `key`, subscribing the running
+ * computation to that key only, see {@link State.is}.
+ */
+export function is(source: State<unknown>, key: unknown): boolean {
+  const value = peek(source);
+  key = toRaw(key);
+  if (reads) trackKey(((source as Signal<unknown>).k ??= new Map()), key);
+  return Object.is(value, key);
+}
+
+/**
+ * Tracks the key `keys` holds for `key`, created on first use, as a
+ * dependency of the running computation.
+ */
+export function trackKey(
+  keys: Map<unknown, Key> | WeakMap<object, Key>,
+  key: any,
+) {
+  if (reads) {
+    let found = keys.get(key);
+    if (!found) keys.set(key, (found = new Key(key, keys)));
+    track(found as any);
+  }
+}
+
+/**
+ * A key of a map, with subscriptions of its own: a source that leaves the map
+ * once it has none.
+ */
+export class Key {
+  v = 0;
+  o: Entry[] = NONE;
+
+  constructor(
+    readonly k: any,
+    readonly m: Map<unknown, Key> | WeakMap<object, Key>,
+  ) {}
 }
 
 /**
@@ -535,4 +714,4 @@ export function isReactive(object: unknown): object is State<unknown> {
   return object instanceof Signal;
 }
 
-export type { Signal };
+export { Signal };

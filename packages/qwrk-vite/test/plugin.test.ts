@@ -22,6 +22,7 @@ async function bundle(root: string) {
           find: /^qwrk\/jsx-(dev-)?runtime$/,
           replacement: `${core}jsx/runtime.js`,
         },
+        { find: /^qwrk\/internal$/, replacement: `${core}internal.js` },
         { find: /^qwrk$/, replacement: `${core}index.js` },
       ],
     },
@@ -50,6 +51,7 @@ function run(code: string) {
 describe("qwrk-vite", () => {
   it("uses oxc on Vite 8 and esbuild before it", () => {
     const plugin = qwrk();
+    expect(plugin.enforce).toBe("pre");
 
     expect(plugin.config.call({ meta: { rolldownVersion: "1.0.0" } })).toEqual({
       oxc: { jsx: { runtime: "automatic", importSource: "qwrk" } },
@@ -59,10 +61,57 @@ describe("qwrk-vite", () => {
     });
   });
 
+  it("compiles JSX modules and skips the rest", () => {
+    const { transform } = qwrk();
+
+    expect(
+      transform("export const a = <p>{b}</p>;", "/src/a.jsx")!.code,
+    ).toContain("_$text(");
+    expect(
+      transform("export const a = <p />;", "/src/a.tsx?v=1"),
+    ).not.toBeNull();
+    expect(transform("export const a = <p />;", "/src/a.jsx?raw")).toBeNull();
+    expect(transform("export const a = 1;", "/src/a.ts")).toBeNull();
+    expect(
+      transform("export const a = <p />;", "/node_modules/x/a.js"),
+    ).toBeNull();
+    expect(transform("a { color: red }", "/src/a.css")).toBeNull();
+  });
+
+  it("loads SVG files as components", () => {
+    const { load } = qwrk();
+    const icon = fileURLToPath(new URL("./svg-app/icon.svg", import.meta.url));
+
+    const component = load(icon) as { code: string };
+    expect(component.code).toContain('from "qwrk/internal"');
+    expect(component.code).toContain("export default function Svg");
+    expect(component.code).toContain('viewBox="0 0 24 24"');
+    expect(component.code).toContain("setAttribute");
+
+    expect(load(`${icon}?url`)).toBeNull();
+    expect(load(`${icon}?raw`)).toBeNull();
+    expect(load("/src/a.jsx")).toBeNull();
+  });
+
+  it("builds and runs an app importing an SVG component", async () => {
+    const code = await bundle(
+      fileURLToPath(new URL("./svg-app/", import.meta.url)),
+    );
+    const document = run(code);
+    const svg = document.querySelector("svg")!;
+    expect(svg.namespaceURI).toBe("http://www.w3.org/2000/svg");
+    expect(svg.getAttribute("class")).toBe("big");
+    expect(svg.getAttribute("viewBox")).toBe("0 0 24 24");
+    expect(svg.querySelector("path")!.getAttribute("d")).toBe("M12 2v20");
+  });
+
   it.each(["qwrk-js", "qwrk-ts"])(
     "builds and runs the %s template",
     async (template) => {
-      const document = run(await bundle(templates + template));
+      const code = await bundle(templates + template);
+      expect(code).not.toContain("jsx(");
+      expect(code).toContain("cloneNode");
+      const document = run(code);
       const button = document.querySelector("button")!;
       expect(button.textContent).toBe("count is 0");
 

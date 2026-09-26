@@ -7,6 +7,35 @@ import {
 } from "../dist/index.js";
 
 describe("derive", () => {
+  it("re-runs only for the objects it read through a proxy", () => {
+    const todos = state([{ done: false }, { done: false }]);
+    const [first] = todos.value;
+    let runs = 0;
+    const done = derive(() => (runs++, first.done));
+    const items = derive(() => todos.value.length);
+
+    todos.value[1].done = true;
+    todos.value.push({ done: false });
+    expect(runs).toBe(1);
+    expect(items.value).toBe(3);
+
+    first.done = true;
+    expect(done.value).toBe(true);
+    expect(runs).toBe(2);
+  });
+
+  it("re-runs when an array or object it got changes in place", () => {
+    const group = state({ items: ["a"], meta: { n: 1 } });
+    const item = group.value;
+    const items = derive(() => item.items);
+    const count = derive(() => items.value.length);
+
+    item.items.push("b");
+    expect(count.value).toBe(2);
+    item.items = ["c"];
+    expect(count.value).toBe(1);
+  });
+
   it("detects dependencies, including chained derives", () => {
     const price = state(250);
     const qty = state(2);
@@ -152,7 +181,7 @@ describe("derive", () => {
     expect([...sum.s.values()].every((entry, i) => entry === before[i])).toBe(
       true,
     );
-    expect((a as any).o.size).toBe(1);
+    expect((a as any).o.length).toBe(1);
     expect(sum.value).toBe(10);
   });
 
@@ -164,8 +193,8 @@ describe("derive", () => {
 
     pick.value = false;
 
-    expect((a as any).o.size).toBe(0);
-    expect(picked.s.has(a)).toBe(false);
+    expect((a as any).o.length).toBe(0);
+    expect(picked.s.includes(a)).toBe(false);
   });
 
   it("disposes nested derives when their owner re-runs", () => {

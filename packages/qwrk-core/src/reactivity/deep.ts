@@ -1,4 +1,10 @@
-import { touch, track, type Signal } from "#qwrk/reactivity/state.js";
+import {
+  mark,
+  touch,
+  trackKey,
+  type Key,
+  type Signal,
+} from "#qwrk/reactivity/state.js";
 
 /** Array methods that change the array in place. Each call notifies once. */
 const MUTATORS = new Set(
@@ -10,6 +16,13 @@ const SEARCHES = new Set("includes indexOf lastIndexOf".split(" "));
 
 /** Each proxy's original object, so it can be stored unwrapped. */
 const originals = new WeakMap<object, object>();
+
+/**
+ * The computations that read each array or plain object through a proxy, or
+ * got it from one. Changing it in place re-runs them, and the readers of its
+ * state's `.value`, not the other readers of the state.
+ */
+const readers = new WeakMap<object, Key>();
 
 /** Returns the object a proxy wraps, or `value` itself. */
 export function toRaw<T>(value: T): T {
@@ -30,12 +43,12 @@ function handler(source: Signal<any>): ProxyHandler<any> {
   return {
     get(target, key, receiver) {
       const item = Reflect.get(target, key, receiver);
-      track(source);
+      trackKey(readers, target);
 
       if (Array.isArray(target) && MUTATORS.has(key as string)) {
         return (...args: unknown[]) => {
           const result = (item as Function).apply(target, args.map(toRaw));
-          touch(source);
+          changed(source, target);
           return result === target ? receiver : result;
         };
       }
@@ -44,24 +57,33 @@ function handler(source: Signal<any>): ProxyHandler<any> {
           (item as Function).call(receiver, deep(search, source), ...rest);
       }
 
-      return deep(item, source);
+      const value = deep(item, source);
+      if (value !== item) trackKey(readers, item);
+      return value;
     },
 
     set(target, key, next) {
       const raw = toRaw(next);
       const change = !(key in target) || !Object.is(toRaw(target[key]), raw);
       const done = Reflect.set(target, key, raw);
-      if (change) touch(source);
+      if (change) changed(source, target);
       return done;
     },
 
     deleteProperty(target, key) {
       const had = key in target;
       const done = Reflect.deleteProperty(target, key);
-      if (had) touch(source);
+      if (had) changed(source, target);
       return done;
     },
   };
+}
+
+/** Notifies the readers of the changed object, and of `source`. */
+function changed(source: Signal<any>, target: object) {
+  const set = readers.get(target);
+  if (set) mark(set as any);
+  touch(source);
 }
 
 /**

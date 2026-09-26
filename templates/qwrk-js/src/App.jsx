@@ -1,6 +1,6 @@
 import { state } from "qwrk";
-import viteLogo from "/vite.svg";
-import qwrkLogo from "./assets/qwrk.svg";
+import viteLogo from "/vite.svg?url";
+import qwrkLogo from "./assets/qwrk.svg?url";
 import "./App.css";
 
 function App() {

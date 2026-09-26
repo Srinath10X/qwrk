@@ -59,8 +59,8 @@ describe("memory", () => {
     expect(root.textContent).toBe("gone");
     expect(runs).toBe(0);
     expect(freed).toBe(3);
-    expect((tick as any).o.size).toBe(0);
-    expect((todos as any).o.size).toBe(0);
+    expect((tick as any).o.length).toBe(0);
+    expect((todos as any).o.length).toBe(0);
     root.remove();
   });
 
@@ -156,7 +156,7 @@ describe("memory", () => {
       gc();
       await new Promise((resolve) => setTimeout(resolve));
       gc();
-      most = Math.max(most, (count as any).o.size);
+      most = Math.max(most, (count as any).o.length);
     }
 
     expect(most).toBeLessThan(420);
@@ -178,7 +178,7 @@ describe("memory", () => {
     main.replaceChildren();
     await collect();
 
-    expect((theme as any).o.size).toBeLessThan(20);
+    expect((theme as any).o.length).toBeLessThan(20);
   });
 
   it("stops the effects of a derive's output dropped without a re-run", async () => {
