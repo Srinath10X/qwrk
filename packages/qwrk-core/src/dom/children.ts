@@ -1,10 +1,4 @@
-import {
-  isReactive,
-  peek,
-  retain,
-  watch,
-  type State,
-} from "#qwrk/reactivity/state.js";
+import { isReactive, peek, retain, watch } from "#qwrk/reactivity/state.js";
 
 /** The nodes a state currently renders as. Its nodes keep it alive. */
 interface Slot {
@@ -54,7 +48,8 @@ function collect(value: unknown, nodes: ChildNode[]) {
   if (Array.isArray(value)) {
     for (const item of value) collect(item, nodes);
   } else if (value instanceof DocumentFragment) {
-    for (const node of value.childNodes) nodes.push(node);
+    const kids = value.childNodes;
+    for (let i = 0; i < kids.length; i++) nodes.push(kids[i]);
   } else {
     nodes.push(toNode(value));
   }
