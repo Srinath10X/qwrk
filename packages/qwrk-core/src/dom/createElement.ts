@@ -1,6 +1,6 @@
 import { bindAttribute } from "#/dom/attributes.js";
 import { toNodes } from "#/dom/children.js";
-import { track } from "#/reactivity/state.js";
+import { untrack } from "#/reactivity/state.js";
 
 /** Marks a JSX fragment (`<>...</>`): its children are returned in a `DocumentFragment`. */
 export const fragment = Symbol("fragment");
@@ -40,7 +40,7 @@ export function createElement(
   props: Props | null,
   ...children: unknown[]
 ) {
-  return track(() => build(tag, props, children)).value;
+  return untrack(() => build(tag, props, children));
 }
 
 function build(

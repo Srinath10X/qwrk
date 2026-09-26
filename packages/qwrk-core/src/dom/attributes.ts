@@ -18,10 +18,14 @@ export function bindAttribute(element: Element, key: string, value: unknown) {
 
   if (isReactive(value)) {
     setAttribute(element, name, value.value);
-    watch(value, element, (owner, next) => setAttribute(owner, name, next));
+    watch(value, element, update, name);
   } else {
     setAttribute(element, name, value);
   }
+}
+
+function update(element: Element, value: unknown, _: unknown, name: string) {
+  setAttribute(element, name, value);
 }
 
 /**

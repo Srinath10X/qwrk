@@ -11,58 +11,60 @@ export interface State<T> {
   effect(fn: Effect<T>): () => void;
 }
 
-/** Receives the subscriber's owner, if it has one, and the new and old value. */
-type Listener = (owner: any, value: any, oldValue: any) => void;
+/** Receives the owner, the new and old value, and the data given to {@link watch}. */
+type Listener = (owner: any, value: any, oldValue: any, data: any) => void;
 
-/** A subscription. Weak ones hold their owner through a `WeakRef`. */
+/** A subscription. Weak ones reach their owner through a `WeakRef`. */
 interface Entry {
-  owner?: WeakRef<object>;
+  ref: WeakRef<object> | null;
   fn: Listener;
+  data: unknown;
+  entries: Set<Entry>;
 }
 
-/** Weak subscribe of each state, used by {@link watch}. */
-const subscribers = new WeakMap<
-  State<any>,
-  (owner: object, fn: Listener) => () => void
->();
+const SUBSCRIBE = Symbol("subscribe");
+const KEEP = Symbol("keep");
+const REF = Symbol("ref");
 
 /** States with `.effect()` subscribers, kept alive until they stop. */
 const roots = new Set<State<any>>();
 
-/** Objects each holder keeps alive, see {@link retain}. */
-const retained = new WeakMap<object, Set<unknown>>();
+/** States read while {@link track} runs, or `null` outside of it. */
+let reads: Set<State<any>> | null = null;
 
-/** Removes weak subscriptions once their owner is garbage collected. */
-const cleanup = new FinalizationRegistry<() => void>((remove) => remove());
+/** Removes a weak subscription once its owner is garbage collected. */
+const cleanup = new FinalizationRegistry<Entry>((entry) =>
+  entry.entries.delete(entry),
+);
 
 /** Keeps `target` alive for as long as `holder` is. */
-export function retain(holder: object, target: unknown) {
-  let targets = retained.get(holder);
-  if (!targets) retained.set(holder, (targets = new Set()));
-  targets.add(target);
+export function retain(holder: object, target: object) {
+  const kept = (holder as any)[KEEP];
+
+  if (kept === undefined) (holder as any)[KEEP] = target;
+  else if (Array.isArray(kept)) kept.includes(target) || kept.push(target);
+  else if (kept !== target) (holder as any)[KEEP] = [kept, target];
 }
 
 /**
  * Subscribes to `source` for as long as `owner` is alive, and keeps `source`
- * alive for as long as `owner` is. `fn` receives the owner, so it must not
- * capture it, or the owner could never be collected.
+ * alive for as long as `owner` is. `fn` receives the owner and `data`, so it
+ * must not capture the owner, or the owner could never be collected.
  *
  * DOM bindings and derives use this, so a node removed from the page frees
  * its subscriptions without an unmount step.
  *
  * @returns A function that unsubscribes.
  */
-export function watch<T, O extends object>(
+export function watch<T, O extends object, D = undefined>(
   source: State<T>,
   owner: O,
-  fn: (owner: O, value: T, oldValue: T) => void,
-) {
+  fn: (owner: O, value: T, oldValue: T, data: D) => void,
+  data?: D,
+): () => void {
   retain(owner, source);
-  return subscribers.get(source)!(owner, fn);
+  return (source as any)[SUBSCRIBE](owner, fn, data);
 }
-
-/** States read while {@link track} runs, or `null` outside of it. */
-let reads: Set<State<any>> | null = null;
 
 /**
  * Runs `fn` and collects every state whose `.value` it reads.
@@ -79,6 +81,24 @@ export function track<T>(fn: () => T) {
 }
 
 /**
+ * Runs `fn` without collecting the states it reads.
+ */
+export function untrack<T>(fn: () => T): T {
+  const outer = reads;
+  reads = null;
+
+  try {
+    return fn();
+  } finally {
+    reads = outer;
+  }
+}
+
+function runEffect(_: unknown, value: unknown, old: unknown, fn: Effect<any>) {
+  fn(value, old);
+}
+
+/**
  * Creates a reactive state object. Writing to `.value` runs every registered
  * effect, which updates any DOM bound to it. Arrays and plain objects notify
  * when changed in place too: `list.value.push(x)`, `user.value.name = x`.
@@ -90,32 +110,33 @@ export function track<T>(fn: () => T) {
  */
 export function state<T>(value: T): State<T> {
   const entries = new Set<Entry>();
-  const proxies = new WeakMap<object, object>();
+  let proxies: WeakMap<object, object> | undefined;
   let strong = 0;
 
+  function changed() {
+    notify(value);
+  }
+
   function wrap(target: T) {
-    return deep(target, () => notify(value), proxies);
+    if (typeof target !== "object" || target === null) return target;
+    return deep(target, changed, (proxies ??= new WeakMap()));
   }
 
   function notify(old: T) {
-    track(() => {
+    const next = wrap(value);
+    const prev = wrap(old);
+    const outer = reads;
+    reads = null;
+
+    try {
       for (const entry of [...entries]) {
-        const owner = entry.owner?.deref();
-        if (entry.owner && !owner) entries.delete(entry);
-        else entry.fn(owner, wrap(value), wrap(old));
+        const owner = entry.ref ? entry.ref.deref() : null;
+        if (entry.ref && !owner) entries.delete(entry);
+        else entry.fn(owner, next, prev, entry.data);
       }
-    });
-  }
-
-  function subscribe(owner: object, fn: Listener) {
-    const entry: Entry = { owner: new WeakRef(owner), fn };
-    entries.add(entry);
-    cleanup.register(owner, () => entries.delete(entry), entry);
-
-    return () => {
-      entries.delete(entry);
-      cleanup.unregister(entry);
-    };
+    } finally {
+      reads = outer;
+    }
   }
 
   const self: State<T> = {
@@ -133,7 +154,7 @@ export function state<T>(value: T): State<T> {
     },
 
     effect(fn) {
-      const entry: Entry = { fn: (_, value, old) => fn(value, old) };
+      const entry: Entry = { ref: null, fn: runEffect, data: fn, entries };
       entries.add(entry);
       strong++;
       roots.add(self);
@@ -145,7 +166,18 @@ export function state<T>(value: T): State<T> {
     },
   };
 
-  subscribers.set(self, subscribe);
+  (self as any)[SUBSCRIBE] = (owner: object, fn: Listener, data: unknown) => {
+    const ref = ((owner as any)[REF] ??= new WeakRef(owner));
+    const entry: Entry = { ref, fn, data, entries };
+    entries.add(entry);
+    cleanup.register(owner, entry, entry);
+
+    return () => {
+      entries.delete(entry);
+      cleanup.unregister(entry);
+    };
+  };
+
   return self;
 }
 
