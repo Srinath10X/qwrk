@@ -21,3 +21,15 @@ import { qwrkEsbuild } from "qwrk-vite/esbuild";
 
 esbuild.build({ plugins: [qwrkEsbuild()] });
 ```
+
+## SVG components
+
+An SVG file imports as a component that renders it inline, with props landing on its root:
+
+```jsx
+import GithubIcon from "@/assets/github.svg";
+
+<GithubIcon class="icon" width={24} />;
+```
+
+With an asset query (`?url`, `?raw`) it stays a URL, as Vite handles it — use that for `<img src>`.

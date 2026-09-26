@@ -4,7 +4,6 @@
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "moduleResolution": "Bundler",
-    "types": ["vite/client"],
     "jsx": "react-jsx",
     "jsxImportSource": "qwrk",
     "strict": true,

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { compile } from "./compile.js";
 
 export { compile };
@@ -15,6 +16,10 @@ const QUERIES = /(?:^|&)(?:raw|url|inline|worker|sharedworker)(?:&|=|$)/;
  *
  * It also points Vite's own JSX transform (oxc on Vite 8+, esbuild before) at
  * qwrk's automatic runtime, for anything the compiler leaves untouched.
+ *
+ * An SVG file imports as a component that renders it inline:
+ * `import Icon from "./icon.svg"`. With an asset query (`?url`, `?raw`) it
+ * stays a URL, as Vite handles it.
  */
 export default function qwrk() {
   return {
@@ -45,6 +50,41 @@ export default function qwrk() {
         return null;
       }
       return compile(code, file);
+    },
+
+    load(id: string) {
+      const [file, query = ""] = id.split("?", 2);
+      if (!file.endsWith(".svg") || QUERIES.test(query)) return null;
+      let source: string;
+      try {
+        source = readFileSync(file, "utf8");
+      } catch {
+        return null;
+      }
+      const markup = source
+        .replace(/<\?xml[^?]*\?>\s*/g, "")
+        .replace(/<!DOCTYPE[^>]*>\s*/g, "")
+        .replace(/^\s*(?:<!--[\s\S]*?-->\s*)*/, "")
+        .replace(/\\/g, "\\\\")
+        .replace(/`/g, "\\`")
+        .replace(/\$\{/g, "\\${");
+      const fragment = !/^\s*<svg[\s>]/i.test(markup);
+      return {
+        code: [
+          `import { template as _$template } from "qwrk/internal";`,
+          `const _tmpl$ = _$template(\`${markup}\`${fragment ? ", true" : ""});`,
+          `/** An SVG file as a component: \`props\` land on its root. */`,
+          `export default function Svg(props = {}) {`,
+          `  const el = _tmpl$();`,
+          `  for (const name in props) {`,
+          `    const value = props[name];`,
+          `    if (value != null) el.setAttribute(name === "className" ? "class" : name, value);`,
+          `  }`,
+          `  return el;`,
+          `}`,
+        ].join("\n"),
+        map: null,
+      };
     },
   };
 }
