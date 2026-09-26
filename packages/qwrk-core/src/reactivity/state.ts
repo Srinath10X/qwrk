@@ -354,7 +354,12 @@ export function run(node: Computation) {
   depth++;
 
   try {
-    node.c?.length && node.c.splice(0).forEach(dispose);
+    const created = node.c;
+    if (created) {
+      node.c = undefined;
+      for (let i = 0; i < created.length; i++) dispose(created[i]);
+    }
+
     node.q = 2;
     reads = node.d ? null : reading;
     seen = reading;
@@ -437,7 +442,13 @@ export function dispose(node: Computation) {
   if (node.q != 3) {
     node.q = 3;
     node.p = null;
-    node.c?.splice(0).forEach(dispose);
+
+    const created = node.c;
+    if (created) {
+      node.c = undefined;
+      for (let i = 0; i < created.length; i++) dispose(created[i]);
+    }
+
     for (let i = 1; i < node.s.length; i += 2) unlink(node.s[i]);
     node.s = NONE;
     roots.delete(node);
@@ -615,8 +626,18 @@ export function untrack<A, T>(fn: (arg: A) => T, arg?: A): T {
  */
 export function is(source: State<unknown>, key: unknown): boolean {
   const value = peek(source);
+
+  if (!reads) return Object.is(value, toRaw(key));
+
+  const signal = source as Signal<unknown>;
   key = toRaw(key);
-  if (reads) trackKey(((source as Signal<unknown>).k ??= new Map()), key);
+
+  const keys = (signal.k ??= new Map());
+  let found = keys.get(key);
+
+  if (!found) keys.set(key, (found = new Key(key, keys)));
+  if (!reads.has(found)) reads.set(found, found.v);
+
   return Object.is(value, key);
 }
 

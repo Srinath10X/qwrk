@@ -26,7 +26,9 @@ const readers = new WeakMap<object, Key>();
 
 /** Returns the object a proxy wraps, or `value` itself. */
 export function toRaw<T>(value: T): T {
-  return (originals.get(value as object) as T | undefined) ?? value;
+  return typeof value === "object" && value !== null
+    ? ((originals.get(value as object) as T | undefined) ?? value)
+    : value;
 }
 
 /**

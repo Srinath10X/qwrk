@@ -71,8 +71,19 @@ function update(self: List, _: unknown, value: unknown) {
 
   const items: unknown[] = Array.isArray(value) ? value : [];
   const { k: a, c: rows, h: start, t: end } = self;
-  const b = items.map(toRaw);
+  const b = Array(items.length);
   const next: Row[] = Array(b.length);
+
+  for (let i = 0; i < items.length; i++) b[i] = toRaw(items[i]);
+
+  self.k = b;
+  self.c = next;
+
+  if (!a.length) {
+    insert(self, items, next, 0, b.length);
+    return;
+  }
+
   const old: (Row | 0)[] = rows;
   const positions = new Map<unknown, number>();
   const same = new Int32Array(a.length);
@@ -80,9 +91,6 @@ function update(self: List, _: unknown, value: unknown) {
   let s = 0;
   let aEnd = a.length;
   let bEnd = b.length;
-
-  self.k = b;
-  self.c = next;
 
   while (s < aEnd && s < bEnd) {
     if (a[s] === b[s]) {
@@ -107,10 +115,13 @@ function update(self: List, _: unknown, value: unknown) {
     positions.set(a[i], i);
   }
 
+  let matched = false;
+
   for (let j = s; j < bEnd; j++) {
     const i = positions.get(b[j]) ?? -1;
 
     if (i >= 0) {
+      matched = true;
       positions.set(b[j], same[i]);
       sources[j] = i + 1;
       next[j] = rows[i];
@@ -118,9 +129,9 @@ function update(self: List, _: unknown, value: unknown) {
     }
   }
 
-  const kept = sequence(sources);
+  const kept = matched ? sequence(sources) : undefined;
 
-  if (kept.length) {
+  if (kept?.length) {
     for (let i = s; i < aEnd; i++) {
       if (old[i]) (dispose(rows[i]), relocate(rows[i].h, rows[i].t));
     }
