@@ -3,7 +3,7 @@
 Runs a side effect once after the component is mounted, then again whenever a state it depends on changes.
 
 ```ts
-function effect(callback: () => void, deps?: unknown[]): void;
+function effect(callback: () => void, deps?: unknown[]): () => void;
 ```
 
 - `callback`: the side effect to run.
@@ -46,6 +46,16 @@ The first run is deferred until the component is in the page:
 - If the page is still loading, it runs on `DOMContentLoaded`.
 - Otherwise it runs on the next microtask, just after the synchronous `append(<App />)` that mounted it.
 
+## Stopping
+
+`effect()` returns a function that stops it:
+
+```js
+const stop = effect(() => console.log(count.value));
+
+stop(); // no more runs
+```
+
 ::: warning
-Qwrk has no unmount, so effects never clean up. An effect keeps running on dependency changes even after its elements are removed from the page.
+An effect lives until you stop it, even after its component leaves the page. DOM bindings and `derive()` clean up on their own (see [Memory](/guide/components#memory)), but an effect is a side effect you asked for, so Qwrk never drops it silently. Stop effects you create inside list items or other content that comes and goes.
 :::
