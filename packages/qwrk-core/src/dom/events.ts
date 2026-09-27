@@ -32,7 +32,7 @@ function dispatch(event: Event) {
 
     if (handler) {
       handler.call(node, event);
-      if (event.cancelBubble) return;
+      if ((event as { cancelBubble?: boolean }).cancelBubble) return;
     }
   }
 }

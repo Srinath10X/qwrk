@@ -1,4 +1,11 @@
-import { bind, Binding, isReactive, retain } from "#qwrk/reactivity/state.js";
+import {
+  bind,
+  Binding,
+  dispose,
+  isReactive,
+  peek,
+  retain,
+} from "#qwrk/reactivity/state.js";
 
 /**
  * The nodes a state or a function currently renders as. Its nodes keep it
@@ -38,8 +45,9 @@ export function append(parent: Node, children: unknown, marker?: Node | null) {
 
 /**
  * Inserts a child where the template left its parent empty, so there is no
- * marker and nothing to keep: anything but a state, a node, an array or a
- * function becomes text. The rest falls back to {@link append}.
+ * marker and nothing to keep: a plain value becomes text, a state's text
+ * value is written with `textContent`, and anything else falls back to
+ * {@link append}.
  */
 export function text(parent: Node, value: unknown) {
   if (
@@ -49,8 +57,47 @@ export function text(parent: Node, value: unknown) {
     typeof value !== "function"
   ) {
     parent.textContent = toText(value);
+  } else if (isReactive(value) && isTextValue(peek(value))) {
+    bind(new Value(parent, value));
   } else {
     append(parent, value);
+  }
+}
+
+/** Whether `value` renders as text. */
+function isTextValue(value: unknown) {
+  return (
+    value === null || (typeof value !== "object" && typeof value !== "function")
+  );
+}
+
+/**
+ * A state child that is text now: writes its value with `textContent`, the
+ * way a property would, and hands over to a full slot if it ever renders
+ * nodes.
+ */
+class Value extends Binding {
+  constructor(
+    private parent: Node,
+    readonly g: unknown,
+  ) {
+    super();
+  }
+
+  f() {
+    const value = read(this.g);
+
+    if (isTextValue(value)) {
+      this.parent.textContent = toText(value);
+      return;
+    }
+
+    const parent = this.parent;
+    dispose(this);
+    parent.textContent = "";
+    const slot = new State(parent, null, this.g);
+    bind(slot);
+    for (const node of slot.nodes) retain(node, slot);
   }
 }
 

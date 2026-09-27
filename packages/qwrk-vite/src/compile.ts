@@ -272,6 +272,8 @@ export function compile(
  * innermost code first, so edits that meet at a position nest correctly.
  */
 function visit(context: Context, node: Node, thunk: boolean) {
+  if (returns(context, node)) return;
+
   if (node.type === "JSXElement" || node.type === "JSXFragment") {
     const inline = context.inline;
     context.inline = inline || awaits(node);
@@ -285,6 +287,38 @@ function visit(context: Context, node: Node, thunk: boolean) {
 
   if (thunk) select(context, node);
   if (node.type === "CallExpression") map(context, node);
+}
+
+/**
+ * Compiles a function whose body is one `return` of a host element into
+ * statements instead of a call of a template function, so calling it costs
+ * no closure. Returns whether it did.
+ */
+function returns(context: Context, node: Node): boolean {
+  if (!FUNCTIONS.has(node.type)) return false;
+
+  const { body } = node;
+  if (!body || body.type !== "BlockStatement" || body.body.length !== 1) {
+    return false;
+  }
+
+  const statement = body.body[0];
+  if (statement.type !== "ReturnStatement" || !statement.argument) return false;
+
+  const element = unwrap(statement.argument);
+  if (element.type !== "JSXElement") return false;
+
+  const tag = tagOf(context, element.openingElement.name);
+  const inline = context.inline;
+  context.inline = inline || awaits(element);
+  const host =
+    !tag.component && !context.inline && !fallback(element, tag.host);
+  const parts = host ? template(context, element, tag.host, true) : null;
+  context.inline = inline;
+  if (!parts) return false;
+
+  emit(context, body, ["{ ", ...parts, "}"]);
+  return true;
 }
 
 /** The child nodes of `node`, in source order. */
@@ -807,13 +841,20 @@ function staticText(node: Node): string | undefined {
  * Compiles a host element tree into a clone of a template and the operations
  * that bind its dynamic parts, in source order.
  */
-function template(context: Context, node: Node, tag: string): Part[] {
+function template(
+  context: Context,
+  node: Node,
+  tag: string,
+  statements = false,
+): Part[] {
   const operations: Operation[] = [];
   const svg = isSvg(tag);
   const root = element(context, node, tag, [], operations);
   const name = declare(context, html(root), svg && tag !== "svg");
 
-  if (!operations.length) return [`${name}()`];
+  if (!operations.length) {
+    return [statements ? `return ${name}(); ` : `${name}()`];
+  }
 
   const comments: Slot[] = [];
   root.needed = true;
@@ -847,10 +888,12 @@ function template(context: Context, node: Node, tag: string): Part[] {
       (list[0] as Extract<Operation, { kind: "insert" }>).text = true;
   }
 
-  const parts: Part[] = [`(() => { const ${declarations.join(", ")}; `];
+  const parts: Part[] = statements
+    ? [`const ${declarations.join(", ")}; `]
+    : [`(() => { const ${declarations.join(", ")}; `];
   for (const operation of operations) parts.push(...render(context, operation));
   for (const comment of comments) parts.push(`${comment.ref}.remove(); `);
-  parts.push(`return ${root.ref}; })()`);
+  parts.push(statements ? `return ${root.ref}; ` : `return ${root.ref}; })()`);
   return parts;
 }
 
