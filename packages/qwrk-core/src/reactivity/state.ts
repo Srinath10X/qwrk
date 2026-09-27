@@ -362,7 +362,7 @@ function refresh(node: Computation) {
 export function run(node: Computation) {
   if (node.q == 3) return;
   const old = node._;
-  const reading: any[] = [];
+  const reading = take();
   const outerReads = reads;
   const outerSeen = seen;
   const outerOwner = owner;
@@ -402,6 +402,7 @@ export function run(node: Computation) {
       }
     }
 
+    give(reading);
     --depth || flush();
   }
 }
@@ -547,7 +548,7 @@ export function bind(node: Binding, holder?: object) {
  * the reads are all new, so every one of them links directly.
  */
 function first(node: Computation) {
-  const reading: any[] = [];
+  const reading = take();
   const outerReads = reads;
   const outerSeen = seen;
   const outerOwner = owner;
@@ -577,8 +578,21 @@ function first(node: Computation) {
       node.s = s;
     }
 
+    give(reading);
     --depth || flush();
   }
+}
+
+/** The read lists of finished runs, reused so a run allocates none. */
+const idle: any[][] = [];
+
+function take() {
+  return idle.pop() ?? [];
+}
+
+function give(list: any[]) {
+  list.length = 0;
+  idle.push(list);
 }
 
 /**
