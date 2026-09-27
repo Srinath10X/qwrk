@@ -9,6 +9,7 @@
     "declaration": true,
     "declarationDir": "dist",
     "strict": true,
+    "types": ["node"],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true

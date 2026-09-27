@@ -3,6 +3,7 @@ import { deep, toRaw } from "#qwrk/reactivity/deep.js";
 import {
   computation,
   dispose,
+  isReactive,
   own,
   peek,
   retain,
@@ -42,7 +43,7 @@ interface List extends Row {
 export function list(source: State<unknown>, fn: (item: any) => unknown) {
   const nodes = document.createDocumentFragment();
   const self = computation(
-    { o: new Set(), k: [], g: source, h: text(), t: text() },
+    { c: [], k: [], g: source, h: text(), t: text() },
     fn as () => unknown,
   ) as unknown as List;
 
@@ -70,8 +71,19 @@ function update(self: List, _: unknown, value: unknown) {
 
   const items: unknown[] = Array.isArray(value) ? value : [];
   const { k: a, c: rows, h: start, t: end } = self;
-  const b = items.map(toRaw);
+  const b = Array(items.length);
   const next: Row[] = Array(b.length);
+
+  for (let i = 0; i < items.length; i++) b[i] = toRaw(items[i]);
+
+  self.k = b;
+  self.c = next;
+
+  if (!a.length) {
+    insert(self, items, next, 0, b.length);
+    return;
+  }
+
   const old: (Row | 0)[] = rows;
   const positions = new Map<unknown, number>();
   const same = new Int32Array(a.length);
@@ -79,9 +91,6 @@ function update(self: List, _: unknown, value: unknown) {
   let s = 0;
   let aEnd = a.length;
   let bEnd = b.length;
-
-  self.k = b;
-  self.c = next;
 
   while (s < aEnd && s < bEnd) {
     if (a[s] === b[s]) {
@@ -106,10 +115,13 @@ function update(self: List, _: unknown, value: unknown) {
     positions.set(a[i], i);
   }
 
+  let matched = false;
+
   for (let j = s; j < bEnd; j++) {
     const i = positions.get(b[j]) ?? -1;
 
     if (i >= 0) {
+      matched = true;
       positions.set(b[j], same[i]);
       sources[j] = i + 1;
       next[j] = rows[i];
@@ -117,9 +129,9 @@ function update(self: List, _: unknown, value: unknown) {
     }
   }
 
-  const kept = sequence(sources);
+  const kept = matched ? sequence(sources) : undefined;
 
-  if (kept.length) {
+  if (kept?.length) {
     for (let i = s; i < aEnd; i++) {
       if (old[i]) (dispose(rows[i]), relocate(rows[i].h, rows[i].t));
     }
@@ -169,7 +181,7 @@ function insert(
   const source = self.g as any;
 
   for (let j = from; j < to; j++) {
-    const row = { s: self.s, o: self.o, c: [], p: self, q: 0 } as any as Row;
+    const row = { s: self.s, p: self, q: 0 } as any as Row;
     const item = source.f ? items[j] : deep(items[j], source);
     const result: any = own(row, self.f, item);
 
@@ -213,4 +225,13 @@ function sequence(values: Int32Array) {
     tails[i] = at;
   }
   return tails;
+}
+
+/**
+ * Calls `items.map(fn)`, or renders a keyed list with {@link list} when
+ * `items` is a state. Compiled JSX calls it for `.map()` with a callback that
+ * returns JSX, so only apps that render lists ship them.
+ */
+export function map(items: any, fn: (item: any) => unknown) {
+  return isReactive(items) ? list(items, fn) : items.map(fn);
 }
