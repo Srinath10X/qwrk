@@ -84,16 +84,16 @@ const REF = Symbol();
 const NONE: any[] = [];
 
 /**
- * States read while a derive or an effect runs, with their version when first
- * read, or `null` outside of one.
+ * States read while a derive or an effect runs, each followed by its version
+ * when first read, or `null` outside of one. Read by the deep proxy too.
  */
-let reads: Map<Signal<any>, number> | null = null;
+export let reads: any[] | null = null;
 
 /**
  * The reads of the derive or effect running now, even inside {@link untrack}:
  * its own writes update their versions, so they don't make it stale.
  */
-let seen: Map<Signal<any>, number> | null = null;
+let seen: any[] | null = null;
 
 /** The derive or effect running now: it owns what it creates. */
 let owner: Computation | null = null;
@@ -181,7 +181,17 @@ export function touch(source: Signal<any>) {
 /** Bumps the version of a state or a key, and notifies its subscribers. */
 export function mark(source: Signal<any>) {
   source.v++;
-  if (seen?.has(source)) seen.set(source, source.v);
+
+  const list = seen;
+  if (list) {
+    for (let i = 0; i < list.length; i += 2) {
+      if (list[i] === source) {
+        list[i + 1] = source.v;
+        break;
+      }
+    }
+  }
+
   notify(source);
 }
 
@@ -196,7 +206,13 @@ function select(source: Signal<any>, old: unknown) {
 
 /** Tracks `source` as a dependency of the running derive or effect. */
 export function track(source: Signal<any>) {
-  if (reads && !reads.has(source)) reads.set(source, source.v);
+  const list = reads;
+  if (!list) return;
+
+  for (let i = 0; i < list.length; i += 2) {
+    if (list[i] === source) return;
+  }
+  list.push(source, source.v);
 }
 
 /** Returns the raw value of `source`, up to date, without tracking it. Signals hold their value, so only derives refresh. */
@@ -346,7 +362,7 @@ function refresh(node: Computation) {
 export function run(node: Computation) {
   if (node.q == 3) return;
   const old = node._;
-  const reading = new Map<Signal<any>, number>();
+  const reading: any[] = [];
   const outerReads = reads;
   const outerSeen = seen;
   const outerOwner = owner;
@@ -377,7 +393,7 @@ export function run(node: Computation) {
 
     if (node.q == 2) {
       node.q = 0;
-      node.d?.forEach((source) => reading.set(source, source.v));
+      node.d?.forEach((source) => reading.push(source, source.v));
       subscribe(node, reading);
 
       if (!node.s.length && node.e && !node.p) {
@@ -392,30 +408,42 @@ export function run(node: Computation) {
 
 /**
  * Replaces the dependencies of `node` with the states it just read, keeping
- * the subscriptions it still needs, in an array of the exact size.
+ * the subscriptions it still needs, in an array of the exact size. A read it
+ * kept is marked by clearing its source slot.
  */
-function subscribe(node: Computation, reading: Map<Signal<any>, number>) {
+function subscribe(node: Computation, reading: any[]) {
   const old = node.s;
-  const s = (node.s = reading.size ? Array(reading.size * 2) : NONE);
+  const s = (node.s = reading.length ? Array(reading.length) : NONE);
   let n = 0;
 
-  for (let i = 0; i < old.length; i += 2) {
-    const version = reading.get(old[i]);
+  for (let i = 0; old !== NONE && i < old.length; i += 2) {
+    let version: number | undefined;
+
+    for (let j = 0; j < reading.length; j += 2) {
+      if (reading[j] === old[i]) {
+        version = reading[j + 1];
+        reading[j] = null;
+        break;
+      }
+    }
 
     if (version === undefined) {
       unlink(old[i + 1]);
     } else {
-      reading.delete(old[i]);
       old[i + 1].v = version;
       s[n++] = old[i];
       s[n++] = old[i + 1];
     }
   }
-  reading.forEach((version, source) => {
-    s[n++] = source;
-    s[n++] = link(source, node);
-    s[n - 1].v = version;
-  });
+
+  for (let i = 0; i < reading.length; i += 2) {
+    if (reading[i]) {
+      s[n++] = reading[i];
+      s[n++] = link(reading[i], node);
+      s[n - 1].v = reading[i + 1];
+    }
+  }
+
   for (let i = 0; i < n; i += 2) {
     s[i + 1].v == s[i].v || node.q || stale(node);
   }
@@ -501,7 +529,7 @@ export abstract class Binding implements Computation {
 export function bind(node: Binding, holder?: object) {
   const parent = owner?.q != 3 && !owner?.e ? owner : null;
   node.p = parent;
-  run(node);
+  first(node);
 
   if (!node.s.length) {
     node.q = 3;
@@ -510,6 +538,46 @@ export function bind(node: Binding, holder?: object) {
     attach(parent, node);
   } else if (holder) {
     retain(holder, node);
+  }
+}
+
+/**
+ * Runs a just-created binding, subscribing it to what it read. Like
+ * {@link run}, without the work re-runs need: nothing is created yet, and
+ * the reads are all new, so every one of them links directly.
+ */
+function first(node: Computation) {
+  const reading: any[] = [];
+  const outerReads = reads;
+  const outerSeen = seen;
+  const outerOwner = owner;
+
+  depth++;
+
+  try {
+    node.q = 2;
+    reads = node.d ? null : reading;
+    seen = reading;
+    owner = node;
+    node.f();
+  } finally {
+    reads = outerReads;
+    seen = outerSeen;
+    owner = outerOwner;
+
+    if (node.q == 2) {
+      node.q = 0;
+      node.d?.forEach((source) => reading.push(source, source.v));
+
+      const s = reading.length ? Array(reading.length) : NONE;
+      for (let i = 0; i < reading.length; i += 2) {
+        s[i] = reading[i];
+        s[i + 1] = link(reading[i], node);
+      }
+      node.s = s;
+    }
+
+    --depth || flush();
   }
 }
 
@@ -630,7 +698,8 @@ export function untrack<A, T>(fn: (arg: A) => T, arg?: A): T {
 export function is(source: State<unknown>, key: unknown): boolean {
   const value = peek(source);
 
-  if (!reads) return Object.is(value, toRaw(key));
+  const list = reads;
+  if (!list) return Object.is(value, toRaw(key));
 
   const signal = source as Signal<unknown>;
   key = toRaw(key);
@@ -639,7 +708,11 @@ export function is(source: State<unknown>, key: unknown): boolean {
   let found = keys.get(key);
 
   if (!found) keys.set(key, (found = new Key(key, keys)));
-  if (!reads.has(found)) reads.set(found, found.v);
+
+  for (let i = 0; i < list.length; i += 2) {
+    if (list[i] === found) return Object.is(value, key);
+  }
+  list.push(found, found.v);
 
   return Object.is(value, key);
 }

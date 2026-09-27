@@ -50,6 +50,14 @@ type Operation =
       value: Part[];
       /** The target is empty and this is its only insert: write text. */
       text?: boolean;
+    }
+  | {
+      kind: "cond";
+      target: Element;
+      state: Part[];
+      key: Part[];
+      yes: string;
+      no: string;
     };
 
 interface Context {
@@ -264,6 +272,8 @@ export function compile(
  * innermost code first, so edits that meet at a position nest correctly.
  */
 function visit(context: Context, node: Node, thunk: boolean) {
+  if (returns(context, node)) return;
+
   if (node.type === "JSXElement" || node.type === "JSXFragment") {
     const inline = context.inline;
     context.inline = inline || awaits(node);
@@ -277,6 +287,38 @@ function visit(context: Context, node: Node, thunk: boolean) {
 
   if (thunk) select(context, node);
   if (node.type === "CallExpression") map(context, node);
+}
+
+/**
+ * Compiles a function whose body is one `return` of a host element into
+ * statements instead of a call of a template function, so calling it costs
+ * no closure. Returns whether it did.
+ */
+function returns(context: Context, node: Node): boolean {
+  if (!FUNCTIONS.has(node.type)) return false;
+
+  const { body } = node;
+  if (!body || body.type !== "BlockStatement" || body.body.length !== 1) {
+    return false;
+  }
+
+  const statement = body.body[0];
+  if (statement.type !== "ReturnStatement" || !statement.argument) return false;
+
+  const element = unwrap(statement.argument);
+  if (element.type !== "JSXElement") return false;
+
+  const tag = tagOf(context, element.openingElement.name);
+  const inline = context.inline;
+  context.inline = inline || awaits(element);
+  const host =
+    !tag.component && !context.inline && !fallback(element, tag.host);
+  const parts = host ? template(context, element, tag.host, true) : null;
+  context.inline = inline;
+  if (!parts) return false;
+
+  emit(context, body, ["{ ", ...parts, "}"]);
+  return true;
 }
 
 /** The child nodes of `node`, in source order. */
@@ -467,6 +509,66 @@ function attributeValue(
   if (value.type === "Literal") return [quote(decode(value.value))];
   if (value.type !== "JSXExpressionContainer") return jsx(context, value);
   return expression(value.expression, reactive);
+}
+
+/**
+ * The parts of `a.value === b ? "yes" : "no"` on `class`, compiled to one
+ * keyed binding, or `null` for anything else. `!==` swaps the branches.
+ */
+function conditional(
+  context: Context,
+  attribute: Node,
+): { state: Part[]; key: Part[]; yes: string; no: string } | null {
+  const { value } = attribute;
+  if (!value || value.type !== "JSXExpressionContainer") return null;
+
+  const node = unwrap(value.expression);
+  if (node.type !== "ConditionalExpression") return null;
+
+  const { consequent, alternate, test } = node;
+  if (
+    !isLiteral(consequent) ||
+    !isLiteral(alternate) ||
+    test.type !== "BinaryExpression" ||
+    (test.operator !== "===" && test.operator !== "!==")
+  ) {
+    return null;
+  }
+
+  const left = isValueRead(test.left);
+  const read = left ? test.left : isValueRead(test.right) ? test.right : null;
+  if (!read) return null;
+
+  const other: Node = left ? test.right : test.left;
+  if (
+    isThunk(other) ||
+    has(other, isValueRead) ||
+    has(read.object, isValueRead)
+  ) {
+    return null;
+  }
+
+  const target = context.code.slice(read.object.start, read.object.end);
+  if (context.code.slice(other.start, other.end).includes(`${target}.value`)) {
+    return null;
+  }
+
+  const [yes, no] =
+    test.operator === "==="
+      ? [consequent.value, alternate.value]
+      : [alternate.value, consequent.value];
+
+  return {
+    state: [{ node: read.object, thunk: false }],
+    key: [{ node: other, thunk: false }],
+    yes,
+    no,
+  };
+}
+
+/** Whether `node` is a plain string literal. */
+function isLiteral(node: Node): boolean {
+  return node.type === "Literal" && typeof node.value === "string";
 }
 
 /** Keeps an expression, in a thunk when `reactive` and it may read a state. */
@@ -739,13 +841,20 @@ function staticText(node: Node): string | undefined {
  * Compiles a host element tree into a clone of a template and the operations
  * that bind its dynamic parts, in source order.
  */
-function template(context: Context, node: Node, tag: string): Part[] {
+function template(
+  context: Context,
+  node: Node,
+  tag: string,
+  statements = false,
+): Part[] {
   const operations: Operation[] = [];
   const svg = isSvg(tag);
   const root = element(context, node, tag, [], operations);
   const name = declare(context, html(root), svg && tag !== "svg");
 
-  if (!operations.length) return [`${name}()`];
+  if (!operations.length) {
+    return [statements ? `return ${name}(); ` : `${name}()`];
+  }
 
   const comments: Slot[] = [];
   root.needed = true;
@@ -779,10 +888,12 @@ function template(context: Context, node: Node, tag: string): Part[] {
       (list[0] as Extract<Operation, { kind: "insert" }>).text = true;
   }
 
-  const parts: Part[] = [`(() => { const ${declarations.join(", ")}; `];
+  const parts: Part[] = statements
+    ? [`const ${declarations.join(", ")}; `]
+    : [`(() => { const ${declarations.join(", ")}; `];
   for (const operation of operations) parts.push(...render(context, operation));
   for (const comment of comments) parts.push(`${comment.ref}.remove(); `);
-  parts.push(`return ${root.ref}; })()`);
+  parts.push(statements ? `return ${root.ref}; ` : `return ${root.ref}; })()`);
   return parts;
 }
 
@@ -861,12 +972,21 @@ function element(
           fixed === true ? ` ${name}` : ` ${name}="${escape(fixed, true)}"`;
       }
     } else {
-      operations.push({
-        kind: "attr",
-        target: self,
-        name,
-        value: attributeValue(context, attribute, true),
-      });
+      const cond =
+        name === "class" && counts.get(name) === 1
+          ? conditional(context, attribute)
+          : null;
+
+      if (cond) {
+        operations.push({ kind: "cond", target: self, ...cond });
+      } else {
+        operations.push({
+          kind: "attr",
+          target: self,
+          name,
+          value: attributeValue(context, attribute, true),
+        });
+      }
     }
   }
 
@@ -1049,6 +1169,15 @@ function render(context: Context, operation: Operation): Part[] {
       `${helper(context, "attr")}(${target}, ${quote(operation.name)}, `,
       ...operation.value,
       "); ",
+    ];
+  }
+  if (operation.kind === "cond") {
+    return [
+      `${helper(context, "classIf")}(${target}, `,
+      ...operation.state,
+      ", ",
+      ...operation.key,
+      `, ${quote(operation.yes)}, ${quote(operation.no)}); `,
     ];
   }
   if (DELEGATED.has(operation.name)) {

@@ -9,6 +9,7 @@ import {
   insert,
   map,
   template,
+  text,
 } from "../dist/internal.js";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve));
@@ -33,6 +34,31 @@ describe("template", () => {
     expect((svg.firstChild as Element).namespaceURI).toBe(
       "http://www.w3.org/2000/svg",
     );
+  });
+});
+
+describe("text", () => {
+  it("writes a state's text value, updating in place", () => {
+    const label = state("a");
+    const a = h("a", null) as HTMLElement;
+
+    text(a, label);
+    expect(a.textContent).toBe("a");
+
+    label.value = "b";
+    expect(a.textContent).toBe("b");
+  });
+
+  it("hands over to nodes when the state stops being text", () => {
+    const view = state<unknown>("text");
+    const div = h("div", null) as HTMLElement;
+
+    text(div, view);
+    view.value = [h("b", null, "x"), "y"];
+    expect(div.innerHTML).toBe("<b>x</b>y");
+
+    view.value = "again";
+    expect(div.textContent).toBe("again");
   });
 });
 

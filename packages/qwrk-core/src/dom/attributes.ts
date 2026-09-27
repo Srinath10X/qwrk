@@ -2,6 +2,7 @@ import { read } from "#qwrk/dom/children.js";
 import {
   bind,
   Binding,
+  is,
   isReactive,
   peek,
   watch,
@@ -46,6 +47,44 @@ class Attribute extends Binding {
 
   f() {
     setAttribute(this.e, this.n, read(this.g()));
+  }
+}
+
+/**
+ * Sets `class` from whether a state is `key`, so only the elements of the
+ * two keys re-run, see {@link State.is}. Compiled JSX calls it for
+ * `class={a.value === b ? "yes" : "no"}`.
+ */
+export function classIf(
+  element: Element,
+  source: unknown,
+  key: unknown,
+  yes: string,
+  no: string,
+) {
+  bind(new ClassIf(element, source, key, yes, no), element);
+}
+
+/** A class set from `source` being `key`, tracked on that key only. */
+class ClassIf extends Binding {
+  constructor(
+    readonly e: Element,
+    readonly source: unknown,
+    readonly k: unknown,
+    readonly y: string,
+    readonly n: string,
+  ) {
+    super();
+  }
+
+  f() {
+    const source = this.source as any;
+    this.e.setAttribute(
+      "class",
+      (isReactive(source) ? is(source, this.k) : source.value === this.k)
+        ? this.y
+        : this.n,
+    );
   }
 }
 

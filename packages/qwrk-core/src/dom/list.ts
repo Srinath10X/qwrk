@@ -85,8 +85,6 @@ function update(self: List, _: unknown, value: unknown) {
   }
 
   const old: (Row | 0)[] = rows;
-  const positions = new Map<unknown, number>();
-  const same = new Int32Array(a.length);
   const sources = new Int32Array(b.length);
   let s = 0;
   let aEnd = a.length;
@@ -110,26 +108,32 @@ function update(self: List, _: unknown, value: unknown) {
     }
   }
 
-  for (let i = aEnd; i-- > s;) {
-    same[i] = positions.get(a[i]) ?? -1;
-    positions.set(a[i], i);
-  }
-
   let matched = false;
+  let kept: number[] | undefined;
 
-  for (let j = s; j < bEnd; j++) {
-    const i = positions.get(b[j]) ?? -1;
+  if (bEnd > s) {
+    const positions = new Map<unknown, number>();
+    const same = new Int32Array(a.length);
 
-    if (i >= 0) {
-      matched = true;
-      positions.set(b[j], same[i]);
-      sources[j] = i + 1;
-      next[j] = rows[i];
-      old[i] = 0;
+    for (let i = aEnd; i-- > s;) {
+      same[i] = positions.get(a[i]) ?? -1;
+      positions.set(a[i], i);
     }
-  }
 
-  const kept = matched ? sequence(sources) : undefined;
+    for (let j = s; j < bEnd; j++) {
+      const i = positions.get(b[j]) ?? -1;
+
+      if (i >= 0) {
+        matched = true;
+        positions.set(b[j], same[i]);
+        sources[j] = i + 1;
+        next[j] = rows[i];
+        old[i] = 0;
+      }
+    }
+
+    if (matched) kept = sequence(sources);
+  }
 
   if (kept?.length) {
     for (let i = s; i < aEnd; i++) {
@@ -177,6 +181,8 @@ function insert(
   from: number,
   to: number,
 ) {
+  if (from >= to) return;
+
   const nodes = document.createDocumentFragment();
   const source = self.g as any;
 
