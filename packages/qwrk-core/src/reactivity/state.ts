@@ -545,7 +545,10 @@ function attach(parent: Computation, node: Computation) {
 
 /**
  * Subscribes `owner` to `source`, weakly, until it is unlinked or `owner` is
- * garbage collected. A key that left its map goes back in.
+ * garbage collected. A key that left its map goes back in. An owner with a
+ * parent is disposed with it, which unlinks eagerly, so a tracked dependency
+ * of one skips the registry; a listener entry is never unlinked by disposal,
+ * and an owner without a parent is left to the collector, so both take a slot.
  */
 function link(
   source: Signal<any> | Key,
@@ -564,7 +567,7 @@ function link(
     entry.o = source;
     if (!source.m.has(source.k)) source.m.set(source.k, source);
   }
-  registry.register(owner, entry, entry);
+  if (f || !(owner as Computation).p) registry.register(owner, entry, entry);
   return entry;
 }
 
