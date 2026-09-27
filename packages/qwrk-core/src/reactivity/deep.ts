@@ -1,5 +1,6 @@
 import {
   mark,
+  reads,
   touch,
   trackKey,
   type Key,
@@ -45,7 +46,7 @@ function handler(source: Signal<any>): ProxyHandler<any> {
   return {
     get(target, key, receiver) {
       const item = Reflect.get(target, key, receiver);
-      trackKey(readers, target);
+      if (reads) trackKey(readers, target);
 
       if (Array.isArray(target) && MUTATORS.has(key as string)) {
         return (...args: unknown[]) => {
@@ -58,9 +59,10 @@ function handler(source: Signal<any>): ProxyHandler<any> {
         return (search: unknown, ...rest: unknown[]) =>
           (item as Function).call(receiver, deep(search, source), ...rest);
       }
+      if (typeof item !== "object" || item === null) return item;
 
       const value = deep(item, source);
-      if (value !== item) trackKey(readers, item);
+      if (value !== item && reads) trackKey(readers, item);
       return value;
     },
 

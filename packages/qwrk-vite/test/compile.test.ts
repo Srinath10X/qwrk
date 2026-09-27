@@ -66,9 +66,20 @@ describe("compile", () => {
       `const a = <tr class={selected.value === row.id ? "on" : ""} hidden={row.id !== store.sel.value} onClick={() => selected.value === 1} />;`,
     );
 
-    expect(code).toContain('() => _$equals(selected, row.id) ? "on" : ""');
+    expect(code).toContain('_$classIf(_el$2, selected, row.id, "on", "");');
     expect(code).toContain("() => !_$equals(store.sel, row.id)");
     expect(code).toContain("$$click = () => selected.value === 1;");
+  });
+
+  it("keeps a call in the key on the generic comparison path", () => {
+    const code = output(
+      `const a = <tr class={selected.value === mark(row.id) ? "on" : ""} other={selected.value === row.id ? "x" : "y"} />;`,
+    );
+
+    expect(code).toContain(
+      '() => _$equals(selected, mark(row.id)) ? "on" : ""',
+    );
+    expect(code).not.toContain("_$classIf");
   });
 
   it("delegates bubbling events and listens to the others", () => {

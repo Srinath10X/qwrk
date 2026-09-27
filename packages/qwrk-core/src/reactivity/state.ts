@@ -85,9 +85,9 @@ const NONE: any[] = [];
 
 /**
  * States read while a derive or an effect runs, each followed by its version
- * when first read, or `null` outside of one.
+ * when first read, or `null` outside of one. Read by the deep proxy too.
  */
-let reads: any[] | null = null;
+export let reads: any[] | null = null;
 
 /**
  * The reads of the derive or effect running now, even inside {@link untrack}:
@@ -529,7 +529,7 @@ export abstract class Binding implements Computation {
 export function bind(node: Binding, holder?: object) {
   const parent = owner?.q != 3 && !owner?.e ? owner : null;
   node.p = parent;
-  run(node);
+  first(node);
 
   if (!node.s.length) {
     node.q = 3;
@@ -538,6 +538,46 @@ export function bind(node: Binding, holder?: object) {
     attach(parent, node);
   } else if (holder) {
     retain(holder, node);
+  }
+}
+
+/**
+ * Runs a just-created binding, subscribing it to what it read. Like
+ * {@link run}, without the work re-runs need: nothing is created yet, and
+ * the reads are all new, so every one of them links directly.
+ */
+function first(node: Computation) {
+  const reading: any[] = [];
+  const outerReads = reads;
+  const outerSeen = seen;
+  const outerOwner = owner;
+
+  depth++;
+
+  try {
+    node.q = 2;
+    reads = node.d ? null : reading;
+    seen = reading;
+    owner = node;
+    node.f();
+  } finally {
+    reads = outerReads;
+    seen = outerSeen;
+    owner = outerOwner;
+
+    if (node.q == 2) {
+      node.q = 0;
+      node.d?.forEach((source) => reading.push(source, source.v));
+
+      const s = reading.length ? Array(reading.length) : NONE;
+      for (let i = 0; i < reading.length; i += 2) {
+        s[i] = reading[i];
+        s[i + 1] = link(reading[i], node);
+      }
+      node.s = s;
+    }
+
+    --depth || flush();
   }
 }
 
