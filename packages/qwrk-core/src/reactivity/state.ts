@@ -416,7 +416,7 @@ function subscribe(node: Computation, reading: any[]) {
   const s = (node.s = reading.length ? Array(reading.length) : NONE);
   let n = 0;
 
-  for (let i = 0; i < old.length; i += 2) {
+  for (let i = 0; old !== NONE && i < old.length; i += 2) {
     let version: number | undefined;
 
     for (let j = 0; j < reading.length; j += 2) {

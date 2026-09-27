@@ -1,11 +1,4 @@
-import {
-  bind,
-  Binding,
-  isReactive,
-  peek,
-  retain,
-  watch,
-} from "#qwrk/reactivity/state.js";
+import { bind, Binding, isReactive, retain } from "#qwrk/reactivity/state.js";
 
 /**
  * The nodes a state or a function currently renders as. Its nodes keep it
@@ -29,9 +22,9 @@ export function append(parent: Node, children: unknown, marker?: Node | null) {
     bind(slot);
     if (slot.q != 3) for (const node of slot.nodes) retain(node, slot);
   } else if (isReactive(children)) {
-    const slot: Slot = { nodes: render(peek(children)) };
-    place(parent, slot, marker, true);
-    watch(children, slot, update);
+    const slot = new State(parent, marker, children);
+    bind(slot);
+    if (slot.q != 3) for (const node of slot.nodes) retain(node, slot);
   } else if (
     !marker &&
     !parent.hasChildNodes() &&
@@ -58,6 +51,31 @@ export function text(parent: Node, value: unknown) {
     parent.textContent = toText(value);
   } else {
     append(parent, value);
+  }
+}
+
+/**
+ * A state child: renders its value, again whenever it changes. Owned like
+ * any binding, so a parent that disposes (a row, a derive) unlinks it
+ * eagerly, and one without a parent is left to the collector.
+ */
+class State extends Binding implements Slot {
+  nodes!: ChildNode[];
+
+  constructor(
+    private parent: Node | null,
+    private marker: Node | null | undefined,
+    readonly g: unknown,
+  ) {
+    super();
+  }
+
+  f() {
+    const value = read(this.g);
+    if (this.nodes) return update(this, 0, value);
+    this.nodes = render(value);
+    place(this.parent!, this, this.marker);
+    this.parent = this.marker = null;
   }
 }
 
