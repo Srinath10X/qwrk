@@ -29,7 +29,7 @@ interface Row extends Computation {
  */
 interface List extends Row {
   /** The rows, in order. */
-  c: Row[];
+  rs: Row[];
   /** Each row's item, unwrapped. */
   k: unknown[];
   /** The array's state. */
@@ -43,7 +43,7 @@ interface List extends Row {
 export function list(source: State<unknown>, fn: (item: any) => unknown) {
   const nodes = document.createDocumentFragment();
   const self = computation(
-    { c: [], k: [], g: source, h: text(), t: text() },
+    { rs: [], k: [], g: source, h: text(), t: text() },
     fn as () => unknown,
   ) as unknown as List;
 
@@ -70,22 +70,23 @@ function update(self: List, _: unknown, value: unknown) {
   if (self.q == 3) return;
 
   const items: unknown[] = Array.isArray(value) ? value : [];
-  const { k: a, c: rows, h: start, t: end } = self;
+  const { k: a, rs: rows, h: start, t: end } = self;
   const b = Array(items.length);
   const next: Row[] = Array(b.length);
 
   for (let i = 0; i < items.length; i++) b[i] = toRaw(items[i]);
 
   self.k = b;
-  self.c = next;
+  self.rs = next;
 
   if (!a.length) {
     insert(self, items, next, 0, b.length);
+    chain(self, next);
     return;
   }
 
   const old: (Row | 0)[] = rows;
-  const sources = new Int32Array(b.length);
+  let sources: Int32Array | undefined;
   let s = 0;
   let aEnd = a.length;
   let bEnd = b.length;
@@ -118,6 +119,7 @@ function update(self: List, _: unknown, value: unknown) {
   if (bEnd > s && s < aEnd) {
     const positions = new Map<unknown, number>();
     const same = new Int32Array(a.length);
+    sources = new Int32Array(b.length);
 
     for (let i = aEnd; i-- > s;) {
       same[i] = positions.get(a[i]) ?? -1;
@@ -145,7 +147,7 @@ function update(self: List, _: unknown, value: unknown) {
     }
 
     for (let j = bEnd, k = kept.length - 1; j-- > s;) {
-      if (!sources[j]) insert(self, items, next, j, j + 1);
+      if (!sources![j]) insert(self, items, next, j, j + 1);
       else if (kept[k] === j) k--;
       else relocate(next[j].h, next[j].t, next[j + 1]?.h ?? end);
     }
@@ -170,6 +172,20 @@ function update(self: List, _: unknown, value: unknown) {
       }
     }
     insert(self, items, next, s, bEnd);
+  }
+  chain(self, next);
+}
+
+/**
+ * Links the live rows for disposal with their list, newest last, without
+ * allocating: disposing the list stops every row, and the next update
+ * rebuilds the chain from its own rows.
+ */
+function chain(self: List, next: Row[]) {
+  self.c = undefined;
+  for (let j = next.length; j-- > 0;) {
+    next[j].n = self.c;
+    self.c = next[j];
   }
 }
 

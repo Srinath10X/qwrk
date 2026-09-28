@@ -67,8 +67,10 @@ export interface Computation {
   s: any[];
   /** Explicit dependencies, instead of tracking reads. */
   d?: Set<Signal<any>>;
-  /** What its last run created, once it created something. */
-  c?: Computation[];
+  /** The first of what its last run created, linked through `n`. */
+  c?: Computation;
+  /** The next sibling its owner created, if any. */
+  n?: Computation;
   /** The computation whose run created it. */
   p: Computation | null;
   /** 0 up to date, 1 stale, 2 running, 3 disposed. */
@@ -380,10 +382,13 @@ export function run(node: Computation) {
   depth++;
 
   try {
-    const created = node.c;
-    if (created) {
-      node.c = undefined;
-      for (let i = 0; i < created.length; i++) dispose(created[i]);
+    let created = node.c;
+    node.c = undefined;
+    while (created) {
+      const next = created.n;
+      created.n = undefined;
+      dispose(created);
+      created = next;
     }
 
     node.q = 2;
@@ -407,7 +412,14 @@ export function run(node: Computation) {
       subscribe(node, reading);
 
       if (!node.s.length && node.e && !node.p) {
-        node.c?.splice(0).forEach((child) => adopt(child, null));
+        let created = node.c;
+        node.c = undefined;
+        while (created) {
+          const next = created.n;
+          created.n = undefined;
+          adopt(created, null);
+          created = next;
+        }
         roots.delete(node);
       }
     }
@@ -484,10 +496,13 @@ export function dispose(node: Computation) {
     node.q = 3;
     node.p = null;
 
-    const created = node.c;
-    if (created) {
-      node.c = undefined;
-      for (let i = 0; i < created.length; i++) dispose(created[i]);
+    let created = node.c;
+    node.c = undefined;
+    while (created) {
+      const next = created.n;
+      created.n = undefined;
+      dispose(created);
+      created = next;
     }
 
     for (let i = 0; i < node.s.length; i += 3) {
@@ -531,7 +546,8 @@ export abstract class Binding implements Computation {
   s = NONE;
   p: Computation | null = null;
   q = 0;
-  c?: Computation[] = undefined;
+  c?: Computation = undefined;
+  n?: Computation = undefined;
   abstract f(): unknown;
 }
 
@@ -548,7 +564,14 @@ export function bind(node: Binding, holder?: object) {
 
   if (!node.s.length) {
     node.q = 3;
-    node.c?.splice(0).forEach((child) => adopt(child, parent));
+    let created = node.c;
+    node.c = undefined;
+    while (created) {
+      const next = created.n;
+      created.n = undefined;
+      adopt(created, parent);
+      created = next;
+    }
   } else if (parent) {
     attach(parent, node);
   } else if (holder) {
@@ -663,10 +686,13 @@ export function watcher(fn: () => void, deps?: unknown[], mounted?: boolean) {
   return () => dispose(node);
 }
 
-/** Adds `node` to what `parent` created. */
+/**
+ * Adds `node` to what `parent` created, newest first, without allocating:
+ * disposal order never matters, since every child is disposed either way.
+ */
 function attach(parent: Computation, node: Computation) {
-  if (parent.c) parent.c.push(node);
-  else parent.c = [node];
+  node.n = parent.c;
+  parent.c = node;
 }
 
 /**
@@ -712,7 +738,10 @@ function unlinkSource(
         }
       }
     }
-    if (!subs.length && source instanceof Key) source.m.delete(source.k);
+    if (!subs.length && source instanceof Key) {
+      source.m.delete(source.k);
+      giveKey(source);
+    }
   }
 }
 
@@ -807,7 +836,7 @@ export function is(source: State<unknown>, key: unknown): boolean {
   const keys = (signal.k ??= new Map());
   let found = keys.get(key);
 
-  if (!found) keys.set(key, (found = new Key(key, keys)));
+  if (!found) keys.set(key, (found = takeKey(keys, key)));
 
   for (let i = 0; i < list.length; i += 2) {
     if (list[i] === found) return Object.is(value, key);
@@ -827,7 +856,7 @@ export function trackKey(
 ) {
   if (reads) {
     let found = keys.get(key);
-    if (!found) keys.set(key, (found = new Key(key, keys)));
+    if (!found) keys.set(key, (found = takeKey(keys, key)));
     track(found as any);
   }
 }
@@ -842,9 +871,38 @@ export class Key {
   w: Entry[] = NONE;
 
   constructor(
-    readonly k: any,
-    readonly m: Map<unknown, Key> | WeakMap<object, Key>,
+    public k: any,
+    public m: Map<unknown, Key> | WeakMap<object, Key>,
   ) {}
+}
+
+/** Disposed keys, reused so steady select and dispose allocate none. */
+const keyPool: Key[] = [];
+
+/** Takes the key `map` holds for `key`, cleared of every reference. */
+function takeKey(
+  map: Map<unknown, Key> | WeakMap<object, Key>,
+  key: unknown,
+): Key {
+  const found = keyPool.pop();
+  if (found) {
+    found.k = key;
+    found.m = map;
+    found.v = 0;
+    return found;
+  }
+  return new Key(key, map);
+}
+
+/** Returns a key without subscribers, once it left its map. */
+function giveKey(key: Key) {
+  if (keyPool.length < 4096) {
+    key.k = null;
+    key.m = null as unknown as Map<unknown, Key>;
+    key.v = 0;
+    key.o = NONE;
+    keyPool.push(key);
+  }
 }
 
 /**
