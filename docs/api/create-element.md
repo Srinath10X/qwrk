@@ -10,9 +10,29 @@ function createElement(
 ): Node;
 ```
 
-- A **string** tag creates an HTML element, or an [SVG element](/guide/components#svg) for SVG tags like `svg` and `path`, with the [attribute and event rules](/guide/components#attributes) that JSX uses.
+- A **string** tag creates an HTML element, with the [attribute and event rules](/guide/components#attributes) that JSX uses. For SVG, use [`svg()`](#svg) below.
 - A **function** tag is called as a component with `{ ...props, children }`.
 - **`fragment`** returns the children in a `DocumentFragment`.
+
+## svg()
+
+Like `createElement`, but creating [SVG elements](/guide/components#svg):
+
+```ts
+function svg(
+  tag: string,
+  props: Record<string, any> | null,
+  ...children: unknown[]
+): Node;
+```
+
+```js
+import { svg } from "qwrk";
+
+const icon = svg("svg", { viewBox: "0 0 20 20" }, svg("circle", { r: 8 }));
+```
+
+Compiled JSX calls it for SVG tags that templates can't hold, so most apps never import it directly.
 
 ## Without JSX
 
@@ -33,4 +53,4 @@ document.getElementById("root").append(app);
 
 ## JSX runtime
 
-Bundlers configured with `jsxImportSource: "qwrk"` import `jsx`, `jsxs` and `Fragment` from `qwrk/jsx-runtime` automatically. These wrap `createElement`, so the output is the same.
+Bundlers configured with `jsxImportSource: "qwrk"` import `jsx`, `jsxs` and `Fragment` from `qwrk/jsx-runtime` automatically. These wrap `createElement`, resolving SVG tags to the SVG namespace like compiled output does, so the output is the same.

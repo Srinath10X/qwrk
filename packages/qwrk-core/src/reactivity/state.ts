@@ -621,9 +621,6 @@ function first(node: Computation) {
   }
 }
 
-/** Unlinked listeners, reused so steady create and dispose allocate none. */
-const free: Entry[] = [];
-
 /** The read lists of finished runs, reused so a run allocates none. */
 const idle: any[][] = [];
 
@@ -756,7 +753,7 @@ function watchLink(
   f: Listener,
   d: unknown,
 ): Entry {
-  const entry: Entry = free.pop() ?? ({} as Entry);
+  const entry: Entry = {} as Entry;
   entry.r = new WeakRef(owner);
   entry.f = f;
   entry.d = d;
@@ -778,9 +775,6 @@ function unwatch(entry: Entry) {
   if (entries[i] === entry) {
     const last = entries.pop()!;
     if (last !== entry) (entries[i] = last).i = i;
-    entry.r = null as unknown as WeakRef<object>;
-    entry.o = null as unknown as Entry[];
-    if (free.length < 65536) free.push(entry);
   }
   registry.unregister(entry);
 }
