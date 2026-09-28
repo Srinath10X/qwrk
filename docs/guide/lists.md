@@ -50,7 +50,7 @@ The same item twice renders two rows.
 
 ## Items
 
-The function receives each item as `todos.value[i]` returns it: objects and arrays as proxies, so changing them notifies `todos`, and nested states and primitives as they are. It gets no index, since the index changes when rows move.
+The function receives each item raw, as stored: nested states and primitives as they are. It gets no index, since the index changes when rows move. To change an item, write through the state: `todos.value[i].done = true` still notifies, since reads through the state wrap, but writing a captured item does nothing. To keep a value in a row up to date, store it in a state inside the item (below).
 
 To keep a value in a row up to date, store it in a state inside the item:
 
@@ -62,7 +62,7 @@ const todos = state([{ text: state("Write docs") }]);
 todos.value[0].text.value = "Write more docs"; // updates only that <li>
 ```
 
-Reading an item's field inside a derive subscribes the derive to the whole array, like reading `todos.value`. Read fields that don't change once, in the function:
+A captured item subscribes to nothing on its own, so read changing fields through the state inside a derive. Read fields that don't change once, in the function:
 
 ```jsx
 todos.map((todo) => {

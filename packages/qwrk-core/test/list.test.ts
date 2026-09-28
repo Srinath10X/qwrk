@@ -210,8 +210,10 @@ describe("state.map", () => {
     expect(div.textContent).toBe("");
   });
 
-  it("gives each row the item's proxy, so changing it in place updates", () => {
-    const todos = state([todo("a")]);
+  it("gives each row the raw item, read live through the state", () => {
+    const first = todo("a");
+    const todos = state([first]);
+    const seen: unknown[] = [];
     const div = h(
       "div",
       null,
@@ -219,10 +221,13 @@ describe("state.map", () => {
         h(
           "p",
           null,
-          derive(() => (item.done ? "done" : item.text)),
+          (seen.push(item),
+          derive(() => (todos.value[0].done ? "done" : todos.value[0].text))),
         ),
       ),
     );
+
+    expect(seen).toEqual([first]);
 
     todos.value[0].done = true;
     expect(div.textContent).toBe("done");
@@ -306,7 +311,9 @@ describe("state.map", () => {
           "section",
           null,
           group.name,
-          derive(() => group.items).map((item) => h("i", null, item)),
+          derive(
+            () => groups.value.find((g) => g.name === group.name)!.items,
+          ).map((item) => h("i", null, item)),
         ),
       ),
     );

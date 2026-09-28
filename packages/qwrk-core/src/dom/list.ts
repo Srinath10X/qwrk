@@ -1,5 +1,5 @@
 import { append, relocate } from "#qwrk/dom/children.js";
-import { deep, toRaw } from "#qwrk/reactivity/deep.js";
+import { toRaw } from "#qwrk/reactivity/deep.js";
 import {
   computation,
   dispose,
@@ -175,8 +175,9 @@ function update(self: List, _: unknown, value: unknown) {
 
 /**
  * Creates the rows of `items[from..to)` and inserts them at once. Each one
- * calls `fn` with its item as reading `.value[i]` would return it, untracked,
- * in a new scope that owns what `fn` creates.
+ * calls `fn` with its raw item, untracked, in a new scope that owns what
+ * `fn` creates. Reads through the state still wrap and track, but the item
+ * a row captured never does: change it through the state instead.
  */
 function insert(
   self: List,
@@ -188,12 +189,10 @@ function insert(
   if (from >= to) return;
 
   const nodes = document.createDocumentFragment();
-  const source = self.g as any;
 
   for (let j = from; j < to; j++) {
     const row = { s: self.s, p: self, q: 0 } as any as Row;
-    const item = source.f ? items[j] : deep(items[j], source);
-    const result: any = own(row, self.f, item);
+    const result: any = own(row, self.f, items[j]);
 
     if (result instanceof Node && result.nodeType != 11) {
       row.h = row.t = nodes.appendChild(result as ChildNode);
