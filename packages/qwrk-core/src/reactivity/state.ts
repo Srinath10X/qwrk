@@ -36,22 +36,21 @@ export interface State<T> {
 type Listener = (owner: any, data: any, value: any) => void;
 
 /**
- * A subscription to a state. It reaches its subscriber through a `WeakRef`,
- * so the subscriber can be garbage collected, and never references the state,
- * whose value may hold the subscriber.
+ * A listener subscribed with {@link watch}. It reaches its owner through a
+ * `WeakRef`, so the owner can be garbage collected, which drops it even from
+ * a state that is never written again. Computations subscribe directly
+ * instead, and stop when disposed.
  */
 interface Entry {
   r: WeakRef<object>;
-  /** The subscriptions of the source it belongs to, or the key it belongs to. */
-  o: Entry[] | Key;
+  /** The listeners of the source it belongs to. */
+  o: Entry[];
   /** Its position in them. */
   i: number;
-  /** DOM bindings only: updates the owner. */
-  f?: Listener;
-  /** DOM bindings only: passed to `f`. */
-  d?: unknown;
-  /** Derives and effects only: the source's version their last run saw. */
-  v?: number;
+  /** Updates the owner. */
+  f: Listener;
+  /** Passed to `f`. */
+  d: unknown;
 }
 
 /**
@@ -61,7 +60,10 @@ interface Entry {
 export interface Computation {
   /** Runs it. A derive's value is the result. */
   f: () => unknown;
-  /** The states it depends on, each followed by its subscription. */
+  /**
+   * The states it depends on, each followed by the version it saw and its
+   * slot in their subscribers, so dropping one is a swap with the last.
+   */
   s: any[];
   /** Explicit dependencies, instead of tracking reads. */
   d?: Set<Signal<any>>;
@@ -72,7 +74,7 @@ export interface Computation {
   /** 0 up to date, 1 stale, 2 running, 3 disposed. */
   q: number;
   /** Derives only: their subscribers, value and version. */
-  o?: Entry[];
+  o?: Computation[];
   _?: unknown;
   v?: number;
   /** Effects only: they run after the DOM bindings, and own only effects. */
@@ -80,7 +82,6 @@ export interface Computation {
 }
 
 const KEEP = Symbol();
-const REF = Symbol();
 const NONE: any[] = [];
 
 /**
@@ -114,10 +115,10 @@ const roots = new Set<Computation>();
 let error: [unknown] | undefined;
 
 /**
- * Drops the subscriptions of garbage collected DOM bindings, derives and
- * effects, even from a state that is never written again.
+ * Drops the listeners of garbage collected owners, even from a state that
+ * is never written again.
  */
-const registry = new FinalizationRegistry<Entry>(unlink);
+const registry = new FinalizationRegistry<Entry>(unwatch);
 
 class Signal<T> {
   /** The raw value. */
@@ -128,8 +129,10 @@ class Signal<T> {
   declare h?: ProxyHandler<any>;
   /** Bumped on every change. */
   v = 0;
-  /** Subscriptions. */
-  o: Entry[] = NONE;
+  /** Subscribed derives, effects and DOM bindings. */
+  o: Computation[] = NONE;
+  /** Subscribed listeners, see {@link watch}. */
+  w: Entry[] = NONE;
   /** The subscriptions of each key read with {@link is}. */
   declare k?: Map<unknown, Key>;
   /** Added by the module that renders JSX at runtime, see {@link State}. */
@@ -225,24 +228,31 @@ export function peek<T>(source: State<T>): T {
 }
 
 /**
- * Queues `source`'s DOM bindings, and marks its computations stale,
- * with everything that depends on them. With `deep`, DOM bindings are
- * skipped: a stale derive queues its own once its value actually changes.
+ * Marks `source`'s computations stale, and queues its listeners, with
+ * everything that depends on them. With `deep`, listeners are skipped: a
+ * stale derive queues its own once its value actually changes.
  */
 function notify(source: Signal<any>, deep?: boolean) {
-  const entries = source.o;
+  const subs = source.o;
 
-  for (let i = 0; i < entries.length;) {
-    const entry = entries[i];
-    const sub = entry.r.deref() as Computation | undefined;
+  for (let i = 0; i < subs.length; i++) {
+    const sub = subs[i];
+    if (!sub.q) stale(sub);
+  }
 
-    if (!sub) {
-      unlink(entry);
-      continue;
+  if (!deep) {
+    const entries = source.w;
+
+    for (let i = 0; i < entries.length;) {
+      const entry = entries[i];
+
+      if (entry.r.deref()) {
+        queue[1].set(entry, source);
+        i++;
+      } else {
+        unwatch(entry);
+      }
     }
-    if (entry.f) deep || queue[1].set(entry, source);
-    else if (!sub.q) stale(sub);
-    i++;
   }
 }
 
@@ -336,12 +346,12 @@ function refresh(node: Computation) {
 
       try {
         const { s } = node;
-        for (let i = 0; i < s.length; i += 2) {
+        for (let i = 0; i < s.length; i += 3) {
           refresh(s[i]);
-          if (s[i + 1].v != s[i].v) return run(node);
+          if (s[i + 1] !== s[i].v) return run(node);
         }
-        for (let i = 0; i < s.length; i += 2) {
-          if (s[i + 1].v != s[i].v) return run(node);
+        for (let i = 0; i < s.length; i += 3) {
+          if (s[i + 1] !== s[i].v) return run(node);
         }
       } finally {
         if (node.q == 2) node.q = 0;
@@ -409,15 +419,16 @@ export function run(node: Computation) {
 
 /**
  * Replaces the dependencies of `node` with the states it just read, keeping
- * the subscriptions it still needs, in an array of the exact size. A read it
- * kept is marked by clearing its source slot.
+ * the subscriptions it still needs, in an array of the exact size. Each one
+ * is its source, the version it saw, and its slot in the source's
+ * subscribers. A read it kept is marked by clearing its source slot.
  */
 function subscribe(node: Computation, reading: any[]) {
   const old = node.s;
-  const s = (node.s = reading.length ? Array(reading.length) : NONE);
+  const s = (node.s = reading.length ? takeS((reading.length / 2) * 3) : NONE);
   let n = 0;
 
-  for (let i = 0; old !== NONE && i < old.length; i += 2) {
+  for (let i = 0; old !== NONE && i < old.length; i += 3) {
     let version: number | undefined;
 
     for (let j = 0; j < reading.length; j += 2) {
@@ -429,25 +440,26 @@ function subscribe(node: Computation, reading: any[]) {
     }
 
     if (version === undefined) {
-      unlink(old[i + 1]);
+      unlinkSource(old[i], node, old[i + 2]);
     } else {
-      old[i + 1].v = version;
       s[n++] = old[i];
-      s[n++] = old[i + 1];
+      s[n++] = version;
+      s[n++] = old[i + 2];
     }
   }
 
   for (let i = 0; i < reading.length; i += 2) {
     if (reading[i]) {
       s[n++] = reading[i];
+      s[n++] = reading[i + 1];
       s[n++] = link(reading[i], node);
-      s[n - 1].v = reading[i + 1];
     }
   }
 
-  for (let i = 0; i < n; i += 2) {
-    s[i + 1].v == s[i].v || node.q || stale(node);
+  for (let i = 0; i < n; i += 3) {
+    if (s[i + 1] !== s[i].v && !node.q) stale(node);
   }
+  giveS(old);
 }
 
 /**
@@ -478,7 +490,10 @@ export function dispose(node: Computation) {
       for (let i = 0; i < created.length; i++) dispose(created[i]);
     }
 
-    for (let i = 1; i < node.s.length; i += 2) unlink(node.s[i]);
+    for (let i = 0; i < node.s.length; i += 3) {
+      unlinkSource(node.s[i], node, node.s[i + 2]);
+    }
+    giveS(node.s);
     node.s = NONE;
     roots.delete(node);
   }
@@ -517,7 +532,6 @@ export abstract class Binding implements Computation {
   p: Computation | null = null;
   q = 0;
   c?: Computation[] = undefined;
-  [REF]?: WeakRef<object> = undefined;
   abstract f(): unknown;
 }
 
@@ -570,10 +584,11 @@ function first(node: Computation) {
       node.q = 0;
       node.d?.forEach((source) => reading.push(source, source.v));
 
-      const s = reading.length ? Array(reading.length) : NONE;
-      for (let i = 0; i < reading.length; i += 2) {
-        s[i] = reading[i];
-        s[i + 1] = link(reading[i], node);
+      const s = reading.length ? takeS((reading.length / 2) * 3) : NONE;
+      for (let i = 0, n = 0; i < reading.length; i += 2) {
+        s[n++] = reading[i];
+        s[n++] = reading[i + 1];
+        s[n++] = link(reading[i], node);
       }
       node.s = s;
     }
@@ -583,7 +598,7 @@ function first(node: Computation) {
   }
 }
 
-/** Unlinked subscriptions, reused so steady create and dispose allocate none. */
+/** Unlinked listeners, reused so steady create and dispose allocate none. */
 const free: Entry[] = [];
 
 /** The read lists of finished runs, reused so a run allocates none. */
@@ -596,6 +611,32 @@ function take() {
 function give(list: any[]) {
   list.length = 0;
   idle.push(list);
+}
+
+/** Subscription arrays by length, reused so subscribing allocates none. */
+const spools: any[][] = [];
+
+/**
+ * Takes a subscription array of `length`: every slot is written before it
+ * is read, so a reused one needs no clearing.
+ */
+function takeS(length: number): any[] {
+  const spool = spools[length];
+  const found = spool?.pop();
+  if (found) return found;
+  return Array(length);
+}
+
+/**
+ * Returns a subscription array, once nothing reads it anymore. Sources are
+ * cleared, so a pooled array never keeps a dropped state alive. Every slot
+ * is written before it is read, so `takeS` needs no clearing.
+ */
+function giveS(list: any[]) {
+  if (list === NONE) return;
+  for (let i = 0; i < list.length; i += 3) list[i] = null;
+  const spool = (spools[list.length] ??= []);
+  if (spool.length < 1024) spool.push(list);
 }
 
 /**
@@ -629,56 +670,87 @@ function attach(parent: Computation, node: Computation) {
 }
 
 /**
- * Subscribes `owner` to `source`, weakly, until it is unlinked or `owner` is
- * garbage collected. A key that left its map goes back in. An owner with a
- * parent is disposed with it, which unlinks eagerly, so a tracked dependency
- * of one skips the registry; a listener entry is never unlinked by disposal,
- * and an owner without a parent is left to the collector, so both take a slot.
+ * Subscribes `owner` to `source`, until it is unlinked by disposal or by a
+ * re-run that drops it. A key that left its map goes back in.
+ *
+ * @returns The owner's slot in the source's subscribers.
  */
-function link(
+function link(source: Signal<any> | Key, owner: Computation): number {
+  const subs = source.o;
+
+  if (subs === NONE) {
+    source.o = [owner];
+  } else {
+    subs.push(owner);
+  }
+  if (source instanceof Key && !source.m.has(source.k)) {
+    source.m.set(source.k, source);
+  }
+  return source.o.length - 1;
+}
+
+/**
+ * Drops the subscription of `owner` to `source`, moving the last subscriber
+ * into its slot. A key left without any leaves its map.
+ */
+function unlinkSource(
   source: Signal<any> | Key,
-  owner: object,
-  f?: Listener,
-  d?: unknown,
+  owner: Computation,
+  slot: number,
 ) {
-  const key = source instanceof Key;
-  const r = ((owner as any)[REF] ??= new WeakRef(owner));
-  const o = source.o;
+  const subs = source.o;
+
+  if (subs[slot] === owner) {
+    const last = subs.pop()!;
+    if (last !== owner) {
+      subs[slot] = last;
+      const s = last.s;
+      for (let i = 0; i < s.length; i += 3) {
+        if (s[i] === source) {
+          s[i + 2] = slot;
+          break;
+        }
+      }
+    }
+    if (!subs.length && source instanceof Key) source.m.delete(source.k);
+  }
+}
+
+/**
+ * Subscribes `owner` to `source` for as long as `owner` is alive, calling
+ * `fn` with the owner, `data` and the raw new value on every change. Unlike
+ * a computation, it is never unlinked by disposal, only by the collector.
+ */
+function watchLink(
+  source: Signal<any>,
+  owner: object,
+  f: Listener,
+  d: unknown,
+): Entry {
   const entry: Entry = free.pop() ?? ({} as Entry);
-  entry.r = r;
-  entry.o = o;
-  entry.i = o.length;
+  entry.r = new WeakRef(owner);
   entry.f = f;
   entry.d = d;
-  entry.v = undefined;
 
-  if (entry.i) source.o.push(entry);
-  else entry.o = source.o = [entry];
-  if (key) {
-    entry.o = source;
-    if (!source.m.has(source.k)) source.m.set(source.k, source);
-  }
-  if (f || !(owner as Computation).p) registry.register(owner, entry, entry);
+  const subs = source.w;
+  entry.o = subs === NONE ? (source.w = [entry]) : (subs.push(entry), subs);
+  entry.i = entry.o.length - 1;
+  registry.register(owner, entry, entry);
   return entry;
 }
 
 /**
- * Drops a subscription, moving the last one into its place. A key left
- * without any leaves its map.
+ * Drops a listener, moving the last one into its place.
  */
-function unlink(entry: Entry) {
-  const holder = entry.o;
-  const entries = holder instanceof Key ? holder.o : holder;
+function unwatch(entry: Entry) {
+  const entries = entry.o;
   const i = entry.i;
 
   if (entries[i] === entry) {
     const last = entries.pop()!;
     if (last !== entry) (entries[i] = last).i = i;
-    if (!entries.length && holder instanceof Key) holder.m.delete(holder.k);
     entry.r = null as unknown as WeakRef<object>;
     entry.o = null as unknown as Entry[];
-    entry.f = undefined;
-    entry.d = undefined;
     if (free.length < 65536) free.push(entry);
   }
   registry.unregister(entry);
@@ -709,7 +781,7 @@ export function watch<T, O extends object, D = undefined>(
   data?: D,
 ) {
   retain(owner, source);
-  link(source as any, owner, fn, data);
+  watchLink(source as any, owner, fn, data);
 }
 
 /**
@@ -766,7 +838,8 @@ export function trackKey(
  */
 export class Key {
   v = 0;
-  o: Entry[] = NONE;
+  o: Computation[] = NONE;
+  w: Entry[] = NONE;
 
   constructor(
     readonly k: any,
