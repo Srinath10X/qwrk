@@ -48,14 +48,15 @@ function handler(source: Signal<any>): ProxyHandler<any> {
       const item = Reflect.get(target, key, receiver);
       if (reads) trackKey(readers, target);
 
-      if (Array.isArray(target) && MUTATORS.has(key as string)) {
+      const array = Array.isArray(target);
+      if (array && MUTATORS.has(key as string)) {
         return (...args: unknown[]) => {
           const result = (item as Function).apply(target, args.map(toRaw));
           changed(source, target);
           return result === target ? receiver : result;
         };
       }
-      if (Array.isArray(target) && SEARCHES.has(key as string)) {
+      if (array && SEARCHES.has(key as string)) {
         return (search: unknown, ...rest: unknown[]) =>
           (item as Function).call(receiver, deep(search, source), ...rest);
       }
