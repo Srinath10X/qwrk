@@ -641,9 +641,14 @@ function list(context: Context, nodes: Node[], nest: boolean): Part[] {
   return parts;
 }
 
-/** Calls `createElement` from `qwrk`, for what templates can't express. */
+/**
+ * Calls `createElement` or `svg` from `qwrk`, for what templates can't
+ * express. The tag decides the namespace statically, so the runtime never
+ * checks it.
+ */
 function createElement(context: Context, node: Node, tag: string): Part[] {
-  const parts: Part[] = [`${helper(context, "h")}(${quote(tag)}, {`];
+  const name = isSvg(tag) ? "svg" : "h";
+  const parts: Part[] = [`${helper(context, name)}(${quote(tag)}, {`];
 
   for (const attribute of node.openingElement.attributes as Node[]) {
     if (attribute.type === "JSXSpreadAttribute") {
@@ -1202,6 +1207,8 @@ function prepend(context: Context, program: Node) {
   for (const [name, local] of context.helpers) {
     if (name === "h")
       lines.push(`import { createElement as ${local} } from "qwrk";`);
+    else if (name === "svg")
+      lines.push(`import { svg as ${local} } from "qwrk";`);
     else internal.push(`${name} as ${local}`);
   }
   if (internal.length) {

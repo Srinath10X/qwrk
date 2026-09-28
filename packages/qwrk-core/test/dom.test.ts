@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { createElement as h, derive, fragment, state } from "../dist/index.js";
+import {
+  createElement as h,
+  derive,
+  fragment,
+  state,
+  svg,
+} from "../dist/index.js";
 import { jsx, Fragment } from "../dist/jsx/runtime.js";
 
 describe("children", () => {
@@ -127,13 +133,20 @@ describe("attributes", () => {
 });
 
 describe("elements", () => {
-  it("creates SVG tags in the SVG namespace", () => {
-    const svg = h("svg", { viewBox: "0 0 20 20" }, h("circle", { r: 8 }));
+  it("creates HTML tags in the HTML namespace", () => {
+    const div = h("div", { id: "a" });
 
-    expect(svg.namespaceURI).toBe("http://www.w3.org/2000/svg");
-    expect(svg.firstChild!.namespaceURI).toBe("http://www.w3.org/2000/svg");
-    expect(svg.getAttribute("viewBox")).toBe("0 0 20 20");
+    expect(div.namespaceURI).toBe("http://www.w3.org/1999/xhtml");
+    expect(h("svg", null).namespaceURI).toBe("http://www.w3.org/1999/xhtml");
     expect(h("a", null).namespaceURI).toBe("http://www.w3.org/1999/xhtml");
+  });
+
+  it("creates SVG tags in the SVG namespace", () => {
+    const icon = svg("svg", { viewBox: "0 0 20 20" }, svg("circle", { r: 8 }));
+
+    expect(icon.namespaceURI).toBe("http://www.w3.org/2000/svg");
+    expect(icon.firstChild!.namespaceURI).toBe("http://www.w3.org/2000/svg");
+    expect(icon.getAttribute("viewBox")).toBe("0 0 20 20");
   });
 
   it("adds on* functions as listeners", () => {
@@ -162,6 +175,13 @@ describe("elements", () => {
     root.append(jsx(App, {}));
 
     expect(root.innerHTML).toBe("<h1>a</h1><p></p>");
+  });
+
+  it("creates SVG tags in the SVG namespace from the JSX runtime", () => {
+    const circle = jsx("circle", { r: 8 });
+
+    expect(circle.namespaceURI).toBe("http://www.w3.org/2000/svg");
+    expect(jsx("div", {}).namespaceURI).toBe("http://www.w3.org/1999/xhtml");
   });
 });
 

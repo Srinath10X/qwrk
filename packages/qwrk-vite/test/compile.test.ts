@@ -135,7 +135,21 @@ describe("compile", () => {
     expect(code).toContain(
       '_$h("p", { ...props, class: "c", }, () => x.value)',
     );
-    expect(code).toContain('_$h("use", { "xlink:href": "#a", })');
+    expect(code).toContain('import { svg as _$svg } from "qwrk";');
+    expect(code).toContain('_$svg("use", { "xlink:href": "#a", })');
+  });
+
+  it("calls svg for SVG tags that templates can't hold", () => {
+    const code = output(
+      `const a = <svg viewBox="0 0 1 1"><circle {...props} /><line x1="0" /></svg>;`,
+    );
+
+    expect(code).toContain('import { svg as _$svg } from "qwrk";');
+    expect(code).toContain('_$svg("circle", { ...props, })');
+    expect(code).toContain(
+      '_$template("<svg viewBox=\\"0 0 1 1\\"><line x1=\\"0\\"></line></svg>")',
+    );
+    expect(code).not.toContain("_$h(");
   });
 
   it("keeps TypeScript in TSX", () => {
