@@ -146,8 +146,10 @@ Qwrk keeps its core small, so some things are deliberately not there yet:
 
 ## Memory
 
-There's no unmount step. States hold their DOM bindings and derives weakly, so once a node leaves the page and nothing else references it, the browser's garbage collector frees it along with its subscriptions. For example, every `<li>` removed from a [list](/guide/lists) is freed, even when it shows a state the whole app shares.
+There's no unmount step. What a derive renders, including the DOM bindings of a [list](/guide/lists) row, is disposed when the derive runs again or when its list drops it, and disposal drops every subscription at once. For example, every `<li>` removed from a list stops updating, even when it shows a state the whole app shares.
+
+Detached trees are not tracked: dropping nodes without going through a derive or a list leaves their subscriptions until the states they read are themselves freed, so prefer derives and lists for anything that comes and goes.
 
 A node you keep a reference to, such as an element stored in a state, stays alive and keeps updating, so you can put it back in the page later.
 
-`effect()` and `.effect()` created outside a derive are the exception: they live until you stop them, and they keep the states they read alive. Those created while a derive runs, such as in a list item, stop when it runs again, and are freed with it when its DOM is dropped. Those created inside another effect's callback stop when it runs again.
+`effect()` and `.effect()` created outside a derive are the exception: they live until you stop them, and they keep the states they read alive. Those created while a derive runs, such as in a list item, stop when it runs again. Those created inside another effect's callback stop when it runs again.

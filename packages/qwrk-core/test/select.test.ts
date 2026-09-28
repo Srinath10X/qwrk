@@ -7,16 +7,6 @@ import {
   state,
 } from "../dist/index.js";
 
-declare const gc: () => void;
-
-/** Runs full garbage collections until finalizers have had a chance to run. */
-async function collect() {
-  for (let i = 0; i < 10; i++) {
-    gc();
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-}
-
 /** Renders `count` rows whose class depends on `selected`, counting reruns. */
 function table(count: number, selected: ReturnType<typeof state<number>>) {
   const rows = state(Array.from({ length: count }, (_, id) => ({ id })));
@@ -125,14 +115,17 @@ describe("State.is", () => {
     expect(keys.size).toBe(0);
   });
 
-  it("drops the keys of garbage collected readers", async () => {
+  it("drops the keys a derive stopped reading", () => {
     const selected = state(0);
-    (() => {
-      for (let i = 0; i < 50; i++) derive(() => selected.is(i)).value;
-    })();
+    const use = state(true);
+    const flag = derive(() => (use.value ? selected.is(1) : selected.is(2)));
 
-    await collect();
+    expect((selected as any).k.size).toBe(1);
 
-    expect((selected as any).k.size).toBe(0);
+    use.value = false;
+
+    expect(flag.value).toBe(false);
+    expect((selected as any).k.size).toBe(1);
+    expect((selected as any).k.has(1)).toBe(false);
   });
 });

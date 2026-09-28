@@ -173,14 +173,14 @@ describe("derive", () => {
     const a = state(1);
     const b = state(1);
     const sum = derive(() => a.value + b.value) as any;
-    const before = [...sum.s.values()];
+    const before = [...sum.s];
 
     for (let i = 2; i < 10; i++) a.value = i;
 
-    expect([...sum.s.values()]).toEqual(before);
-    expect([...sum.s.values()].every((entry, i) => entry === before[i])).toBe(
-      true,
-    );
+    expect(sum.s[0]).toBe(a);
+    expect(sum.s[2]).toBe(before[2]);
+    expect(sum.s[3]).toBe(b);
+    expect(sum.s[5]).toBe(before[5]);
     expect((a as any).o.length).toBe(1);
     expect(sum.value).toBe(10);
   });
