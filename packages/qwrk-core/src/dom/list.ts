@@ -111,7 +111,11 @@ function update(self: List, _: unknown, value: unknown) {
   let matched = false;
   let kept: number[] | undefined;
 
-  if (bEnd > s) {
+  /**
+   * Only when old rows are left to match: when the prefix consumed them
+   * all, everything left is new, and a map over nothing proves nothing.
+   */
+  if (bEnd > s && s < aEnd) {
     const positions = new Map<unknown, number>();
     const same = new Int32Array(a.length);
 
