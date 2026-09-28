@@ -39,14 +39,14 @@ export function bindAttribute(element: Element, key: string, value: unknown) {
 class Attribute extends Binding {
   constructor(
     readonly e: Element,
-    readonly n: string,
+    readonly name: string,
     readonly g: () => unknown,
   ) {
     super();
   }
 
   f() {
-    setAttribute(this.e, this.n, read(this.g()));
+    setAttribute(this.e, this.name, read(this.g()));
   }
 }
 
@@ -72,7 +72,7 @@ class ClassIf extends Binding {
     readonly source: unknown,
     readonly k: unknown,
     readonly y: string,
-    readonly n: string,
+    readonly no: string,
   ) {
     super();
   }
@@ -83,7 +83,7 @@ class ClassIf extends Binding {
       "class",
       (isReactive(source) ? is(source, this.k) : source.value === this.k)
         ? this.y
-        : this.n,
+        : this.no,
     );
   }
 }

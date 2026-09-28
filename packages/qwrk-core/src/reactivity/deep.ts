@@ -51,7 +51,8 @@ function handler(source: Signal<any>): ProxyHandler<any> {
       const array = Array.isArray(target);
       if (array && MUTATORS.has(key as string)) {
         return (...args: unknown[]) => {
-          const result = (item as Function).apply(target, args.map(toRaw));
+          for (let i = 0; i < args.length; i++) args[i] = toRaw(args[i]);
+          const result = (item as Function).apply(target, args);
           changed(source, target);
           return result === target ? receiver : result;
         };
