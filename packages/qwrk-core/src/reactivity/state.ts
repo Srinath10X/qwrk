@@ -583,6 +583,9 @@ function first(node: Computation) {
   }
 }
 
+/** Unlinked subscriptions, reused so steady create and dispose allocate none. */
+const free: Entry[] = [];
+
 /** The read lists of finished runs, reused so a run allocates none. */
 const idle: any[][] = [];
 
@@ -641,7 +644,13 @@ function link(
   const key = source instanceof Key;
   const r = ((owner as any)[REF] ??= new WeakRef(owner));
   const o = source.o;
-  const entry: Entry = f ? { r, o, i: o.length, f, d } : { r, o, i: o.length };
+  const entry: Entry = free.pop() ?? ({} as Entry);
+  entry.r = r;
+  entry.o = o;
+  entry.i = o.length;
+  entry.f = f;
+  entry.d = d;
+  entry.v = undefined;
 
   if (entry.i) source.o.push(entry);
   else entry.o = source.o = [entry];
@@ -666,6 +675,11 @@ function unlink(entry: Entry) {
     const last = entries.pop()!;
     if (last !== entry) (entries[i] = last).i = i;
     if (!entries.length && holder instanceof Key) holder.m.delete(holder.k);
+    entry.r = null as unknown as WeakRef<object>;
+    entry.o = null as unknown as Entry[];
+    entry.f = undefined;
+    entry.d = undefined;
+    if (free.length < 65536) free.push(entry);
   }
   registry.unregister(entry);
 }
