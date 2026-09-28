@@ -77,6 +77,8 @@ function isTextValue(value: unknown) {
  * nodes.
  */
 class Value extends Binding {
+  private node: ChildNode | null = null;
+
   constructor(
     private parent: Node,
     readonly g: unknown,
@@ -88,7 +90,14 @@ class Value extends Binding {
     const value = read(this.g);
 
     if (isTextValue(value)) {
-      this.parent.textContent = toText(value);
+      const text = toText(value);
+      const node = this.node;
+
+      if (node && node.parentNode === this.parent) (node as Text).data = text;
+      else {
+        this.parent.textContent = text;
+        this.node = this.parent.firstChild;
+      }
       return;
     }
 
