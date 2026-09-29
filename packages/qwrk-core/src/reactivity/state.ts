@@ -374,7 +374,7 @@ function refresh(node: Computation) {
 export function run(node: Computation) {
   if (node.q == 3) return;
   const old = node._;
-  const reading = take();
+  const reading: any[] = [];
   const outerReads = reads;
   const outerSeen = seen;
   const outerOwner = owner;
@@ -424,7 +424,6 @@ export function run(node: Computation) {
       }
     }
 
-    give(reading);
     --depth || flush();
   }
 }
@@ -437,7 +436,7 @@ export function run(node: Computation) {
  */
 function subscribe(node: Computation, reading: any[]) {
   const old = node.s;
-  const s = (node.s = reading.length ? takeS((reading.length / 2) * 3) : NONE);
+  const s = (node.s = reading.length ? Array((reading.length / 2) * 3) : NONE);
   let n = 0;
 
   for (let i = 0; old !== NONE && i < old.length; i += 3) {
@@ -471,7 +470,6 @@ function subscribe(node: Computation, reading: any[]) {
   for (let i = 0; i < n; i += 3) {
     if (s[i + 1] !== s[i].v && !node.q) stale(node);
   }
-  giveS(old);
 }
 
 /**
@@ -508,7 +506,6 @@ export function dispose(node: Computation) {
     for (let i = 0; i < node.s.length; i += 3) {
       unlinkSource(node.s[i], node, node.s[i + 2]);
     }
-    giveS(node.s);
     node.s = NONE;
     roots.delete(node);
   }
@@ -588,7 +585,7 @@ export function bind(node: Binding, holder?: object) {
       node.q = 0;
       self.d?.forEach((source) => reading.push(source, source.v));
 
-      const s = reading.length ? takeS((reading.length / 2) * 3) : NONE;
+      const s = reading.length ? Array((reading.length / 2) * 3) : NONE;
       for (let i = 0, n = 0; i < reading.length; i += 2) {
         s[n++] = reading[i];
         s[n++] = reading[i + 1];
@@ -597,7 +594,6 @@ export function bind(node: Binding, holder?: object) {
       node.s = s;
     }
 
-    give(reading);
     --depth || flush();
   }
 
@@ -616,44 +612,6 @@ export function bind(node: Binding, holder?: object) {
   } else if (holder) {
     retain(holder, node);
   }
-}
-
-/** The read lists of finished runs, reused so a run allocates none. */
-const idle: any[][] = [];
-
-function take() {
-  return idle.pop() ?? [];
-}
-
-function give(list: any[]) {
-  list.length = 0;
-  idle.push(list);
-}
-
-/** Subscription arrays by length, reused so subscribing allocates none. */
-const spools: any[][] = [];
-
-/**
- * Takes a subscription array of `length`: every slot is written before it
- * is read, so a reused one needs no clearing.
- */
-function takeS(length: number): any[] {
-  const spool = spools[length];
-  const found = spool?.pop();
-  if (found) return found;
-  return Array(length);
-}
-
-/**
- * Returns a subscription array, once nothing reads it anymore. Sources are
- * cleared, so a pooled array never keeps a dropped state alive. Every slot
- * is written before it is read, so `takeS` needs no clearing.
- */
-function giveS(list: any[]) {
-  if (list === NONE) return;
-  for (let i = 0; i < list.length; i += 3) list[i] = null;
-  const spool = (spools[list.length] ??= []);
-  if (spool.length < 1024) spool.push(list);
 }
 
 /**
@@ -732,10 +690,7 @@ function unlinkSource(
         }
       }
     }
-    if (!subs.length && source instanceof Key) {
-      source.m.delete(source.k);
-      giveKey(source);
-    }
+    if (!subs.length && source instanceof Key) source.m.delete(source.k);
   }
 }
 
@@ -827,7 +782,7 @@ export function is(source: State<unknown>, key: unknown): boolean {
   const keys = (signal.k ??= new Map());
   let found = keys.get(key);
 
-  if (!found) keys.set(key, (found = takeKey(keys, key)));
+  if (!found) keys.set(key, (found = new Key(key, keys)));
 
   for (let i = 0; i < list.length; i += 2) {
     if (list[i] === found) return Object.is(value, key);
@@ -847,7 +802,7 @@ export function trackKey(
 ) {
   if (reads) {
     let found = keys.get(key);
-    if (!found) keys.set(key, (found = takeKey(keys, key)));
+    if (!found) keys.set(key, (found = new Key(key, keys)));
     track(found as any);
   }
 }
@@ -865,35 +820,6 @@ export class Key {
     public k: any,
     public m: Map<unknown, Key> | WeakMap<object, Key>,
   ) {}
-}
-
-/** Disposed keys, reused so steady select and dispose allocate none. */
-const keyPool: Key[] = [];
-
-/** Takes the key `map` holds for `key`, cleared of every reference. */
-function takeKey(
-  map: Map<unknown, Key> | WeakMap<object, Key>,
-  key: unknown,
-): Key {
-  const found = keyPool.pop();
-  if (found) {
-    found.k = key;
-    found.m = map;
-    found.v = 0;
-    return found;
-  }
-  return new Key(key, map);
-}
-
-/** Returns a key without subscribers, once it left its map. */
-function giveKey(key: Key) {
-  if (keyPool.length < 4096) {
-    key.k = null;
-    key.m = null as unknown as Map<unknown, Key>;
-    key.v = 0;
-    key.o = NONE;
-    keyPool.push(key);
-  }
 }
 
 /**
