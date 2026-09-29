@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createElement as h, derive, effect, state } from "../dist/index.js";
 import {
   attr,
+  classIf,
   component,
   delegate,
   equals,
@@ -209,6 +210,18 @@ describe("attr", () => {
     expect(el.getAttribute("title")).toBe("b");
     expect(el.className).toBe("big");
     expect(el.style.width).toBe("2px");
+  });
+
+  it("updates attributes before effects run", () => {
+    const n = state(1);
+    const el = document.createElement("div");
+    const seen: string[] = [];
+    n.effect(() => seen.push(`${el.title}|${el.className}`));
+    attr(el, "title", () => `t${n.value}`);
+    classIf(el, n, 2, "on", "off");
+
+    n.value = 2;
+    expect(seen).toEqual(["t2|on"]);
   });
 
   it("sets value and checked as properties", () => {

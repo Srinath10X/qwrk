@@ -38,7 +38,7 @@ export function bindAttribute(element: Element, key: string, value: unknown) {
 /** An attribute set from a function, again whenever a state it read changes. */
 class Attribute extends Binding {
   constructor(
-    readonly e: Element,
+    readonly a: Element,
     readonly name: string,
     readonly g: () => unknown,
   ) {
@@ -46,7 +46,7 @@ class Attribute extends Binding {
   }
 
   f() {
-    setAttribute(this.e, this.name, read(this.g()));
+    setAttribute(this.a, this.name, read(this.g()));
   }
 }
 
@@ -68,7 +68,7 @@ export function classIf(
 /** A class set from `source` being `key`, tracked on that key only. */
 class ClassIf extends Binding {
   constructor(
-    readonly e: Element,
+    readonly a: Element,
     readonly source: unknown,
     readonly k: unknown,
     readonly y: string,
@@ -84,7 +84,7 @@ class ClassIf extends Binding {
     )
       ? this.y
       : this.no;
-    if (cls || this.e.hasAttribute("class")) this.e.setAttribute("class", cls);
+    if (cls || this.a.hasAttribute("class")) this.a.setAttribute("class", cls);
   }
 }
 

@@ -540,7 +540,9 @@ export function computation<T extends object>(
 /**
  * A DOM binding: a computation whose `f` updates the DOM, and that runs
  * before the effects. Subclasses add the fields `f` reads, so a binding is one
- * object, without closures.
+ * object, without closures. Their names must not be ones the scheduler reads
+ * on computations and listeners (`c d e n o p q r s v _`): an `e` would make
+ * it an effect, an `r` a listener.
  */
 export abstract class Binding implements Computation {
   s = NONE;
