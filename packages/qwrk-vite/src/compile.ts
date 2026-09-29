@@ -855,9 +855,9 @@ function template(
   const operations: Operation[] = [];
   const svg = isSvg(tag);
   const root = element(context, node, tag, [], operations);
-  const name = declare(context, html(root), svg && tag !== "svg");
 
   if (!operations.length) {
+    const name = declare(context, html(root), svg && tag !== "svg");
     return [statements ? `return ${name}(); ` : `${name}()`];
   }
 
@@ -876,10 +876,6 @@ function template(
     }
   }
 
-  root.ref = local(context, "el");
-  const declarations = [`${root.ref} = ${name}()`];
-  walk(context, root, declarations);
-
   const appends = new Map<Element, Operation[]>();
   for (const operation of operations) {
     if (operation.kind === "insert" && !operation.marker) {
@@ -893,10 +889,22 @@ function template(
       (list[0] as Extract<Operation, { kind: "insert" }>).text = true;
   }
 
+  const fusedOp = fuse(context, operations);
+  if (fusedOp) {
+    // The fused text writes into an empty parent: leave a text node in the
+    // template for it, so its first run updates data instead of replacing
+    // content. It is the target's only child, so no walk shifts.
+    (fusedOp.text.target as Element).children.push({ kind: "text", text: " " });
+  }
+  const name = declare(context, html(root), svg && tag !== "svg");
+
+  root.ref = local(context, "el");
+  const declarations = [`${root.ref} = ${name}()`];
+  walk(context, root, declarations);
+
   const parts: Part[] = statements
     ? [`const ${declarations.join(", ")}; `]
     : [`(() => { const ${declarations.join(", ")}; `];
-  const fusedOp = fuse(context, operations);
   for (const operation of operations) {
     if (fusedOp && operation === fusedOp.text) {
       parts.push(...renderFusedTail(context, fusedOp));
@@ -916,11 +924,13 @@ function template(
 /**
  * A class conditional with the text it shares a fused binding with, or
  * `null` when the operations fuse nothing: exactly one `cond`, whose class a
- * fused binding sets, and a last marker-less text insert of a plain value, a
- * member or a call-free expression, whose text it writes. Anything else, a
- * function or an element child, another conditional or attribute, stays
- * split: fusing those saves nothing, or needs their own bindings. Which text
- * fuses never matters for correctness, only for how much it saves.
+ * fused binding sets, and a last text-flagged insert of a plain value, a
+ * member or a call-free expression, whose text it writes. The flag means the
+ * target starts empty with this as its only insert, so writing text cannot
+ * wipe siblings. Anything else, a function or an element child, another
+ * conditional or attribute, stays split: fusing those saves nothing, or
+ * needs their own bindings. Which text fuses never matters for correctness,
+ * only for how much it saves.
  */
 function fuse(
   context: Context,
@@ -949,7 +959,7 @@ function fuse(
       cond = operation;
     } else if (
       operation.kind === "insert" &&
-      !operation.marker &&
+      operation.text &&
       operation.value.length === 1 &&
       typeof operation.value[0] !== "string" &&
       !operation.value[0].thunk &&

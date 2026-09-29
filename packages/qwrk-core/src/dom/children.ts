@@ -141,8 +141,14 @@ class Fused extends Binding {
 
       if (node && node.parentNode === this.parent) (node as Text).data = text;
       else {
-        this.parent.textContent = text;
-        this.node = this.parent.firstChild;
+        const first = this.parent.firstChild;
+        if (first && first === this.parent.lastChild && first.nodeType === 3) {
+          (first as Text).data = text;
+          this.node = first;
+        } else {
+          this.parent.textContent = text;
+          this.node = this.parent.firstChild;
+        }
       }
       return;
     }
@@ -181,8 +187,14 @@ class Value extends Binding {
 
       if (node && node.parentNode === this.parent) (node as Text).data = text;
       else {
-        this.parent.textContent = text;
-        this.node = this.parent.firstChild;
+        const first = this.parent.firstChild;
+        if (first && first === this.parent.lastChild && first.nodeType === 3) {
+          (first as Text).data = text;
+          this.node = first;
+        } else {
+          this.parent.textContent = text;
+          this.node = this.parent.firstChild;
+        }
       }
       return;
     }
