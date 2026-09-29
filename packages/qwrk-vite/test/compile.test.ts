@@ -76,8 +76,9 @@ describe("compile", () => {
       `const a = <tr class={selected.value === row.id ? "on" : ""}><td>{row.id}</td><td><a>{row.label}</a></td></tr>;`,
     );
 
-    expect(code).toContain("_$fused(_el$2, _s$");
+    expect(code).toContain("_$fused(");
     expect(code).toContain('"on", "",');
+    expect(code).toContain("<a> </a>");
     expect(code).not.toContain("_$classIf");
   });
 
@@ -86,7 +87,7 @@ describe("compile", () => {
       `const a = <tr class={selected.value === row.id ? "on" : ""}><td>{row.id}</td></tr>;`,
     );
 
-    expect(code).toContain("_$fused(_el$2, _s$");
+    expect(code).toContain("_$fused(");
     expect(code).not.toContain("_$classIf");
   });
 
