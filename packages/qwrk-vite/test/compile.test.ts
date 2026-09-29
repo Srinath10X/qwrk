@@ -71,6 +71,34 @@ describe("compile", () => {
     expect(code).toContain("$$click = () => selected.value === 1;");
   });
 
+  it("fuses a class conditional with a text child", () => {
+    const code = output(
+      `const a = <tr class={selected.value === row.id ? "on" : ""}><td>{row.id}</td><td><a>{row.label}</a></td></tr>;`,
+    );
+
+    expect(code).toContain("_$fused(_el$2, _s$");
+    expect(code).toContain('"on", "",');
+    expect(code).not.toContain("_$classIf");
+  });
+
+  it("fuses the last text child when several qualify", () => {
+    const code = output(
+      `const a = <tr class={selected.value === row.id ? "on" : ""}><td>{row.id}</td></tr>;`,
+    );
+
+    expect(code).toContain("_$fused(_el$2, _s$");
+    expect(code).not.toContain("_$classIf");
+  });
+
+  it("leaves a class without any text child split", () => {
+    const code = output(
+      `const a = <tr class={selected.value === row.id ? "on" : ""}><td></td></tr>;`,
+    );
+
+    expect(code).toContain('_$classIf(_el$2, selected, row.id, "on", "");');
+    expect(code).not.toContain("_$fused");
+  });
+
   it("keeps a call in the key on the generic comparison path", () => {
     const code = output(
       `const a = <tr class={selected.value === mark(row.id) ? "on" : ""} other={selected.value === row.id ? "x" : "y"} />;`,

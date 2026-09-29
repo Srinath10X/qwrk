@@ -2,6 +2,7 @@ import {
   bind,
   Binding,
   dispose,
+  is,
   isReactive,
   peek,
   retain,
@@ -69,6 +70,79 @@ function isTextValue(value: unknown) {
   return (
     value === null || (typeof value !== "object" && typeof value !== "function")
   );
+}
+
+/**
+ * A class set from `source` being `key` plus a text child, in one binding:
+ * one object, one run and one subscription for both, so rows with a selected
+ * class and a state label skip a binding each. The class is tracked on that
+ * key only, like {@link State.is}, and written only when it changes.
+ */
+export function fused(
+  element: Element,
+  source: unknown,
+  key: unknown,
+  yes: string,
+  no: string,
+  parent: Node,
+  label: unknown,
+) {
+  bind(new Fused(element, source, key, yes, no, parent, label), element);
+}
+
+class Fused extends Binding {
+  private cls: string | null = null;
+  private node: ChildNode | null = null;
+  private full = false;
+
+  constructor(
+    readonly el: Element,
+    readonly source: unknown,
+    readonly k: unknown,
+    readonly y: string,
+    readonly no: string,
+    readonly parent: Node,
+    readonly label: unknown,
+  ) {
+    super();
+  }
+
+  f() {
+    const source = this.source as any;
+    const cls = (
+      isReactive(source) ? is(source, this.k) : source.value === this.k
+    )
+      ? this.y
+      : this.no;
+    if (cls !== this.cls) {
+      if (cls || this.el.hasAttribute("class"))
+        this.el.setAttribute("class", cls);
+      this.cls = cls;
+    }
+    if (this.full) return;
+
+    const value = read(this.label);
+
+    if (isTextValue(value)) {
+      const text = toText(value);
+      const node = this.node;
+
+      if (node && node.parentNode === this.parent) (node as Text).data = text;
+      else {
+        this.parent.textContent = text;
+        this.node = this.parent.firstChild;
+      }
+      return;
+    }
+
+    this.full = true;
+    this.node = null;
+    const parent = this.parent;
+    parent.textContent = "";
+    const slot = new State(parent, null, this.label);
+    bind(slot);
+    for (const node of slot.nodes) retain(node, slot);
+  }
 }
 
 /**
