@@ -896,10 +896,120 @@ function template(
   const parts: Part[] = statements
     ? [`const ${declarations.join(", ")}; `]
     : [`(() => { const ${declarations.join(", ")}; `];
-  for (const operation of operations) parts.push(...render(context, operation));
+  const fusedOp = fuse(context, operations);
+  for (const operation of operations) {
+    if (fusedOp && operation === fusedOp.text) {
+      parts.push(...renderFusedTail(context, fusedOp));
+      continue;
+    }
+    if (fusedOp && operation === fusedOp.cond) {
+      parts.push(...renderFusedHead(context, fusedOp));
+      continue;
+    }
+    parts.push(...render(context, operation));
+  }
   for (const comment of comments) parts.push(`${comment.ref}.remove(); `);
   parts.push(statements ? `return ${root.ref}; ` : `return ${root.ref}; })()`);
   return parts;
+}
+
+/**
+ * A class conditional with the text it shares a fused binding with, or
+ * `null` when the operations fuse nothing: exactly one `cond`, whose class a
+ * fused binding sets, and a last marker-less text insert of a plain value, a
+ * member or a call-free expression, whose text it writes. Anything else, a
+ * function or an element child, another conditional or attribute, stays
+ * split: fusing those saves nothing, or needs their own bindings. Which text
+ * fuses never matters for correctness, only for how much it saves.
+ */
+function fuse(
+  context: Context,
+  operations: Operation[],
+): {
+  cond: Extract<Operation, { kind: "cond" }>;
+  text: Extract<Operation, { kind: "insert" }>;
+  sRef: string;
+  kRef: string;
+  lRef: string;
+} | null {
+  let cond: Extract<Operation, { kind: "cond" }> | null = null;
+  let text: Extract<Operation, { kind: "insert" }> | null = null;
+
+  for (const operation of operations) {
+    if (operation.kind === "cond") {
+      if (
+        cond ||
+        operation.state.length !== 1 ||
+        operation.key.length !== 1 ||
+        typeof operation.state[0] === "string" ||
+        typeof operation.key[0] === "string"
+      ) {
+        return null;
+      }
+      cond = operation;
+    } else if (
+      operation.kind === "insert" &&
+      !operation.marker &&
+      operation.value.length === 1 &&
+      typeof operation.value[0] !== "string" &&
+      !operation.value[0].thunk &&
+      !FUNCTIONS.has(operation.value[0].node.type) &&
+      operation.value[0].node.type !== "JSXElement" &&
+      operation.value[0].node.type !== "JSXFragment"
+    ) {
+      text = operation;
+    } else if (operation.kind === "attr") {
+      return null;
+    }
+  }
+
+  if (!cond || !text) return null;
+  return {
+    cond,
+    text,
+    sRef: local(context, "s"),
+    kRef: local(context, "k"),
+    lRef: local(context, "l"),
+  };
+}
+
+/**
+ * Reads a fused binding's class conditional into locals, at its own source
+ * position: the values are read where they stand, the binding runs later.
+ */
+function renderFusedHead(
+  context: Context,
+  fusedOp: {
+    cond: Extract<Operation, { kind: "cond" }>;
+    sRef: string;
+    kRef: string;
+  },
+): Part[] {
+  const { cond, sRef, kRef } = fusedOp;
+  return [`const ${sRef} = `, ...cond.state, `, ${kRef} = `, ...cond.key, `; `];
+}
+
+/**
+ * Reads a fused binding's text and calls it, at its own source position, so
+ * every fused value is emitted in source order.
+ */
+function renderFusedTail(
+  context: Context,
+  fusedOp: {
+    cond: Extract<Operation, { kind: "cond" }>;
+    text: Extract<Operation, { kind: "insert" }>;
+    sRef: string;
+    kRef: string;
+    lRef: string;
+  },
+): Part[] {
+  const { cond, text, sRef, kRef, lRef } = fusedOp;
+  return [
+    `const ${lRef} = `,
+    ...text.value,
+    `; ${helper(context, "fused")}(${cond.target.ref!}, ${sRef}, ${kRef}`,
+    `, ${quote(cond.yes)}, ${quote(cond.no)}, ${text.target.ref!}, ${lRef}); `,
+  ];
 }
 
 /** Declares a template once per module, and returns its name. */

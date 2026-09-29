@@ -5,6 +5,7 @@ import {
   component,
   delegate,
   equals,
+  fused,
   group,
   insert,
   map,
@@ -297,5 +298,61 @@ describe("helpers", () => {
     expect(equals(selected, 2)).toBe(true);
     expect(equals({ value: 3 }, 3)).toBe(true);
     expect(equals({ value: 3 }, 2)).toBe(false);
+  });
+});
+
+describe("fused", () => {
+  it("sets the class and the text in one binding", () => {
+    const selected = state(1);
+    const label = state("one");
+    const tr = document.createElement("tr");
+    const a = document.createElement("a");
+    tr.append(a);
+
+    fused(tr, selected, 1, "danger", "", a, label);
+    expect(tr.className).toBe("danger");
+    expect(a.textContent).toBe("one");
+
+    selected.value = 2;
+    expect(tr.className).toBe("");
+    expect(a.textContent).toBe("one");
+
+    label.value = "two";
+    expect(a.textContent).toBe("two");
+    expect(tr.className).toBe("");
+
+    selected.value = 1;
+    expect(tr.className).toBe("danger");
+  });
+
+  it("leaves the class off elements that never match", () => {
+    const selected = state(1);
+    const label = state("one");
+    const tr = document.createElement("tr");
+    const a = document.createElement("a");
+    tr.append(a);
+
+    fused(tr, selected, 2, "danger", "", a, label);
+    expect(tr.hasAttribute("class")).toBe(false);
+    expect(a.textContent).toBe("one");
+  });
+
+  it("hands non-text labels to a full slot", () => {
+    const selected = state(1);
+    const label = state<unknown>("one");
+    const tr = document.createElement("tr");
+    const a = document.createElement("a");
+    tr.append(a);
+
+    fused(tr, selected, 1, "danger", "", a, label);
+    expect(a.textContent).toBe("one");
+
+    const el = document.createElement("b");
+    label.value = el;
+    expect(a.firstChild).toBe(el);
+
+    selected.value = 2;
+    expect(tr.className).toBe("");
+    expect(a.firstChild).toBe(el);
   });
 });
