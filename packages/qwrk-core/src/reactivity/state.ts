@@ -552,15 +552,52 @@ export abstract class Binding implements Computation {
 }
 
 /**
- * Runs `node` now, and again whenever a state it read changes. The running
- * derive, binding or list row owns it, like a derive, and when there is none,
- * `holder` keeps it alive. One that read no state will never run again, so it
- * hands what it created over to its owner.
+ * Runs `node` now, and again whenever a state it read changes, subscribing
+ * it to what it read. The running derive, binding or list row owns it, like
+ * a derive, and when there is none, `holder` keeps it alive. One that read
+ * no state will never run again, so it hands what it created over to its
+ * owner. Like {@link run}, without the work re-runs need: nothing is created
+ * yet, and the reads are all new, so every one of them links directly.
  */
 export function bind(node: Binding, holder?: object) {
   const parent = owner?.q != 3 && !owner?.e ? owner : null;
   node.p = parent;
-  first(node);
+
+  const self = node as Computation;
+  const reading: any[] = [];
+  const outerReads = reads;
+  const outerSeen = seen;
+  const outerOwner = owner;
+
+  depth++;
+
+  try {
+    node.q = 2;
+    reads = self.d ? null : reading;
+    seen = reading;
+    owner = node;
+    node.f();
+  } finally {
+    reads = outerReads;
+    seen = outerSeen;
+    owner = outerOwner;
+
+    if (node.q == 2) {
+      node.q = 0;
+      self.d?.forEach((source) => reading.push(source, source.v));
+
+      const s = reading.length ? takeS((reading.length / 2) * 3) : NONE;
+      for (let i = 0, n = 0; i < reading.length; i += 2) {
+        s[n++] = reading[i];
+        s[n++] = reading[i + 1];
+        s[n++] = link(reading[i], node);
+      }
+      node.s = s;
+    }
+
+    give(reading);
+    --depth || flush();
+  }
 
   if (!node.s.length) {
     node.q = 3;
@@ -576,48 +613,6 @@ export function bind(node: Binding, holder?: object) {
     attach(parent, node);
   } else if (holder) {
     retain(holder, node);
-  }
-}
-
-/**
- * Runs a just-created binding, subscribing it to what it read. Like
- * {@link run}, without the work re-runs need: nothing is created yet, and
- * the reads are all new, so every one of them links directly.
- */
-function first(node: Computation) {
-  const reading = take();
-  const outerReads = reads;
-  const outerSeen = seen;
-  const outerOwner = owner;
-
-  depth++;
-
-  try {
-    node.q = 2;
-    reads = node.d ? null : reading;
-    seen = reading;
-    owner = node;
-    node.f();
-  } finally {
-    reads = outerReads;
-    seen = outerSeen;
-    owner = outerOwner;
-
-    if (node.q == 2) {
-      node.q = 0;
-      node.d?.forEach((source) => reading.push(source, source.v));
-
-      const s = reading.length ? takeS((reading.length / 2) * 3) : NONE;
-      for (let i = 0, n = 0; i < reading.length; i += 2) {
-        s[n++] = reading[i];
-        s[n++] = reading[i + 1];
-        s[n++] = link(reading[i], node);
-      }
-      node.s = s;
-    }
-
-    give(reading);
-    --depth || flush();
   }
 }
 

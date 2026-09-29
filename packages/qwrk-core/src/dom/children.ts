@@ -23,7 +23,16 @@ interface Slot {
  * again whenever a state it reads changes.
  */
 export function append(parent: Node, children: unknown, marker?: Node | null) {
-  if (Array.isArray(children)) {
+  if (
+    (typeof children !== "object" && typeof children !== "function") ||
+    children === null
+  ) {
+    if (!marker && !parent.hasChildNodes()) {
+      parent.textContent = toText(children);
+    } else {
+      parent.insertBefore(toNode(children), marker ?? null);
+    }
+  } else if (Array.isArray(children)) {
     for (const child of children) append(parent, child, marker);
   } else if (typeof children === "function") {
     const slot = new Child(parent, marker, children as () => unknown);
@@ -51,17 +60,20 @@ export function append(parent: Node, children: unknown, marker?: Node | null) {
  * {@link append}.
  */
 export function text(parent: Node, value: unknown) {
-  if (
-    !isReactive(value) &&
-    !(value instanceof Node) &&
-    !Array.isArray(value) &&
-    typeof value !== "function"
+  if (isReactive(value)) {
+    if (isTextValue(peek(value))) {
+      bind(new Value(parent, value));
+    } else {
+      append(parent, value);
+    }
+  } else if (
+    value instanceof Node ||
+    Array.isArray(value) ||
+    typeof value === "function"
   ) {
-    parent.textContent = toText(value);
-  } else if (isReactive(value) && isTextValue(peek(value))) {
-    bind(new Value(parent, value));
-  } else {
     append(parent, value);
+  } else {
+    parent.textContent = toText(value);
   }
 }
 
