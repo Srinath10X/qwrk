@@ -79,17 +79,20 @@ class ClassIf extends Binding {
 
   f() {
     const source = this.source as any;
-    this.e.setAttribute(
-      "class",
-      (isReactive(source) ? is(source, this.k) : source.value === this.k)
-        ? this.y
-        : this.no,
-    );
+    const cls = (
+      isReactive(source) ? is(source, this.k) : source.value === this.k
+    )
+      ? this.y
+      : this.no;
+    if (cls || this.e.hasAttribute("class")) this.e.setAttribute("class", cls);
   }
 }
 
 /**
  * `true` sets an empty attribute, `false`/`null`/`undefined` remove it.
+ * Writing `""` to a `class` that isn't there changes nothing observable
+ * (unlike boolean attributes like `hidden`, where presence is the value),
+ * so it is skipped: most elements never grow the classes they don't use.
  */
 function setAttribute(element: Element, name: string, value: unknown) {
   if (PROPERTIES.has(name) && name in element) {
@@ -99,7 +102,10 @@ function setAttribute(element: Element, name: string, value: unknown) {
   } else if (value == null || value === false) {
     element.removeAttribute(name);
   } else {
-    element.setAttribute(name, value === true ? "" : String(value));
+    const text = value === true ? "" : String(value);
+    if (text || name !== "class" || element.hasAttribute(name)) {
+      element.setAttribute(name, text);
+    }
   }
 }
 
