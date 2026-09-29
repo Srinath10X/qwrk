@@ -367,5 +367,29 @@ describe("fused", () => {
     selected.value = 2;
     expect(tr.className).toBe("");
     expect(a.firstChild).toBe(el);
+
+    label.value = "three";
+    expect(a.textContent).toBe("three");
+  });
+
+  it("stops the slot of a handed over label with its owner", () => {
+    const show = state(true);
+    const label = state<unknown>("one");
+    const seen: string[] = [];
+    const a = document.createElement("a");
+    const div = document.createElement("div");
+
+    insert(div, () => {
+      if (show.value) text(a, label);
+      return null;
+    });
+    label.value = h("b", null, "x");
+    label.value = "two";
+    seen.push(a.textContent!);
+    show.value = false;
+    label.value = "three";
+    seen.push(a.textContent!);
+
+    expect(seen).toEqual(["two", "two"]);
   });
 });
