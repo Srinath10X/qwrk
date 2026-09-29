@@ -290,19 +290,20 @@ function visit(context: Context, node: Node, thunk: boolean) {
 }
 
 /**
- * Compiles a function whose body is one `return` of a host element into
+ * Compiles a function whose body ends with a `return` of a host element into
  * statements instead of a call of a template function, so calling it costs
- * no closure. Returns whether it did.
+ * no closure. The rest of the function compiles as usual. Returns whether it
+ * did.
  */
 function returns(context: Context, node: Node): boolean {
   if (!FUNCTIONS.has(node.type)) return false;
 
   const { body } = node;
-  if (!body || body.type !== "BlockStatement" || body.body.length !== 1) {
+  if (!body || body.type !== "BlockStatement" || !body.body.length) {
     return false;
   }
 
-  const statement = body.body[0];
+  const statement = body.body[body.body.length - 1];
   if (statement.type !== "ReturnStatement" || !statement.argument) return false;
 
   const element = unwrap(statement.argument);
@@ -317,7 +318,13 @@ function returns(context: Context, node: Node): boolean {
   context.inline = inline;
   if (!parts) return false;
 
-  emit(context, body, ["{ ", ...parts, "}"]);
+  for (const child of children(node)) {
+    if (child !== body) visit(context, child, false);
+  }
+  for (const child of body.body) {
+    if (child !== statement) visit(context, child, false);
+  }
+  emit(context, statement, parts);
   return true;
 }
 

@@ -210,6 +210,16 @@ describe("compile", () => {
     expect(code).toContain("const nums = data.map((n) => n * 2);");
   });
 
+  it("returns a host element as statements after other statements", () => {
+    const code = output(
+      `function Row({ row, icon = <i /> }) { const id = row.id; if (!id) return <b />; return <p>{id}</p>; }`,
+    );
+
+    expect(code).toContain(
+      "function Row({ row, icon = _tmpl$3() }) { const id = row.id; if (!id) return _tmpl$4(); const _el$2 = _tmpl$1(); _$text(_el$2, id); return _el$2;  }",
+    );
+  });
+
   it("uses createElement for JSX that awaits", () => {
     const code = output(
       `async function f() { return <p class={await c}>{await t}</p>; }`,
