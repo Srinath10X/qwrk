@@ -21,7 +21,7 @@ describe("compile", () => {
     );
 
     expect(code).toContain(
-      `_$template("<div id=\\"a\\" class=\\"b &quot;c&quot;\\">Tom &amp; Jerry<br><img alt=\\"x\\"></div>")`,
+      `_$template("<div id=a class=\\"b &quot;c&quot;\\">Tom &amp; Jerry<br><img alt=x>")`,
     );
     expect(code).toContain("const a = _tmpl$1();");
     expect(code).toContain(
@@ -52,7 +52,7 @@ describe("compile", () => {
       `const a = <ul><li>a</li><li>x{b}y<i>{c}</i></li></ul>;`,
     );
 
-    expect(code).toContain("<ul><li>a</li><li>x<!>y<i></i></li></ul>");
+    expect(code).toContain('"<ul><li>a</li><li>x<!>y<i>"');
     expect(code).toContain(
       "_el$3 = _el$2.firstChild.nextSibling, _el$4 = _el$3.firstChild.nextSibling, _el$5 = _el$4.nextSibling.nextSibling;",
     );
@@ -78,7 +78,7 @@ describe("compile", () => {
 
     expect(code).toContain("_$fused(");
     expect(code).toContain('"on", "",');
-    expect(code).toContain("<a> </a>");
+    expect(code).toContain("<a> ");
     expect(code).not.toContain("_$classIf");
   });
 
@@ -119,7 +119,7 @@ describe("compile", () => {
     expect(code).toContain("_el$2.$$input = (e) => set(e);");
     expect(code).toContain("_el$2.$$keydown = down;");
     expect(code).toContain('_el$2.addEventListener("focus", focus);');
-    expect(code).toContain('onClick=\\"alert(1)\\"');
+    expect(code).toContain("onClick=alert(1)");
     expect(code).toContain('_$delegate(["input","keydown"]);');
   });
 
@@ -150,9 +150,7 @@ describe("compile", () => {
     expect(code).toContain(
       `_$template("<svg viewBox=\\"0 0 1 1\\"><circle></circle></svg>")`,
     );
-    expect(code).toContain(
-      `_$template("<g><path d=\\"M0\\"></path></g>", true)`,
-    );
+    expect(code).toContain(`_$template("<g><path d=M0></path></g>", true)`);
   });
 
   it("falls back to createElement for spreads and namespaced names", () => {
@@ -176,7 +174,7 @@ describe("compile", () => {
     expect(code).toContain('import { svg as _$svg } from "qwrk";');
     expect(code).toContain('_$svg("circle", { ...props, })');
     expect(code).toContain(
-      '_$template("<svg viewBox=\\"0 0 1 1\\"><line x1=\\"0\\"></line></svg>")',
+      '_$template("<svg viewBox=\\"0 0 1 1\\"><line x1=0></line></svg>")',
     );
     expect(code).not.toContain("_$h(");
   });
@@ -210,8 +208,8 @@ describe("compile", () => {
 
   it("splits markup the HTML parser would move", () => {
     const code = output(`const a = <table><tr><td>{x}</td></tr></table>;`);
-    expect(code).toContain('_$template("<table></table>")');
-    expect(code).toContain('_$template("<tr><td></td></tr>")');
+    expect(code).toContain('_$template("<table>")');
+    expect(code).toContain('_$template("<tr><td>")');
   });
 
   it("inserts the header after directives, with a source map", () => {

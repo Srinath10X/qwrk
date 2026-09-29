@@ -844,7 +844,10 @@ function staticText(node: Node): string | undefined {
 
 /**
  * Compiles a host element tree into a clone of a template and the operations
- * that bind its dynamic parts, in source order.
+ * that bind its dynamic parts, in source order. A fused text writes into an
+ * empty parent, so the template leaves a text node there for it: its first
+ * run updates data instead of replacing content, and as the only child, it
+ * shifts no walk.
  */
 function template(
   context: Context,
@@ -857,7 +860,7 @@ function template(
   const root = element(context, node, tag, [], operations);
 
   if (!operations.length) {
-    const name = declare(context, html(root), svg && tag !== "svg");
+    const name = declare(context, markup(root), svg && tag !== "svg");
     return [statements ? `return ${name}(); ` : `${name}()`];
   }
 
@@ -891,12 +894,9 @@ function template(
 
   const fusedOp = fuse(context, operations);
   if (fusedOp) {
-    // The fused text writes into an empty parent: leave a text node in the
-    // template for it, so its first run updates data instead of replacing
-    // content. It is the target's only child, so no walk shifts.
     (fusedOp.text.target as Element).children.push({ kind: "text", text: " " });
   }
-  const name = declare(context, html(root), svg && tag !== "svg");
+  const name = declare(context, markup(root), svg && tag !== "svg");
 
   root.ref = local(context, "el");
   const declarations = [`${root.ref} = ${name}()`];
@@ -1093,8 +1093,7 @@ function element(
       !(typeof fixed === "string" && /[\r\0]/.test(fixed))
     ) {
       if (fixed !== null) {
-        self.attributes +=
-          fixed === true ? ` ${name}` : ` ${name}="${escape(fixed, true)}"`;
+        self.attributes += attributeMarkup(name, fixed);
       }
     } else {
       const cond =
@@ -1236,6 +1235,36 @@ function escape(text: string, attribute?: boolean) {
   return attribute
     ? text.replace(/&/g, "&amp;").replace(/"/g, "&quot;")
     : text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * A static attribute of a template, as short as the HTML parser reads the
+ * same: no value when it is empty, unquoted when it has no character that
+ * ends or escapes an unquoted value.
+ */
+function attributeMarkup(name: string, value: string | true) {
+  if (value === true || value === "") return ` ${name}`;
+  if (/^[^\s"'=<>`&]+$/.test(value)) return ` ${name}=${value}`;
+  return ` ${name}="${escape(value, true)}"`;
+}
+
+/**
+ * Serializes the root of a template. The closing tags at the end are left
+ * out, since the end of the input closes every open element, except in SVG
+ * and after an element whose content the parser reads as text.
+ */
+function markup(root: Element): string {
+  const text = html(root);
+  if (root.svg) return text;
+  return text.replace(/(<\/[a-z][^>]*>)+$/, (closers) => {
+    const tags = closers.slice(2, -1).split("></");
+    let kept = tags.length;
+    while (kept && !OPAQUE.has(tags[kept - 1])) kept--;
+    return tags
+      .slice(0, kept)
+      .map((tag) => `</${tag}>`)
+      .join("");
+  });
 }
 
 /** Serializes a template element. */
