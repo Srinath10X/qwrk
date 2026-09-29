@@ -48,18 +48,22 @@ function handler(source: Signal<any>): ProxyHandler<any> {
       const item = Reflect.get(target, key, receiver);
       if (reads) trackKey(readers, target);
 
-      const array = Array.isArray(target);
-      if (array && MUTATORS.has(key as string)) {
-        return (...args: unknown[]) => {
-          for (let i = 0; i < args.length; i++) args[i] = toRaw(args[i]);
-          const result = (item as Function).apply(target, args);
-          changed(source, target);
-          return result === target ? receiver : result;
-        };
-      }
-      if (array && SEARCHES.has(key as string)) {
-        return (search: unknown, ...rest: unknown[]) =>
-          (item as Function).call(receiver, deep(search, source), ...rest);
+      if (typeof item === "function") {
+        if (Array.isArray(target)) {
+          if (MUTATORS.has(key as string)) {
+            return (...args: unknown[]) => {
+              for (let i = 0; i < args.length; i++) args[i] = toRaw(args[i]);
+              const result = (item as Function).apply(target, args);
+              changed(source, target);
+              return result === target ? receiver : result;
+            };
+          }
+          if (SEARCHES.has(key as string)) {
+            return (search: unknown, ...rest: unknown[]) =>
+              (item as Function).call(receiver, deep(search, source), ...rest);
+          }
+        }
+        return item;
       }
       if (typeof item !== "object" || item === null) return item;
 
@@ -102,9 +106,16 @@ function changed(source: Signal<any>, target: object) {
  * @param source - The state it belongs to.
  */
 export function deep<T>(value: T, source: Signal<any>): T {
-  if (!isPlain(value)) return value;
+  if (typeof value !== "object" || value === null) return value;
 
   const raw = toRaw(value) as object;
+  if (raw !== value) {
+    const found = source.m?.get(raw);
+    if (found) return found as T;
+  } else if (!isPlain(raw)) {
+    return raw as unknown as T;
+  }
+
   const proxies = (source.m ??= new WeakMap());
   let proxy = proxies.get(raw);
 
