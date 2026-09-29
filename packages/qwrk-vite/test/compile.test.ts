@@ -79,7 +79,7 @@ describe("compile", () => {
 
     expect(code).toContain('_$classIf(_el$2, selected, row.id, "on", "");');
     expect(code).toContain("() => !_$equals(store.sel, row.id)");
-    expect(code).toContain("$$click = () => selected.value === 1;");
+    expect(code).toContain("const _h$3 = () => selected.value === 1;");
   });
 
   it("fuses a class conditional with a text child", () => {
@@ -127,11 +127,46 @@ describe("compile", () => {
       `const a = <input onInput={(e) => set(e)} onKeyDown={down} onFocus={focus} onClick="alert(1)" />;`,
     );
 
-    expect(code).toContain("_el$2.$$input = (e) => set(e);");
+    expect(code).toContain("const _h$3 = (e) => set(e);");
+    expect(code).toContain("_el$2.$$input = _h$3;");
     expect(code).toContain("_el$2.$$keydown = down;");
     expect(code).toContain('_el$2.addEventListener("focus", focus);');
     expect(code).toContain("onClick=alert(1)");
     expect(code).toContain('_$delegate(["input","keydown"]);');
+  });
+
+  it("moves row handlers to the module, with the row's constant as data", () => {
+    const code = output(
+      `function Row({ row }) { const id = row.id; return <a onClick={() => (selected.value = id)} onMouseDown={(e) => run(e, id)} onKeyDown={() => go()} />; }`,
+    );
+
+    expect(code).toContain("const _h$3 = (_e$4, id) => (selected.value = id);");
+    expect(code).toContain("const _h$5 = (e, id) => run(e, id);");
+    expect(code).toContain("const _h$6 = () => go();");
+    expect(code).toContain(
+      "_el$2.$$click = _h$3; _el$2.$$clickData = id; _el$2.$$mousedown = _h$5; _el$2.$$mousedownData = id; _el$2.$$keydown = _h$6;",
+    );
+  });
+
+  it("keeps handlers that need their closure in place", () => {
+    const kept = [
+      `function A({ row }) { let id = row.id; return <a onClick={() => f(id)} />; }`,
+      `function A({ row }) { const a = 1, b = 2; return <a onClick={() => f(a, b)} />; }`,
+      `function A(n) { n++; return <a onClick={() => f(n)} />; }`,
+      `function A() { const a = <a onClick={() => f(later)} />; const later = 1; return a; }`,
+      `function A() { return <a onClick={() => this.f()} />; }`,
+      `function A(n) { return <a onClick={() => (n = 2)} />; }`,
+      `function A(n) { return <a onClick={() => [1].map((i) => f(i, n))} />; }`,
+      `function A(n) { return <a onClick={async () => f(n)} />; }`,
+      `function A(n) { return <a onClick={(e, x) => f(e, x, n)} />; }`,
+      `function A(n) { return <a onClick={() => f(arguments)} />; }`,
+    ];
+
+    for (const source of kept) {
+      const code = output(source);
+      expect(code, source).not.toContain("_h$");
+      expect(code, source).not.toContain("Data");
+    }
   });
 
   it("calls components with props, and children in an array", () => {

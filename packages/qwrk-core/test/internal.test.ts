@@ -260,6 +260,20 @@ describe("delegate", () => {
     outer.remove();
   });
 
+  it("passes the element's data after the event", () => {
+    delegate(["click"]);
+    const seen: unknown[] = [];
+    const a = document.createElement("a") as any;
+    document.body.append(a);
+
+    a.$$click = (event: Event, data: unknown) => seen.push(event.type, data);
+    a.$$clickData = 7;
+    a.click();
+
+    expect(seen).toEqual(["click", 7]);
+    a.remove();
+  });
+
   it("listens once per event name", () => {
     const spy = vi.spyOn(document, "addEventListener");
     delegate(["keydown", "keydown"]);

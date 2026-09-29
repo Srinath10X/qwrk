@@ -5,6 +5,7 @@ const delegated = new Set<string>();
  * Listens to each event on the document, once per name. A delegated event
  * walks up from its target, calling each element's `$$` + name handler with
  * the element as `this` and `currentTarget`, until one stops propagation.
+ * The handler gets the element's `$$` + name + `Data` after the event.
  * Compiled JSX delegates the bubbling events it sets handlers for.
  *
  * @param names - Event names, such as `"click"`.
@@ -31,7 +32,7 @@ function dispatch(event: Event) {
     const handler = node[key];
 
     if (handler) {
-      handler.call(node, event);
+      handler.call(node, event, node[key + "Data"]);
       if ((event as { cancelBubble?: boolean }).cancelBubble) return;
     }
   }
