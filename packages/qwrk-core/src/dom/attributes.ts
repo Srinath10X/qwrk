@@ -23,30 +23,45 @@ const PROPERTIES = new Set(["value", "checked", "selected"]);
  * `className`/`htmlFor` map to `class`/`for`.
  */
 export function bindAttribute(element: Element, key: string, value: unknown) {
-  const name = ALIASES[key] ?? key;
+  bindWith(element, ALIASES[key] ?? key, value, setAttribute);
+}
 
+/**
+ * {@link bindAttribute} for a name that is neither an alias, a property nor
+ * `style`. Compiled JSX calls it for those, since it knows the name, so apps
+ * that never bind a style or a property don't ship them.
+ */
+export function attribute(element: Element, name: string, value: unknown) {
+  bindWith(element, name, value, setPlain);
+}
+
+/** Writes an attribute's value to the element. */
+type Setter = (element: Element, name: string, value: unknown) => void;
+
+function bindWith(element: Element, name: string, value: unknown, set: Setter) {
   if (typeof value === "function") {
-    bind(new Attribute(element, name, value as () => unknown), element);
+    bind(new Attribute(element, name, value as () => unknown, set), element);
   } else if (isReactive(value)) {
-    setAttribute(element, name, peek(value));
-    watch(value, element, setAttribute, name);
+    set(element, name, peek(value));
+    watch(value, element, set, name);
   } else {
-    setAttribute(element, name, value);
+    set(element, name, value);
   }
 }
 
 /** An attribute set from a function, again whenever a state it read changes. */
 class Attribute extends Binding {
   constructor(
-    readonly e: Element,
-    readonly name: string,
+    readonly a: Element,
+    readonly b: string,
     readonly g: () => unknown,
+    readonly h: Setter,
   ) {
     super();
   }
 
   f() {
-    setAttribute(this.e, this.name, read(this.g()));
+    this.h(this.a, this.b, read(this.g()));
   }
 }
 
@@ -68,7 +83,7 @@ export function classIf(
 /** A class set from `source` being `key`, tracked on that key only. */
 class ClassIf extends Binding {
   constructor(
-    readonly e: Element,
+    readonly a: Element,
     readonly source: unknown,
     readonly k: unknown,
     readonly y: string,
@@ -84,7 +99,18 @@ class ClassIf extends Binding {
     )
       ? this.y
       : this.no;
-    if (cls || this.e.hasAttribute("class")) this.e.setAttribute("class", cls);
+    if (cls || this.a.hasAttribute("class")) this.a.setAttribute("class", cls);
+  }
+}
+
+/** Sets a property, a style object, or else an attribute, see {@link setPlain}. */
+function setAttribute(element: Element, name: string, value: unknown) {
+  if (PROPERTIES.has(name) && name in element) {
+    (element as any)[name] = name === "value" ? toText(value) : !!value;
+  } else if (name === "style" && typeof value === "object" && value) {
+    setStyle(element as HTMLElement, value as Record<string, unknown>);
+  } else {
+    setPlain(element, name, value);
   }
 }
 
@@ -94,12 +120,8 @@ class ClassIf extends Binding {
  * (unlike boolean attributes like `hidden`, where presence is the value),
  * so it is skipped: most elements never grow the classes they don't use.
  */
-function setAttribute(element: Element, name: string, value: unknown) {
-  if (PROPERTIES.has(name) && name in element) {
-    (element as any)[name] = name === "value" ? toText(value) : !!value;
-  } else if (name === "style" && typeof value === "object" && value) {
-    setStyle(element as HTMLElement, value as Record<string, unknown>);
-  } else if (value == null || value === false) {
+function setPlain(element: Element, name: string, value: unknown) {
+  if (value == null || value === false) {
     element.removeAttribute(name);
   } else {
     const text = value === true ? "" : String(value);

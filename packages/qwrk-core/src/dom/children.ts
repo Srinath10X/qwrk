@@ -4,17 +4,11 @@ import {
   dispose,
   is,
   isReactive,
+  own,
   peek,
   retain,
+  type State,
 } from "#qwrk/reactivity/state.js";
-
-/**
- * The nodes a state or a function currently renders as. Its nodes keep it
- * alive.
- */
-interface Slot {
-  nodes: ChildNode[];
-}
 
 /**
  * Inserts JSX children into `parent`, before `marker` or at the end, one at a
@@ -23,25 +17,12 @@ interface Slot {
  * again whenever a state it reads changes.
  */
 export function append(parent: Node, children: unknown, marker?: Node | null) {
-  if (
-    (typeof children !== "object" && typeof children !== "function") ||
-    children === null
-  ) {
-    if (!marker && !parent.hasChildNodes()) {
-      parent.textContent = toText(children);
-    } else {
-      parent.insertBefore(toNode(children), marker ?? null);
-    }
-  } else if (Array.isArray(children)) {
+  if (Array.isArray(children)) {
     for (const child of children) append(parent, child, marker);
-  } else if (typeof children === "function") {
-    const slot = new Child(parent, marker, children as () => unknown);
+  } else if (typeof children === "function" || isReactive(children)) {
+    const slot = new Slot(parent, marker, children);
     bind(slot);
-    if (slot.q != 3) for (const node of slot.nodes) retain(node, slot);
-  } else if (isReactive(children)) {
-    const slot = new State(parent, marker, children);
-    bind(slot);
-    if (slot.q != 3) for (const node of slot.nodes) retain(node, slot);
+    if (slot.q != 3) for (const node of slot.l) retain(node, slot);
   } else if (
     !marker &&
     !parent.hasChildNodes() &&
@@ -62,7 +43,7 @@ export function append(parent: Node, children: unknown, marker?: Node | null) {
 export function text(parent: Node, value: unknown) {
   if (isReactive(value)) {
     if (isTextValue(peek(value))) {
-      bind(new Value(parent, value));
+      bind(new Label(null, null, null, "", "", parent, value));
     } else {
       append(parent, value);
     }
@@ -99,161 +80,114 @@ export function fused(
   parent: Node,
   label: unknown,
 ) {
-  bind(new Fused(element, source, key, yes, no, parent, label), element);
+  bind(new Label(element, source, key, yes, no, parent, label), element);
 }
 
-class Fused extends Binding {
-  private cls: string | null = null;
-  private node: ChildNode | null = null;
-  private full = false;
+/**
+ * A text child, written in place while it is text, and, with an element, the
+ * class that element gets from whether `b` is `k`. Once the text renders
+ * nodes, a {@link Slot} owned by the same owner takes it over.
+ */
+class Label extends Binding {
+  /** The class written last. */
+  u: string | null = null;
+  /** The text node it writes, or `undefined` once a slot took the text over. */
+  t: ChildNode | null | undefined = null;
 
   constructor(
-    readonly el: Element,
-    readonly source: unknown,
+    /** The element whose class it sets, or `null` for text only. */
+    readonly a: Element | null,
+    /** The state compared to `k`. */
+    readonly b: unknown,
     readonly k: unknown,
+    /** The class when `b` is `k`. */
     readonly y: string,
-    readonly no: string,
-    readonly parent: Node,
-    readonly label: unknown,
-  ) {
-    super();
-  }
-
-  f() {
-    const source = this.source as any;
-    const cls = (
-      isReactive(source) ? is(source, this.k) : source.value === this.k
-    )
-      ? this.y
-      : this.no;
-    if (cls !== this.cls) {
-      if (cls || this.el.hasAttribute("class"))
-        this.el.setAttribute("class", cls);
-      this.cls = cls;
-    }
-    if (this.full) return;
-
-    const value = read(this.label);
-
-    if (isTextValue(value)) {
-      const text = toText(value);
-      const node = this.node;
-
-      if (node && node.parentNode === this.parent) (node as Text).data = text;
-      else {
-        const first = this.parent.firstChild;
-        if (first && first === this.parent.lastChild && first.nodeType === 3) {
-          (first as Text).data = text;
-          this.node = first;
-        } else {
-          this.parent.textContent = text;
-          this.node = this.parent.firstChild;
-        }
-      }
-      return;
-    }
-
-    this.full = true;
-    this.node = null;
-    const parent = this.parent;
-    parent.textContent = "";
-    const slot = new State(parent, null, this.label);
-    bind(slot);
-    for (const node of slot.nodes) retain(node, slot);
-  }
-}
-
-/**
- * A state child that is text now: writes its value with `textContent`, the
- * way a property would, and hands over to a full slot if it ever renders
- * nodes.
- */
-class Value extends Binding {
-  private node: ChildNode | null = null;
-
-  constructor(
-    private parent: Node,
+    /** The class otherwise. */
+    readonly x: string,
+    /** The element whose text it writes. */
+    readonly h: Node,
+    /** The text: a state, or a plain value. */
     readonly g: unknown,
   ) {
     super();
   }
 
   f() {
+    const element = this.a;
+
+    if (element) {
+      const source = this.b as any;
+      const cls = (
+        isReactive(source) ? is(source, this.k) : source.value === this.k
+      )
+        ? this.y
+        : this.x;
+      if (cls !== this.u) {
+        if (cls || element.hasAttribute("class")) {
+          element.setAttribute("class", cls);
+        }
+        this.u = cls;
+      }
+    }
+    if (this.t === undefined) return;
+
     const value = read(this.g);
+    const parent = this.h;
 
     if (isTextValue(value)) {
       const text = toText(value);
-      const node = this.node;
+      const node = this.t;
 
-      if (node && node.parentNode === this.parent) (node as Text).data = text;
+      if (node && node.parentNode === parent) (node as Text).data = text;
       else {
-        const first = this.parent.firstChild;
-        if (first && first === this.parent.lastChild && first.nodeType === 3) {
+        const first = parent.firstChild;
+        if (first && first === parent.lastChild && first.nodeType === 3) {
           (first as Text).data = text;
-          this.node = first;
+          this.t = first;
         } else {
-          this.parent.textContent = text;
-          this.node = this.parent.firstChild;
+          parent.textContent = text;
+          this.t = parent.firstChild;
         }
       }
       return;
     }
 
-    const parent = this.parent;
-    dispose(this);
+    const owner = this.p;
+    this.t = undefined;
+    if (!element) dispose(this);
     parent.textContent = "";
-    const slot = new State(parent, null, this.g);
-    bind(slot);
-    for (const node of slot.nodes) retain(node, slot);
+    own(owner, () => append(parent, this.g));
   }
 }
 
 /**
- * A state child: renders its value, again whenever it changes. Owned like
- * any binding, so a parent that disposes (a row, a derive) unlinks it
- * eagerly, and one without a parent is left to the collector.
+ * A state or a function child: renders its value, or what the function
+ * returns, again whenever a state it read changes. Owned like any binding,
+ * so a parent that disposes (a row, a derive) unlinks it eagerly, and one
+ * without a parent is left to the collector.
  */
-class State extends Binding implements Slot {
-  nodes!: ChildNode[];
+class Slot extends Binding {
+  /** The nodes it renders as, which keep it alive. */
+  l!: ChildNode[];
 
   constructor(
-    private parent: Node | null,
-    private marker: Node | null | undefined,
+    /** Where it inserts its first nodes, cleared once they are in. */
+    private h: Node | null,
+    private m: Node | null | undefined,
+    /** A state, or a function. */
     readonly g: unknown,
   ) {
     super();
   }
 
   f() {
-    const value = read(this.g);
-    if (this.nodes) return update(this, 0, value);
-    this.nodes = render(value);
-    place(this.parent!, this, this.marker);
-    this.parent = this.marker = null;
-  }
-}
-
-/**
- * A function child: renders what the function returns, again whenever a
- * state it read changes.
- */
-class Child extends Binding implements Slot {
-  nodes!: ChildNode[];
-
-  constructor(
-    private parent: Node | null,
-    private marker: Node | null | undefined,
-    readonly g: () => unknown,
-  ) {
-    super();
-  }
-
-  f() {
-    const value = read(this.g());
-    if (this.nodes) return update(this, 0, value);
-    this.nodes = render(value);
-    place(this.parent!, this, this.marker);
-    this.parent = this.marker = null;
+    const g = this.g;
+    const value =
+      typeof g === "function" ? read(g()) : (g as State<unknown>).value;
+    if (this.l) return update(this, value);
+    this.l = render(value);
+    for (const node of this.l) this.h!.insertBefore(node, this.m ?? null);
+    this.h = this.m = null;
   }
 }
 
@@ -280,13 +214,7 @@ function toNode(value: unknown): ChildNode {
  * them. Always returns at least one node, so the next update has a position.
  */
 function render(value: unknown): ChildNode[] {
-  const nodes =
-    Array.isArray(value) ||
-    value instanceof DocumentFragment ||
-    typeof value === "function" ||
-    isReactive(value)
-      ? collect(value, [])
-      : [toNode(value)];
+  const nodes = collect(value, []);
   return nodes.length ? nodes : [document.createTextNode("")];
 }
 
@@ -311,40 +239,32 @@ function collect(value: unknown, nodes: ChildNode[]) {
 }
 
 /**
- * Inserts the slot's nodes into `parent`, and with `keep`, makes each keep
- * the slot alive.
+ * Text updates reuse the same node; anything else replaces the nodes, each of
+ * which keeps the slot alive. When its first and last nodes are still in
+ * place, everything between them goes too, such as the rows a list added
+ * since.
  */
-function place(parent: Node, slot: Slot, marker?: Node | null, keep?: boolean) {
-  for (const node of slot.nodes) {
-    if (keep) retain(node, slot);
-    parent.insertBefore(node, marker ?? null);
-  }
-}
+function update(slot: Slot, value: unknown) {
+  const nodes = slot.l;
+  const first = nodes[0];
+  const last = nodes[nodes.length - 1];
 
-/**
- * Text updates reuse the same node; anything else replaces the nodes. When
- * its first and last nodes are still in place, everything between them goes
- * too, such as the rows a list added since.
- */
-function update(slot: Slot, _: unknown, value: unknown) {
-  const [first] = slot.nodes;
-  const last = slot.nodes[slot.nodes.length - 1];
-  const isText =
-    value === null || (typeof value != "object" && typeof value != "function");
-
-  if (first === last && first instanceof Text && isText) {
+  if (first === last && first instanceof Text && isTextValue(value)) {
     first.data = toText(value);
     return;
   }
 
   const anchor = document.createTextNode("");
-  const nodes = document.createDocumentFragment();
+  const group = document.createDocumentFragment();
   first.before(anchor);
   if (last.parentNode === anchor.parentNode) relocate(first, last);
-  else slot.nodes.forEach((node) => node.remove());
-  slot.nodes = render(value);
-  place(nodes, slot, null, true);
-  anchor.replaceWith(nodes);
+  else nodes.forEach((node) => node.remove());
+  slot.l = render(value);
+  for (const node of slot.l) {
+    retain(node, slot);
+    group.appendChild(node);
+  }
+  anchor.replaceWith(group);
 }
 
 /**

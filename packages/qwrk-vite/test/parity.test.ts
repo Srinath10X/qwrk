@@ -136,6 +136,44 @@ const cases: Record<string, string> = {
     };
   `,
 
+  "row handlers that read a row's constant": `
+    import { state } from "qwrk";
+    export default () => {
+      const selected = state(0);
+      const log = state("");
+      const rows = state([{ id: 1 }, { id: 2 }, { id: 3 }]);
+      function Row({ row }) {
+        const id = row.id;
+        let clicks = 0;
+        return (
+          <li>
+            <a onClick={() => (selected.value = id)}>{id}</a>
+            <s>{selected}</s>
+            <b onClick={(event) => (log.value += event.type + id + row.id)}>b</b>
+            <u onClick={() => (log.value += ++clicks)}>u</u>
+            <i onClick={() => rows.value.splice(rows.value.findIndex((r) => r.id === id), 1)}>-</i>
+          </li>
+        );
+      }
+      return {
+        node: (
+          <div>
+            <p>{log}</p>
+            <ul>{rows.map((row) => <Row row={row} />)}</ul>
+          </div>
+        ),
+        steps: [
+          (root) => root.querySelectorAll("a")[1].click(),
+          (root) => root.querySelectorAll("b")[2].click(),
+          (root) => root.querySelectorAll("u")[0].click(),
+          (root) => root.querySelectorAll("u")[0].click(),
+          (root) => root.querySelectorAll("i")[0].click(),
+          (root) => root.querySelectorAll("a")[0].click(),
+        ],
+      };
+    };
+  `,
+
   "components with props and children": `
     import { state } from "qwrk";
     function Card({ title, children }) {

@@ -21,7 +21,7 @@ describe("compile", () => {
     );
 
     expect(code).toContain(
-      `_$template("<div id=\\"a\\" class=\\"b &quot;c&quot;\\">Tom &amp; Jerry<br><img alt=\\"x\\"></div>")`,
+      `_$template("<div id=a class=\\"b &quot;c&quot;\\">Tom &amp; Jerry<br><img alt=x>")`,
     );
     expect(code).toContain("const a = _tmpl$1();");
     expect(code).toContain(
@@ -39,12 +39,23 @@ describe("compile", () => {
       `const a = <p title={user.name} data-n={n.value}>{count.value * 2}{label}{items.length}{f()}</p>;`,
     );
 
-    expect(code).toContain('_$attr(_el$2, "title", user.name);');
-    expect(code).toContain('_$attr(_el$2, "data-n", () => n.value);');
+    expect(code).toContain('_$attribute(_el$2, "title", user.name);');
+    expect(code).toContain('_$attribute(_el$2, "data-n", () => n.value);');
     expect(code).toContain("_$insert(_el$2, () => count.value * 2);");
     expect(code).toContain("_$insert(_el$2, label);");
     expect(code).toContain("_$insert(_el$2, items.length);");
     expect(code).toContain("_$insert(_el$2, () => f());");
+  });
+
+  it("binds styles and properties with the full attribute helper", () => {
+    const code = output(
+      `const a = <input style={s} value={v.value} checked={c} className={k} />;`,
+    );
+
+    expect(code).toContain('_$attr(_el$2, "style", s);');
+    expect(code).toContain('_$attr(_el$2, "value", () => v.value);');
+    expect(code).toContain('_$attr(_el$2, "checked", c);');
+    expect(code).toContain('_$attribute(_el$2, "class", k);');
   });
 
   it("walks to dynamic nodes, with markers between texts", () => {
@@ -52,7 +63,7 @@ describe("compile", () => {
       `const a = <ul><li>a</li><li>x{b}y<i>{c}</i></li></ul>;`,
     );
 
-    expect(code).toContain("<ul><li>a</li><li>x<!>y<i></i></li></ul>");
+    expect(code).toContain('"<ul><li>a</li><li>x<!>y<i>"');
     expect(code).toContain(
       "_el$3 = _el$2.firstChild.nextSibling, _el$4 = _el$3.firstChild.nextSibling, _el$5 = _el$4.nextSibling.nextSibling;",
     );
@@ -68,7 +79,7 @@ describe("compile", () => {
 
     expect(code).toContain('_$classIf(_el$2, selected, row.id, "on", "");');
     expect(code).toContain("() => !_$equals(store.sel, row.id)");
-    expect(code).toContain("$$click = () => selected.value === 1;");
+    expect(code).toContain("const _h$3 = () => selected.value === 1;");
   });
 
   it("fuses a class conditional with a text child", () => {
@@ -78,7 +89,7 @@ describe("compile", () => {
 
     expect(code).toContain("_$fused(");
     expect(code).toContain('"on", "",');
-    expect(code).toContain("<a> </a>");
+    expect(code).toContain("<a> ");
     expect(code).not.toContain("_$classIf");
   });
 
@@ -116,11 +127,46 @@ describe("compile", () => {
       `const a = <input onInput={(e) => set(e)} onKeyDown={down} onFocus={focus} onClick="alert(1)" />;`,
     );
 
-    expect(code).toContain("_el$2.$$input = (e) => set(e);");
+    expect(code).toContain("const _h$3 = (e) => set(e);");
+    expect(code).toContain("_el$2.$$input = _h$3;");
     expect(code).toContain("_el$2.$$keydown = down;");
     expect(code).toContain('_el$2.addEventListener("focus", focus);');
-    expect(code).toContain('onClick=\\"alert(1)\\"');
+    expect(code).toContain("onClick=alert(1)");
     expect(code).toContain('_$delegate(["input","keydown"]);');
+  });
+
+  it("moves row handlers to the module, with the row's constant as data", () => {
+    const code = output(
+      `function Row({ row }) { const id = row.id; return <a onClick={() => (selected.value = id)} onMouseDown={(e) => run(e, id)} onKeyDown={() => go()} />; }`,
+    );
+
+    expect(code).toContain("const _h$3 = (_e$4, id) => (selected.value = id);");
+    expect(code).toContain("const _h$5 = (e, id) => run(e, id);");
+    expect(code).toContain("const _h$6 = () => go();");
+    expect(code).toContain(
+      "_el$2.$$click = _h$3; _el$2.$$clickData = id; _el$2.$$mousedown = _h$5; _el$2.$$mousedownData = id; _el$2.$$keydown = _h$6;",
+    );
+  });
+
+  it("keeps handlers that need their closure in place", () => {
+    const kept = [
+      `function A({ row }) { let id = row.id; return <a onClick={() => f(id)} />; }`,
+      `function A({ row }) { const a = 1, b = 2; return <a onClick={() => f(a, b)} />; }`,
+      `function A(n) { n++; return <a onClick={() => f(n)} />; }`,
+      `function A() { const a = <a onClick={() => f(later)} />; const later = 1; return a; }`,
+      `function A() { return <a onClick={() => this.f()} />; }`,
+      `function A(n) { return <a onClick={() => (n = 2)} />; }`,
+      `function A(n) { return <a onClick={() => [1].map((i) => f(i, n))} />; }`,
+      `function A(n) { return <a onClick={async () => f(n)} />; }`,
+      `function A(n) { return <a onClick={(e, x) => f(e, x, n)} />; }`,
+      `function A(n) { return <a onClick={() => f(arguments)} />; }`,
+    ];
+
+    for (const source of kept) {
+      const code = output(source);
+      expect(code, source).not.toContain("_h$");
+      expect(code, source).not.toContain("Data");
+    }
   });
 
   it("calls components with props, and children in an array", () => {
@@ -150,9 +196,7 @@ describe("compile", () => {
     expect(code).toContain(
       `_$template("<svg viewBox=\\"0 0 1 1\\"><circle></circle></svg>")`,
     );
-    expect(code).toContain(
-      `_$template("<g><path d=\\"M0\\"></path></g>", true)`,
-    );
+    expect(code).toContain(`_$template("<g><path d=M0></path></g>", true)`);
   });
 
   it("falls back to createElement for spreads and namespaced names", () => {
@@ -176,7 +220,7 @@ describe("compile", () => {
     expect(code).toContain('import { svg as _$svg } from "qwrk";');
     expect(code).toContain('_$svg("circle", { ...props, })');
     expect(code).toContain(
-      '_$template("<svg viewBox=\\"0 0 1 1\\"><line x1=\\"0\\"></line></svg>")',
+      '_$template("<svg viewBox=\\"0 0 1 1\\"><line x1=0></line></svg>")',
     );
     expect(code).not.toContain("_$h(");
   });
@@ -187,7 +231,7 @@ describe("compile", () => {
       "app.tsx",
     );
 
-    expect(code).toContain('_$attr(_el$2, "title", name as string);');
+    expect(code).toContain('_$attribute(_el$2, "title", name as string);');
     expect(code).toContain("() => (count as State<number>).value");
     expect(code).toContain("_$map(items, (i: Item) =>");
   });
@@ -201,6 +245,16 @@ describe("compile", () => {
     expect(code).toContain("const nums = data.map((n) => n * 2);");
   });
 
+  it("returns a host element as statements after other statements", () => {
+    const code = output(
+      `function Row({ row, icon = <i /> }) { const id = row.id; if (!id) return <b />; return <p>{id}</p>; }`,
+    );
+
+    expect(code).toContain(
+      "function Row({ row, icon = _tmpl$3() }) { const id = row.id; if (!id) return _tmpl$4(); const _el$2 = _tmpl$1(); _$text(_el$2, id); return _el$2;  }",
+    );
+  });
+
   it("uses createElement for JSX that awaits", () => {
     const code = output(
       `async function f() { return <p class={await c}>{await t}</p>; }`,
@@ -210,8 +264,8 @@ describe("compile", () => {
 
   it("splits markup the HTML parser would move", () => {
     const code = output(`const a = <table><tr><td>{x}</td></tr></table>;`);
-    expect(code).toContain('_$template("<table></table>")');
-    expect(code).toContain('_$template("<tr><td></td></tr>")');
+    expect(code).toContain('_$template("<table>")');
+    expect(code).toContain('_$template("<tr><td>")');
   });
 
   it("inserts the header after directives, with a source map", () => {

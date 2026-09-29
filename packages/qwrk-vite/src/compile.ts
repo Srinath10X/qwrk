@@ -74,6 +74,22 @@ interface Context {
   /** Whether the current JSX awaits or yields, so it can't use a closure. */
   inline: boolean;
   changed: boolean;
+  /** The nodes being visited, outermost first, see {@link hoist}. */
+  path: Node[];
+  /** Event handlers moved to the top of the module, as declarations. */
+  handlers: string[];
+  /** The bindings each scope declares, read once per scope. */
+  scopes: Map<Node, Map<string, Declared>>;
+}
+
+/**
+ * A binding a scope declares: whether it is a `const` or a parameter, the
+ * only kinds whose value a handler can read early, and where its
+ * declaration ends.
+ */
+interface Declared {
+  kind: "const" | "param" | "other";
+  end: number;
 }
 
 /** The JSX runtime uses the automatic runtime's `key`, never an attribute. */
@@ -251,6 +267,9 @@ export function compile(
     count: 0,
     inline: false,
     changed: false,
+    path: [],
+    handlers: [],
+    scopes: new Map(),
   };
   visit(context, program as unknown as Node, false);
   if (!context.changed) return null;
@@ -272,6 +291,12 @@ export function compile(
  * innermost code first, so edits that meet at a position nest correctly.
  */
 function visit(context: Context, node: Node, thunk: boolean) {
+  context.path.push(node);
+  enter(context, node, thunk);
+  context.path.pop();
+}
+
+function enter(context: Context, node: Node, thunk: boolean) {
   if (returns(context, node)) return;
 
   if (node.type === "JSXElement" || node.type === "JSXFragment") {
@@ -290,19 +315,20 @@ function visit(context: Context, node: Node, thunk: boolean) {
 }
 
 /**
- * Compiles a function whose body is one `return` of a host element into
+ * Compiles a function whose body ends with a `return` of a host element into
  * statements instead of a call of a template function, so calling it costs
- * no closure. Returns whether it did.
+ * no closure. The rest of the function compiles as usual. Returns whether it
+ * did.
  */
 function returns(context: Context, node: Node): boolean {
   if (!FUNCTIONS.has(node.type)) return false;
 
   const { body } = node;
-  if (!body || body.type !== "BlockStatement" || body.body.length !== 1) {
+  if (!body || body.type !== "BlockStatement" || !body.body.length) {
     return false;
   }
 
-  const statement = body.body[0];
+  const statement = body.body[body.body.length - 1];
   if (statement.type !== "ReturnStatement" || !statement.argument) return false;
 
   const element = unwrap(statement.argument);
@@ -317,7 +343,13 @@ function returns(context: Context, node: Node): boolean {
   context.inline = inline;
   if (!parts) return false;
 
-  emit(context, body, ["{ ", ...parts, "}"]);
+  for (const child of children(node)) {
+    if (child !== body) visit(context, child, false);
+  }
+  for (const child of body.body) {
+    if (child !== statement) visit(context, child, false);
+  }
+  emit(context, statement, parts);
   return true;
 }
 
@@ -844,7 +876,10 @@ function staticText(node: Node): string | undefined {
 
 /**
  * Compiles a host element tree into a clone of a template and the operations
- * that bind its dynamic parts, in source order.
+ * that bind its dynamic parts, in source order. A fused text writes into an
+ * empty parent, so the template leaves a text node there for it: its first
+ * run updates data instead of replacing content, and as the only child, it
+ * shifts no walk.
  */
 function template(
   context: Context,
@@ -857,7 +892,7 @@ function template(
   const root = element(context, node, tag, [], operations);
 
   if (!operations.length) {
-    const name = declare(context, html(root), svg && tag !== "svg");
+    const name = declare(context, markup(root), svg && tag !== "svg");
     return [statements ? `return ${name}(); ` : `${name}()`];
   }
 
@@ -891,12 +926,9 @@ function template(
 
   const fusedOp = fuse(context, operations);
   if (fusedOp) {
-    // The fused text writes into an empty parent: leave a text node in the
-    // template for it, so its first run updates data instead of replacing
-    // content. It is the target's only child, so no walk shifts.
     (fusedOp.text.target as Element).children.push({ kind: "text", text: " " });
   }
-  const name = declare(context, html(root), svg && tag !== "svg");
+  const name = declare(context, markup(root), svg && tag !== "svg");
 
   root.ref = local(context, "el");
   const declarations = [`${root.ref} = ${name}()`];
@@ -1093,8 +1125,7 @@ function element(
       !(typeof fixed === "string" && /[\r\0]/.test(fixed))
     ) {
       if (fixed !== null) {
-        self.attributes +=
-          fixed === true ? ` ${name}` : ` ${name}="${escape(fixed, true)}"`;
+        self.attributes += attributeMarkup(name, fixed);
       }
     } else {
       const cond =
@@ -1238,6 +1269,36 @@ function escape(text: string, attribute?: boolean) {
     : text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+/**
+ * A static attribute of a template, as short as the HTML parser reads the
+ * same: no value when it is empty, unquoted when it has no character that
+ * ends or escapes an unquoted value.
+ */
+function attributeMarkup(name: string, value: string | true) {
+  if (value === true || value === "") return ` ${name}`;
+  if (/^[^\s"'=<>`&]+$/.test(value)) return ` ${name}=${value}`;
+  return ` ${name}="${escape(value, true)}"`;
+}
+
+/**
+ * Serializes the root of a template. The closing tags at the end are left
+ * out, since the end of the input closes every open element, except in SVG
+ * and after an element whose content the parser reads as text.
+ */
+function markup(root: Element): string {
+  const text = html(root);
+  if (root.svg) return text;
+  return text.replace(/(<\/[a-z][^>]*>)+$/, (closers) => {
+    const tags = closers.slice(2, -1).split("></");
+    let kept = tags.length;
+    while (kept && !OPAQUE.has(tags[kept - 1])) kept--;
+    return tags
+      .slice(0, kept)
+      .map((tag) => `</${tag}>`)
+      .join("");
+  });
+}
+
 /** Serializes a template element. */
 function html(slot: Slot): string {
   if (slot.kind !== "element") {
@@ -1290,8 +1351,12 @@ function render(context: Context, operation: Operation): Part[] {
     ];
   }
   if (operation.kind === "attr") {
+    const name =
+      PROPERTIES.has(operation.name) || operation.name === "style"
+        ? "attr"
+        : "attribute";
     return [
-      `${helper(context, "attr")}(${target}, ${quote(operation.name)}, `,
+      `${helper(context, name)}(${target}, ${quote(operation.name)}, `,
       ...operation.value,
       "); ",
     ];
@@ -1306,7 +1371,11 @@ function render(context: Context, operation: Operation): Part[] {
     ];
   }
   if (DELEGATED.has(operation.name)) {
-    return [`${target}.$$${operation.name} = `, ...operation.value, "; "];
+    const key = `${target}.$$${operation.name}`;
+    const hoisted = hoist(context, operation.value);
+    if (!hoisted) return [`${key} = `, ...operation.value, "; "];
+    const data = hoisted.data ? ` ${key}Data = ${hoisted.data};` : "";
+    return [`${key} = ${hoisted.name};${data} `];
   }
   return [
     `${target}.addEventListener(${quote(operation.name)}, `,
@@ -1316,9 +1385,231 @@ function render(context: Context, operation: Operation): Part[] {
 }
 
 /**
- * Adds the imports of the helpers used, the templates and the delegated
- * events at the top of the module, after its directives.
+ * Moves a delegated event handler to the top of the module, so rows don't
+ * each create a closure, when it is an arrow function that reads, besides
+ * module and global names, at most one local: a `const` declared before it,
+ * or a parameter never assigned. That local's value is stored next to the
+ * handler as `$$` + event + `Data`, and passed after the event. Returns the
+ * handler's name and the local, or `null` when the arrow reads anything
+ * else, or uses `this`, `arguments`, JSX or declarations of its own.
  */
+function hoist(
+  context: Context,
+  value: Part[],
+): { name: string; data?: string } | null {
+  if (value.length !== 1 || typeof value[0] === "string") return null;
+
+  const arrow = unwrap(value[0].node);
+  const { params, body } = arrow;
+  if (
+    arrow.type !== "ArrowFunctionExpression" ||
+    arrow.async ||
+    arrow.returnType ||
+    arrow.typeParameters ||
+    params.length > 1 ||
+    params.some((param: Node) => param.type !== "Identifier")
+  ) {
+    return null;
+  }
+
+  const own = new Set<string>(params.map((param: Node) => param.name));
+  const names = new Set<string>();
+  if (!references(body, own, names)) return null;
+
+  let captured: string | undefined;
+  for (const name of names) {
+    const scope = declaring(context, name);
+    if (!scope) continue;
+    const { declared } = scope;
+    if (
+      captured ||
+      !(
+        (declared.kind === "const" && declared.end <= arrow.start) ||
+        (declared.kind === "param" && !assigns(scope.node, name))
+      )
+    ) {
+      return null;
+    }
+    captured = name;
+  }
+
+  const { code } = context;
+  const name = local(context, "h");
+  const event = params.length
+    ? code.slice(params[0].start, params[0].end)
+    : local(context, "e");
+  const source = captured
+    ? `(${event}, ${captured}) => ${code.slice(body.start, body.end)}`
+    : code.slice(arrow.start, arrow.end);
+  context.handlers.push(`const ${name} = ${source};`);
+  return { name, data: captured };
+}
+
+/**
+ * Collects the names `node` reads into `names`, leaving out `own`. Returns
+ * `false` for what a moved handler can't keep: functions, classes and
+ * declarations of its own, assignments to names, `this`, `super`,
+ * `new.target`, `arguments`, `eval`, `await`, `yield`, labels, JSX and
+ * TypeScript.
+ */
+function references(node: Node, own: Set<string>, names: Set<string>): boolean {
+  const { type } = node;
+  if (
+    FUNCTIONS.has(type) ||
+    /^(Class|VariableDeclaration|ThisExpression|Super|MetaProperty|AwaitExpression|YieldExpression|LabeledStatement|CatchClause|ForInStatement|ForOfStatement|JSX|TS)/.test(
+      type,
+    ) ||
+    (type === "AssignmentExpression" &&
+      node.left.type !== "MemberExpression") ||
+    (type === "UpdateExpression" && node.argument.type !== "MemberExpression")
+  ) {
+    return false;
+  }
+  if (type === "Identifier") {
+    if (node.name === "arguments" || node.name === "eval") return false;
+    if (!own.has(node.name)) names.add(node.name);
+    return true;
+  }
+  if (type === "MemberExpression" && !node.computed) {
+    return references(node.object, own, names);
+  }
+  if (type === "Property" && !node.computed) {
+    return references(node.value, own, names);
+  }
+  return children(node).every((child) => references(child, own, names));
+}
+
+/**
+ * The innermost scope around the JSX being compiled that declares `name`,
+ * or `null` when only the module or the globals do.
+ */
+function declaring(context: Context, name: string) {
+  const { path } = context;
+  for (let i = path.length - 1; i > 0; i--) {
+    const declared = declarations(context, path[i]).get(name);
+    if (declared) return { node: path[i], declared };
+  }
+  return null;
+}
+
+/** The bindings `node` declares, when it is a scope. */
+function declarations(context: Context, node: Node): Map<string, Declared> {
+  let found = context.scopes.get(node);
+  if (found) return found;
+  found = new Map();
+  context.scopes.set(node, found);
+  const { type } = node;
+  const other = { kind: "other", end: node.start } as const;
+
+  if (FUNCTIONS.has(type) && type !== "ClassBody") {
+    for (const param of node.params) {
+      for (const name of bound(param)) {
+        found.set(name, { kind: "param", end: node.start });
+      }
+    }
+    if (type === "FunctionExpression" && node.id) {
+      found.set(node.id.name, other);
+    }
+    if (node.body?.type === "BlockStatement") {
+      vars(node.body, found);
+      lexical(node.body.body, found);
+    }
+  } else if (type === "BlockStatement" || type === "StaticBlock") {
+    lexical(node.body, found);
+  } else if (type === "SwitchStatement") {
+    for (const branch of node.cases) lexical(branch.consequent, found);
+  } else if (/^For(In|Of)?Statement$/.test(type)) {
+    const head = node.init ?? node.left;
+    if (head?.type === "VariableDeclaration" && head.kind !== "var") {
+      declareAll(head, found);
+    }
+  } else if (type === "CatchClause" && node.param) {
+    for (const name of bound(node.param)) found.set(name, other);
+  } else if (/^Class(Declaration|Expression)$/.test(type) && node.id) {
+    found.set(node.id.name, other);
+  }
+  return found;
+}
+
+/** Adds the `let`, `const`, class and function declarations of a block. */
+function lexical(statements: Node[], found: Map<string, Declared>) {
+  for (const statement of statements) {
+    if (statement.type === "VariableDeclaration") {
+      if (statement.kind !== "var") declareAll(statement, found);
+    } else if (
+      /^(Function|Class)Declaration$/.test(statement.type) &&
+      statement.id
+    ) {
+      found.set(statement.id.name, { kind: "other", end: statement.start });
+    }
+  }
+}
+
+/** Adds the `var` declarations of a function body, outside nested functions. */
+function vars(node: Node, found: Map<string, Declared>) {
+  for (const child of children(node)) {
+    if (FUNCTIONS.has(child.type)) continue;
+    if (child.type === "VariableDeclaration" && child.kind === "var") {
+      for (const declarator of child.declarations) {
+        for (const name of bound(declarator.id)) {
+          found.set(name, { kind: "other", end: declarator.end });
+        }
+      }
+    }
+    vars(child, found);
+  }
+}
+
+/** Adds the names a `let`, `const` or `using` declaration binds. */
+function declareAll(declaration: Node, found: Map<string, Declared>) {
+  const kind = declaration.kind === "const" ? "const" : "other";
+  for (const declarator of declaration.declarations) {
+    for (const name of bound(declarator.id)) {
+      found.set(name, { kind, end: declarator.end });
+    }
+  }
+}
+
+/** The names a binding or assignment pattern binds. */
+function bound(node: Node): string[] {
+  switch (node.type) {
+    case "Identifier":
+      return [node.name];
+    case "AssignmentPattern":
+      return bound(node.left);
+    case "RestElement":
+      return bound(node.argument);
+    case "TSParameterProperty":
+      return bound(node.parameter);
+    case "ArrayPattern":
+      return node.elements.flatMap((item: Node | null) =>
+        item ? bound(item) : [],
+      );
+    case "ObjectPattern":
+      return node.properties.flatMap((property: Node) =>
+        bound(property.type === "RestElement" ? property : property.value),
+      );
+    default:
+      return [];
+  }
+}
+
+/** Whether anything in `node` assigns to `name`. */
+function assigns(node: Node, name: string) {
+  return has(
+    node,
+    (n) =>
+      (n.type === "AssignmentExpression" && bound(n.left).includes(name)) ||
+      (n.type === "UpdateExpression" &&
+        n.argument.type === "Identifier" &&
+        n.argument.name === name) ||
+      (/^For(In|Of)Statement$/.test(n.type) &&
+        n.left.type !== "VariableDeclaration" &&
+        bound(n.left).includes(name)),
+    true,
+  );
+}
+
 function prepend(context: Context, program: Node) {
   const lines: string[] = [];
   const internal: string[] = [];
@@ -1340,6 +1631,7 @@ function prepend(context: Context, program: Node) {
       `const ${name} = /*#__PURE__*/ ${helper(context, "template")}(${quote(id.slice(1))}${svg});`,
     );
   }
+  lines.push(...context.handlers);
   if (context.events.size) {
     lines.push(
       `${helper(context, "delegate")}(${JSON.stringify([...context.events])});`,

@@ -1,7 +1,11 @@
 import { append } from "#qwrk/dom/children.js";
 import { is, isReactive } from "#qwrk/reactivity/state.js";
 
-export { bindAttribute as attr, classIf } from "#qwrk/dom/attributes.js";
+export {
+  attribute,
+  bindAttribute as attr,
+  classIf,
+} from "#qwrk/dom/attributes.js";
 export { append as insert, fused, text } from "#qwrk/dom/children.js";
 export { delegate } from "#qwrk/dom/events.js";
 export { map } from "#qwrk/dom/list.js";

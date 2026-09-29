@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createElement as h, derive, effect, state } from "../dist/index.js";
 import {
   attr,
+  classIf,
   component,
   delegate,
   equals,
@@ -211,6 +212,18 @@ describe("attr", () => {
     expect(el.style.width).toBe("2px");
   });
 
+  it("updates attributes before effects run", () => {
+    const n = state(1);
+    const el = document.createElement("div");
+    const seen: string[] = [];
+    n.effect(() => seen.push(`${el.title}|${el.className}`));
+    attr(el, "title", () => `t${n.value}`);
+    classIf(el, n, 2, "on", "off");
+
+    n.value = 2;
+    expect(seen).toEqual(["t2|on"]);
+  });
+
   it("sets value and checked as properties", () => {
     const text = state("a");
     const input = document.createElement("input");
@@ -245,6 +258,20 @@ describe("delegate", () => {
 
     expect(calls).toEqual(["inner:BUTTON", "outer:DIV:DIV"]);
     outer.remove();
+  });
+
+  it("passes the element's data after the event", () => {
+    delegate(["click"]);
+    const seen: unknown[] = [];
+    const a = document.createElement("a") as any;
+    document.body.append(a);
+
+    a.$$click = (event: Event, data: unknown) => seen.push(event.type, data);
+    a.$$clickData = 7;
+    a.click();
+
+    expect(seen).toEqual(["click", 7]);
+    a.remove();
   });
 
   it("listens once per event name", () => {
@@ -354,5 +381,29 @@ describe("fused", () => {
     selected.value = 2;
     expect(tr.className).toBe("");
     expect(a.firstChild).toBe(el);
+
+    label.value = "three";
+    expect(a.textContent).toBe("three");
+  });
+
+  it("stops the slot of a handed over label with its owner", () => {
+    const show = state(true);
+    const label = state<unknown>("one");
+    const seen: string[] = [];
+    const a = document.createElement("a");
+    const div = document.createElement("div");
+
+    insert(div, () => {
+      if (show.value) text(a, label);
+      return null;
+    });
+    label.value = h("b", null, "x");
+    label.value = "two";
+    seen.push(a.textContent!);
+    show.value = false;
+    label.value = "three";
+    seen.push(a.textContent!);
+
+    expect(seen).toEqual(["two", "two"]);
   });
 });
