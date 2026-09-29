@@ -1319,8 +1319,12 @@ function render(context: Context, operation: Operation): Part[] {
     ];
   }
   if (operation.kind === "attr") {
+    const name =
+      PROPERTIES.has(operation.name) || operation.name === "style"
+        ? "attr"
+        : "attribute";
     return [
-      `${helper(context, "attr")}(${target}, ${quote(operation.name)}, `,
+      `${helper(context, name)}(${target}, ${quote(operation.name)}, `,
       ...operation.value,
       "); ",
     ];

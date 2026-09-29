@@ -39,12 +39,23 @@ describe("compile", () => {
       `const a = <p title={user.name} data-n={n.value}>{count.value * 2}{label}{items.length}{f()}</p>;`,
     );
 
-    expect(code).toContain('_$attr(_el$2, "title", user.name);');
-    expect(code).toContain('_$attr(_el$2, "data-n", () => n.value);');
+    expect(code).toContain('_$attribute(_el$2, "title", user.name);');
+    expect(code).toContain('_$attribute(_el$2, "data-n", () => n.value);');
     expect(code).toContain("_$insert(_el$2, () => count.value * 2);");
     expect(code).toContain("_$insert(_el$2, label);");
     expect(code).toContain("_$insert(_el$2, items.length);");
     expect(code).toContain("_$insert(_el$2, () => f());");
+  });
+
+  it("binds styles and properties with the full attribute helper", () => {
+    const code = output(
+      `const a = <input style={s} value={v.value} checked={c} className={k} />;`,
+    );
+
+    expect(code).toContain('_$attr(_el$2, "style", s);');
+    expect(code).toContain('_$attr(_el$2, "value", () => v.value);');
+    expect(code).toContain('_$attr(_el$2, "checked", c);');
+    expect(code).toContain('_$attribute(_el$2, "class", k);');
   });
 
   it("walks to dynamic nodes, with markers between texts", () => {
@@ -185,7 +196,7 @@ describe("compile", () => {
       "app.tsx",
     );
 
-    expect(code).toContain('_$attr(_el$2, "title", name as string);');
+    expect(code).toContain('_$attribute(_el$2, "title", name as string);');
     expect(code).toContain("() => (count as State<number>).value");
     expect(code).toContain("_$map(items, (i: Item) =>");
   });
