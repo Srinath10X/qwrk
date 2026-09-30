@@ -456,16 +456,14 @@ const links = [
     50% 50%,
     50% 50%;
   filter: blur(10px) opacity(50%) saturate(200%);
-  -webkit-mask-image: radial-gradient(
-    ellipse 90% 100% at 50% 0%,
-    black 30%,
-    transparent 72%
-  );
-  mask-image: radial-gradient(
-    ellipse 90% 100% at 50% 0%,
-    black 30%,
-    transparent 72%
-  );
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 25%, black 55%),
+    linear-gradient(to bottom, black 20%, transparent 85%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 25%, black 55%),
+    linear-gradient(to bottom, black 20%, transparent 85%);
+  mask-composite: intersect;
 }
 
 .q-aurora::after {
