@@ -996,7 +996,6 @@ function fuse(
   text: Extract<Operation, { kind: "insert" }>;
   sRef: string;
   kRef: string;
-  lRef: string;
 } | null {
   let cond: Extract<Operation, { kind: "cond" }> | null = null;
   let text: Extract<Operation, { kind: "insert" }> | null = null;
@@ -1035,7 +1034,6 @@ function fuse(
     text,
     sRef: local(context, "s"),
     kRef: local(context, "k"),
-    lRef: local(context, "l"),
   };
 }
 
@@ -1056,8 +1054,9 @@ function renderFusedHead(
 }
 
 /**
- * Reads a fused binding's text and calls it, at its own source position, so
- * every fused value is emitted in source order.
+ * Calls a fused binding at its text's own source position, with the text as
+ * the last argument, read right before the call, so every fused value is
+ * emitted in source order.
  */
 function renderFusedTail(
   context: Context,
@@ -1066,15 +1065,14 @@ function renderFusedTail(
     text: Extract<Operation, { kind: "insert" }>;
     sRef: string;
     kRef: string;
-    lRef: string;
   },
 ): Part[] {
-  const { cond, text, sRef, kRef, lRef } = fusedOp;
+  const { cond, text, sRef, kRef } = fusedOp;
   return [
-    `const ${lRef} = `,
+    `${helper(context, "fused")}(${cond.target.ref!}, ${sRef}, ${kRef}`,
+    `, ${quote(cond.yes)}, ${quote(cond.no)}, ${text.target.ref!}, `,
     ...text.value,
-    `; ${helper(context, "fused")}(${cond.target.ref!}, ${sRef}, ${kRef}`,
-    `, ${quote(cond.yes)}, ${quote(cond.no)}, ${text.target.ref!}, ${lRef}); `,
+    "); ",
   ];
 }
 
