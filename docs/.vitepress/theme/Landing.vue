@@ -129,11 +129,13 @@ type Point = [number, number, number];
 
 /**
  * One piece of isometric art, painted in order: a block, a flow along points
- * (or an arc between two), or a logo or a label printed on a top face.
+ * (or an arc between two), a lattice of cells on a box's floor and back
+ * walls, or a logo or a label printed on a top face.
  */
 type Item =
   | { box: [...Point, number, number, number]; kind?: "wire" | "lit" | "ghost" }
   | { path: Point[]; arc?: number }
+  | { lattice: number; size: number }
   | { logo: string; at: Point; size: number }
   | { label: string; at: Point; lit?: boolean };
 
@@ -186,6 +188,42 @@ function draw(items: Item[], font: number) {
           ],
         ].map((face) => face.map((p) => pt(p as Point)).join(" ")),
       };
+    }
+    if ("lattice" in item) {
+      const { lattice: n, size } = item;
+      const segments: string[] = [];
+      for (let i = 0; i <= n; i++) {
+        const t = (i * size) / n;
+        for (const [a, b] of [
+          [
+            [t, 0, 0],
+            [t, size, 0],
+          ],
+          [
+            [0, t, 0],
+            [size, t, 0],
+          ],
+          [
+            [t, 0, 0],
+            [t, 0, size],
+          ],
+          [
+            [0, 0, t],
+            [size, 0, t],
+          ],
+          [
+            [0, t, 0],
+            [0, t, size],
+          ],
+          [
+            [0, 0, t],
+            [0, size, t],
+          ],
+        ]) {
+          segments.push(`M${pt(a as Point)} L${pt(b as Point)}`);
+        }
+      }
+      return { lattice: segments.join(" ") };
     }
     if ("path" in item) {
       const [a, b] = item.path;
@@ -303,8 +341,9 @@ const bento = [
     title: "As low as 2.9 KB",
     text: "A whole counter app, runtime included, is 2.9 KB gzipped. The compiler does its work at build time, not in the browser.",
     art: scene([
-      { box: [0, 0, 0, 4, 4, 4], kind: "ghost" },
-      { box: [1.55, 1.55, 0, 0.9, 0.9, 0.9], kind: "lit" },
+      { lattice: 5, size: 5 },
+      { box: [0, 0, 0, 5, 5, 5], kind: "ghost" },
+      { box: [2, 2, 0, 1, 1, 1], kind: "lit" },
     ]),
   },
   {
@@ -553,6 +592,11 @@ const links = [
                     :points="face"
                   />
                 </g>
+                <path
+                  v-else-if="'lattice' in shape"
+                  class="q-lattice"
+                  :d="shape.lattice"
+                />
                 <g v-else-if="'d' in shape">
                   <path class="q-flow" :d="shape.d" />
                   <circle class="q-flow__dot" v-bind="shape.dot" />
@@ -1415,6 +1459,13 @@ const links = [
   opacity: 0.85;
   vector-effect: non-scaling-stroke;
   animation: q-flow 1.2s linear infinite;
+}
+
+.q-lattice {
+  fill: none;
+  stroke: rgb(246 245 244 / 0.13);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 
 .q-flow__dot {
