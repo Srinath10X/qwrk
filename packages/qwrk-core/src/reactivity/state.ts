@@ -382,15 +382,7 @@ export function run(node: Computation) {
   depth++;
 
   try {
-    let created = node.c;
-    node.c = undefined;
-    while (created) {
-      const next = created.n;
-      created.n = undefined;
-      dispose(created);
-      created = next;
-    }
-
+    release(node);
     node.q = 2;
     reads = node.d ? null : reading;
     seen = reading;
@@ -412,14 +404,7 @@ export function run(node: Computation) {
       subscribe(node, reading);
 
       if (!node.s.length && node.e && !node.p) {
-        let created = node.c;
-        node.c = undefined;
-        while (created) {
-          const next = created.n;
-          created.n = undefined;
-          adopt(created, null);
-          created = next;
-        }
+        release(node, null);
         roots.delete(node);
       }
     }
@@ -473,15 +458,25 @@ function subscribe(node: Computation, reading: any[]) {
 }
 
 /**
- * Hands `node` over to `parent`, since its owner will never re-run. Without a
- * parent, an effect becomes a root, alive until stopped, and the rest live as
- * long as their DOM.
+ * Empties what `node` created: disposes each one, or, given a `parent`, hands
+ * it over to that parent, since `node` will never re-run. Without a parent,
+ * an effect becomes a root, alive until stopped, and the rest live as long
+ * as their DOM.
  */
-function adopt(node: Computation, parent: Computation | null) {
-  if (node.q != 3) {
-    node.p = parent;
-    if (parent) attach(parent, node);
-    else if (node.e) roots.add(node);
+function release(node: Computation, parent?: Computation | null) {
+  let created = node.c;
+  node.c = undefined;
+  while (created) {
+    const next = created.n;
+    created.n = undefined;
+    if (parent === undefined) {
+      dispose(created);
+    } else if (created.q != 3) {
+      created.p = parent;
+      if (parent) attach(parent, created);
+      else if (created.e) roots.add(created);
+    }
+    created = next;
   }
 }
 
@@ -493,15 +488,7 @@ export function dispose(node: Computation) {
   if (node.q != 3) {
     node.q = 3;
     node.p = null;
-
-    let created = node.c;
-    node.c = undefined;
-    while (created) {
-      const next = created.n;
-      created.n = undefined;
-      dispose(created);
-      created = next;
-    }
+    release(node);
 
     for (let i = 0; i < node.s.length; i += 3) {
       unlinkSource(node.s[i], node, node.s[i + 2]);
@@ -555,58 +542,15 @@ export abstract class Binding implements Computation {
  * it to what it read. The running derive, binding or list row owns it, like
  * a derive, and when there is none, `holder` keeps it alive. One that read
  * no state will never run again, so it hands what it created over to its
- * owner. Like {@link run}, without the work re-runs need: nothing is created
- * yet, and the reads are all new, so every one of them links directly.
+ * owner.
  */
 export function bind(node: Binding, holder?: object) {
-  const parent = owner?.q != 3 && !owner?.e ? owner : null;
-  node.p = parent;
-
-  const self = node as Computation;
-  const reading: any[] = [];
-  const outerReads = reads;
-  const outerSeen = seen;
-  const outerOwner = owner;
-
-  depth++;
-
-  try {
-    node.q = 2;
-    reads = self.d ? null : reading;
-    seen = reading;
-    owner = node;
-    node.f();
-  } finally {
-    reads = outerReads;
-    seen = outerSeen;
-    owner = outerOwner;
-
-    if (node.q == 2) {
-      node.q = 0;
-      self.d?.forEach((source) => reading.push(source, source.v));
-
-      const s = reading.length ? Array((reading.length / 2) * 3) : NONE;
-      for (let i = 0, n = 0; i < reading.length; i += 2) {
-        s[n++] = reading[i];
-        s[n++] = reading[i + 1];
-        s[n++] = link(reading[i], node);
-      }
-      node.s = s;
-    }
-
-    --depth || flush();
-  }
+  const parent = (node.p = owner?.q != 3 && !owner?.e ? owner : null);
+  run(node);
 
   if (!node.s.length) {
     node.q = 3;
-    let created = node.c;
-    node.c = undefined;
-    while (created) {
-      const next = created.n;
-      created.n = undefined;
-      adopt(created, parent);
-      created = next;
-    }
+    release(node, parent);
   } else if (parent) {
     attach(parent, node);
   } else if (holder) {
