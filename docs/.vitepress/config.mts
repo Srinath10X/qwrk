@@ -70,28 +70,9 @@ export default defineConfig({
       {
         text: "Guide",
         link: "/guide/getting-started",
-        activeMatch: "^/guide/(?!benchmarks)",
+        activeMatch: "^/guide/",
       },
       { text: "API", link: "/api/state", activeMatch: "^/api/" },
-      { text: "Benchmarks", link: "/guide/benchmarks" },
-      {
-        text: "0.4 beta",
-        items: [
-          {
-            text: "Install the beta",
-            link: "/guide/getting-started#try-the-0-4-beta",
-          },
-          {
-            text: "qwrk on npm",
-            link: "https://www.npmjs.com/package/qwrk?activeTab=versions",
-          },
-          {
-            text: "qwrk-vite on npm",
-            link: "https://www.npmjs.com/package/qwrk-vite?activeTab=versions",
-          },
-          { text: "Commits", link: `${github}/commits/main` },
-        ],
-      },
     ],
 
     sidebar: [
@@ -103,7 +84,6 @@ export default defineConfig({
           { text: "Components & JSX", link: "/guide/components" },
           { text: "Compiler", link: "/guide/compiler" },
           { text: "Lists", link: "/guide/lists" },
-          { text: "Benchmarks", link: "/guide/benchmarks" },
         ],
       },
       {

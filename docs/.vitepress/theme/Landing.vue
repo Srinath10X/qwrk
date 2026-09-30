@@ -1,34 +1,41 @@
 <script setup lang="ts">
 import { withBase } from "vitepress";
 import { onBeforeUnmount, ref } from "vue";
-import BenchmarkGrid from "./BenchmarkGrid.vue";
 
 const install = "npm create qwrk-app@latest";
 const github = "https://github.com/Srinath10X/qwrk";
-const copied = ref(false);
+const copied = ref("");
+const clicks = ref(0);
 let reset: ReturnType<typeof setTimeout> | undefined;
 
-async function copy() {
+/** Copies the install command, and marks which copy button did it. */
+async function copy(where: string) {
   await navigator.clipboard.writeText(install);
-  copied.value = true;
+  copied.value = where;
   clearTimeout(reset);
-  reset = setTimeout(() => (copied.value = false), 1800);
+  reset = setTimeout(() => (copied.value = ""), 1800);
 }
 
 onBeforeUnmount(() => clearTimeout(reset));
 
-const compiled = [
+const steps = [
   {
-    label: "Template",
-    text: "Static markup is parsed once, then copied with cloneNode(true).",
+    label: "Run once",
+    title: "Components run once",
+    text: "A component is a plain function that returns real DOM nodes. After that first call, it never runs again.",
+    code: "document.body.append(<Counter />)",
   },
   {
-    label: "Binding",
-    text: "Reading count.value in JSX re-runs only that text node.",
+    label: "Bind",
+    title: "Reads become bindings",
+    text: "Each place that reads a state, a text node, an attribute or a list row, subscribes to that state on its own.",
+    code: "<p>{count.value * 2}</p>",
   },
   {
-    label: "Selection",
-    text: "selected.value === todo.id becomes a keyed check: two rows update, not a thousand.",
+    label: "Update",
+    title: "Writes reach only readers",
+    text: "A write re-runs the bindings that read that state, and nothing else. There is no tree to diff.",
+    code: "count.value++",
   },
 ];
 
@@ -36,38 +43,38 @@ const features = [
   {
     label: "State",
     title: "Fine-grained state",
-    text: "state() holds a value. Arrays and objects notify when changed in place, and only what reads them updates.",
+    text: "state() holds any value. Arrays and plain objects notify when you change them in place, at any depth.",
     code: "todos.value.push(todo)",
   },
   {
-    label: "Compiler",
-    title: "Templates, cloned",
-    text: "qwrk-vite turns JSX into templates copied with cloneNode, and binds the dynamic parts. Any .value read in JSX stays live.",
-    code: "cloneNode(true)",
+    label: "Derive",
+    title: "Glitch-free derives",
+    text: "derive() recomputes once per change, after the derives it reads, so it never sees a half-updated state.",
+    code: "derive(() => price.value * 2)",
+  },
+  {
+    label: "Batch",
+    title: "Grouped writes",
+    text: "batch() turns several writes into one update: derives, the DOM and effects settle once, when it ends.",
+    code: "batch(() => { … })",
   },
   {
     label: "Lists",
     title: "Keyed rows with .map()",
-    text: "Rows are keyed by the items themselves. A push inserts one row, a sort moves the existing nodes.",
+    text: "Rows are keyed by the items themselves. A push inserts one row, and a sort moves the existing nodes.",
     code: "todos.map((todo) => <li />)",
   },
   {
-    label: "Updates",
-    title: "batch() and glitch-free derives",
-    text: "A derive recomputes once per change, after the derives it reads. batch() turns several writes into one update.",
-    code: "batch(() => { … })",
+    label: "Compiler",
+    title: "JSX, compiled",
+    text: "Static markup becomes a template cloned with cloneNode(true), and each .value read becomes its own binding.",
+    code: "selected.value === todo.id",
   },
   {
-    label: "Size",
-    title: "4.7 KB compressed",
-    text: "The js-framework-benchmark app builds to 4.7 KB compressed. Lists and the compiler helpers ship only when used.",
-    code: "4.7 KB",
-  },
-  {
-    label: "DOM",
-    title: "No virtual DOM",
-    text: "Components run once and return real nodes. Nothing diffs a tree: a write goes to the node that reads it.",
-    code: "append(<App />)",
+    label: "Tooling",
+    title: "TypeScript, Vite, esbuild",
+    text: "Typed states and JSX, a Vite plugin and an esbuild plugin. SVG files import as components.",
+    code: 'import qwrk from "qwrk-vite"',
   },
 ];
 
@@ -82,8 +89,7 @@ const links = [
 <template>
   <div class="q-landing">
     <section class="q-hero">
-      <div class="q-rays" aria-hidden="true" />
-      <div class="q-hero__inner enter">
+      <div class="q-hero__copy enter">
         <p class="q-label q-label--muted">
           Reactive &middot; No virtual DOM &middot; Compiled
         </p>
@@ -94,7 +100,7 @@ const links = [
           Components run once. A state write updates only the text, attribute or
           row that reads it.
         </p>
-        <div class="q-hero__actions">
+        <div class="q-actions">
           <a
             class="q-btn q-btn--primary q-btn--lg"
             :href="withBase('/guide/getting-started')"
@@ -117,10 +123,16 @@ const links = [
           <button
             type="button"
             class="q-install__copy"
-            :aria-label="copied ? 'Copied' : 'Copy install command'"
-            @click="copy"
+            :aria-label="
+              copied === 'hero' ? 'Copied' : 'Copy the install command'
+            "
+            @click="copy('hero')"
           >
-            <svg v-if="!copied" viewBox="0 0 24 24" aria-hidden="true">
+            <svg
+              v-if="copied !== 'hero'"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               <rect x="8.5" y="8.5" width="12" height="12" rx="2" />
               <path
                 d="M15.5 8.5v-3a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"
@@ -130,61 +142,69 @@ const links = [
               <path d="m5 12.5 4.5 4.5L19 7.5" />
             </svg>
           </button>
-          <span class="visually-hidden" aria-live="polite">{{
-            copied ? "Copied to clipboard" : ""
-          }}</span>
         </div>
         <p class="q-hero__beta">
-          <span class="q-pill">0.4 beta</span>
+          Qwrk 0.4 is in beta:
           <code>npm i qwrk@next qwrk-vite@next</code>
+          <a :href="withBase('/guide/getting-started#try-the-0-4-beta')">
+            Try the beta
+          </a>
         </p>
       </div>
-    </section>
 
-    <section class="q-split">
-      <div class="q-split__copy">
-        <p class="q-label">Code</p>
-        <h2 class="q-h2">Plain JSX, compiled<span class="q-signal">.</span></h2>
-        <p class="q-lede">
-          Write components the way you already do. The compiler keeps the markup
-          static and wires each <code>.value</code> read to the exact node that
-          shows it.
-        </p>
-        <dl class="q-facts">
-          <div v-for="fact in compiled" :key="fact.label" class="q-facts__row">
-            <dt class="q-label">{{ fact.label }}</dt>
-            <dd>{{ fact.text }}</dd>
-          </div>
-        </dl>
-      </div>
-      <div class="q-split__code">
-        <div class="q-panel">
-          <div class="q-panel__bar">
-            <span class="q-panel__dots" aria-hidden="true"
-              ><i /><i /><i
-            /></span>
-            <span class="q-label">src/App.jsx</span>
-          </div>
+      <div class="q-hero__code">
+        <figure class="q-panel">
+          <figcaption class="q-panel__bar">
+            <span class="q-label">src/Counter.jsx</span>
+          </figcaption>
           <div class="q-panel__body vp-doc">
             <slot name="code" />
           </div>
-        </div>
+          <div class="q-panel__out">
+            <span class="q-label">Output</span>
+            <button type="button" class="q-demo" @click="clicks++">
+              clicked {{ clicks }} times
+            </button>
+          </div>
+        </figure>
       </div>
     </section>
 
+    <section class="q-how">
+      <div class="q-how__intro">
+        <p class="q-label">How it works</p>
+        <h2 class="q-h2">
+          One write, one update<span class="q-signal">.</span>
+        </h2>
+        <p class="q-lede">
+          There is no render step to repeat. The work happens where a state is
+          read, and the compiler wires those reads up at build time.
+        </p>
+      </div>
+      <ol class="q-how__steps">
+        <li v-for="step in steps" :key="step.title" class="q-step">
+          <p class="q-label">{{ step.label }}</p>
+          <div class="q-step__body">
+            <h3 class="q-cell__title">{{ step.title }}</h3>
+            <p class="q-cell__text">{{ step.text }}</p>
+          </div>
+          <code class="q-step__code">{{ step.code }}</code>
+        </li>
+      </ol>
+    </section>
+
     <section class="q-head">
-      <p class="q-label">Why Qwrk</p>
+      <p class="q-label">Features</p>
       <h2 class="q-h2">
-        A small core that does less work<span class="q-signal">.</span>
+        A small core, and sharp tools<span class="q-signal">.</span>
       </h2>
       <p class="q-lede">
-        No component re-renders and no tree to diff. State, derives and effects
-        track exactly what they read, and the compiler does the rest at build
-        time.
+        Reactive state, derives, effects and keyed lists in the runtime. The
+        rest happens in the compiler, before your code ships.
       </p>
     </section>
 
-    <div class="q-grid">
+    <div class="q-grid q-grid--3">
       <article v-for="feature in features" :key="feature.title" class="q-cell">
         <p class="q-label">{{ feature.label }}</p>
         <h3 class="q-cell__title">{{ feature.title }}</h3>
@@ -193,27 +213,31 @@ const links = [
       </article>
     </div>
 
-    <section class="q-head">
-      <p class="q-label">Benchmarks</p>
-      <h2 class="q-h2">Closest to vanilla JS<span class="q-signal">.</span></h2>
-      <p class="q-lede">
-        js-framework-benchmark, keyed. Chromium 154 on a 4-core Codespace, every
-        framework in the same session, median of 5 runs, Qwrk at
-        <code>324918e</code>. Lower is better.
-      </p>
-      <a class="q-more" :href="withBase('/guide/benchmarks')">
-        How it was measured
-        <span aria-hidden="true">&rarr;</span>
-      </a>
-    </section>
-
-    <BenchmarkGrid class="q-bench-block" />
-
     <section class="q-cta">
-      <h2 class="q-h2">
+      <h2 class="q-h2 q-cta__title">
         Start with one command<span class="q-signal">.</span>
       </h2>
-      <div class="q-hero__actions">
+      <div class="q-install">
+        <span class="q-install__prompt" aria-hidden="true">$</span>
+        <code class="q-install__cmd">{{ install }}</code>
+        <button
+          type="button"
+          class="q-install__copy"
+          :aria-label="copied === 'cta' ? 'Copied' : 'Copy the install command'"
+          @click="copy('cta')"
+        >
+          <svg v-if="copied !== 'cta'" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="8.5" y="8.5" width="12" height="12" rx="2" />
+            <path
+              d="M15.5 8.5v-3a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"
+            />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m5 12.5 4.5 4.5L19 7.5" />
+          </svg>
+        </button>
+      </div>
+      <div class="q-actions">
         <a
           class="q-btn q-btn--primary q-btn--lg"
           :href="withBase('/guide/getting-started')"
@@ -227,6 +251,9 @@ const links = [
           API reference
         </a>
       </div>
+      <span class="visually-hidden" aria-live="polite">{{
+        copied ? "Copied to clipboard" : ""
+      }}</span>
     </section>
 
     <footer class="q-footer">
@@ -250,117 +277,70 @@ const links = [
 }
 
 .q-hero {
-  position: relative;
-  isolation: isolate;
   display: grid;
-  place-items: center;
-  padding: 72px 20px 76px;
+  gap: 1px;
   border-bottom: 1px solid var(--q-border);
-  text-align: center;
-}
-
-@media (min-width: 640px) {
-  .q-hero {
-    padding: 96px 32px;
-  }
+  background: var(--q-border);
 }
 
 @media (min-width: 1024px) {
   .q-hero {
-    padding: 128px 64px 136px;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 6fr);
   }
 }
 
-.q-rays {
-  position: absolute;
-  inset: -64px 0 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
+.q-hero__copy,
+.q-hero__code {
+  background: var(--q-bg);
 }
 
-.q-rays::before,
-.q-rays::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 0;
-  translate: -50% 0;
-}
-
-.q-rays::before {
-  width: 1400px;
-  height: 900px;
-  background: conic-gradient(
-    from 180deg at 50% 0%,
-    transparent 0deg 5deg,
-    rgb(137 180 250 / 0.12) 8deg,
-    transparent 11deg 16deg,
-    rgb(137 180 250 / 0.2) 20deg,
-    transparent 24deg 30deg,
-    rgb(137 180 250 / 0.1) 34deg,
-    transparent 39deg 321deg,
-    rgb(137 180 250 / 0.1) 326deg,
-    transparent 330deg 336deg,
-    rgb(137 180 250 / 0.2) 340deg,
-    transparent 344deg 349deg,
-    rgb(137 180 250 / 0.12) 352deg,
-    transparent 355deg
-  );
-  filter: blur(14px);
-  mask-image: radial-gradient(
-    ellipse 50% 78% at 50% 0%,
-    #000 20%,
-    transparent 80%
-  );
-}
-
-.q-rays::after {
-  width: 900px;
-  height: 420px;
-  background: radial-gradient(
-    ellipse 50% 60% at 50% 0%,
-    rgb(137 180 250 / 0.16),
-    transparent 70%
-  );
-}
-
-.q-hero__inner {
+.q-hero__copy {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 22px;
-  width: 100%;
-  max-width: 780px;
+  padding: 56px 20px 48px;
+}
+
+@media (min-width: 640px) {
+  .q-hero__copy {
+    padding: 80px 40px 64px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .q-hero__copy {
+    justify-content: center;
+    padding: 112px 48px;
+  }
 }
 
 .q-hero__title {
   margin: 0;
-  font-size: 44px;
+  font-size: 46px;
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.045em;
   color: var(--q-fg);
-  text-wrap: balance;
 }
 
 @media (min-width: 640px) {
   .q-hero__title {
-    font-size: 64px;
+    font-size: 68px;
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
   .q-hero__title {
-    font-size: 88px;
+    font-size: 84px;
   }
 }
 
 .q-hero__pitch {
-  max-width: 46ch;
+  max-width: 42ch;
   margin: 0;
-  font-size: 15px;
-  line-height: 1.65;
+  font-size: 16px;
+  line-height: 1.6;
   color: var(--q-muted);
   text-wrap: pretty;
 }
@@ -371,12 +351,11 @@ const links = [
   }
 }
 
-.q-hero__actions {
+.q-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: 12px;
-  margin-top: 10px;
+  margin-top: 6px;
 }
 
 .q-install {
@@ -384,14 +363,11 @@ const links = [
   align-items: center;
   gap: 12px;
   width: 100%;
-  max-width: 360px;
-  margin-top: 6px;
-  padding: 0 6px 0 16px;
+  max-width: 380px;
   height: 46px;
+  padding: 0 6px 0 16px;
   border: 1px solid var(--q-border);
   border-radius: 8px;
-  background: rgb(15 14 13 / 0.6);
-  backdrop-filter: blur(6px);
   font-family: var(--vp-font-family-mono);
   font-size: 13.5px;
   text-align: left;
@@ -444,159 +420,68 @@ const links = [
 }
 
 .q-hero__beta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
   margin: 0;
-  font-size: 13px;
+  font-size: 13.5px;
+  line-height: 1.7;
   color: var(--q-muted);
 }
 
 .q-hero__beta code {
+  margin: 0 6px 0 2px;
+  white-space: nowrap;
   font-family: var(--vp-font-family-mono);
   font-size: 12.5px;
+  color: var(--q-fg);
+}
+
+.q-hero__beta a {
   color: var(--q-muted);
+  text-decoration: underline;
+  text-decoration-color: var(--q-border-strong);
+  text-underline-offset: 4px;
+  transition:
+    color 0.15s,
+    text-decoration-color 0.15s;
 }
 
-.q-split {
-  display: grid;
-  gap: 1px;
-  border-bottom: 1px solid var(--q-border);
-  background: var(--q-border);
+.q-hero__beta a:hover {
+  color: var(--q-fg);
+  text-decoration-color: var(--q-accent);
 }
 
-@media (min-width: 1024px) {
-  .q-split {
-    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  }
-}
-
-.q-split__copy,
-.q-split__code {
-  background: var(--q-bg);
-}
-
-.q-split__copy {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 56px 24px;
-}
-
-@media (min-width: 640px) {
-  .q-split__copy {
-    padding: 64px 40px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .q-split__copy {
-    padding: 80px 48px;
-  }
-}
-
-.q-split__code {
+.q-hero__code {
   display: grid;
   align-items: center;
-  padding: 24px 16px;
-  background:
-    radial-gradient(
-      ellipse 70% 60% at 70% 30%,
-      rgb(137 180 250 / 0.06),
-      transparent 70%
-    ),
-    var(--q-bg);
+  padding: 32px 12px;
 }
 
 @media (min-width: 640px) {
-  .q-split__code {
+  .q-hero__code {
     padding: 48px 40px;
   }
 }
 
 @media (min-width: 1024px) {
-  .q-split__code {
-    padding: 56px 48px;
+  .q-hero__code {
+    padding: 64px 48px;
   }
-}
-
-.q-h2 {
-  margin: 0;
-  font-size: clamp(28px, 3.2vw, 40px);
-  font-weight: 700;
-  line-height: 1.06;
-  letter-spacing: -0.03em;
-  color: var(--q-fg);
-  text-wrap: balance;
-}
-
-.q-lede {
-  max-width: 60ch;
-  margin: 0;
-  font-size: 16px;
-  line-height: 1.65;
-  color: var(--q-muted);
-  text-wrap: pretty;
-}
-
-.q-lede code,
-.q-facts code {
-  font-family: var(--vp-font-family-mono);
-  font-size: 0.88em;
-  color: var(--q-fg);
-}
-
-.q-facts {
-  display: flex;
-  flex-direction: column;
-  margin: 12px 0 0;
-}
-
-.q-facts__row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 16px 0;
-  border-top: 1px solid var(--q-border);
-}
-
-.q-facts__row dd {
-  margin: 0;
-  font-size: 14.5px;
-  line-height: 1.55;
-  color: var(--q-muted);
 }
 
 .q-panel {
   min-width: 0;
+  margin: 0;
   overflow: hidden;
   border: 1px solid var(--q-border);
   border-radius: 10px;
   background: var(--q-code);
-  box-shadow: 0 24px 48px -24px rgb(0 0 0 / 0.7);
 }
 
 .q-panel__bar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  height: 40px;
-  padding: 0 16px;
+  height: 42px;
+  padding: 0 18px;
   border-bottom: 1px solid var(--q-border);
-}
-
-.q-panel__dots {
-  display: flex;
-  gap: 6px;
-}
-
-.q-panel__dots i {
-  width: 9px;
-  height: 9px;
-  border: 1px solid #3b3935;
-  border-radius: 50%;
 }
 
 .q-panel__body :deep(div[class*="language-"]) {
@@ -606,32 +491,145 @@ const links = [
   background: transparent;
 }
 
-.q-panel__body :deep(span.lang) {
+.q-panel__body :deep(span.lang),
+.q-panel__body :deep(button.copy) {
   display: none;
 }
 
 .q-panel__body :deep(pre) {
-  padding: 18px 0 20px;
+  padding: 20px 0 22px;
 }
 
-.q-panel__body :deep(code) {
-  font-size: 12px;
+.q-panel__body :deep(pre code) {
+  padding: 0 18px;
+  font-size: 12.5px;
 }
 
 @media (min-width: 640px) {
-  .q-panel__body :deep(code) {
+  .q-panel__body :deep(pre code) {
     font-size: 13.5px;
   }
 }
 
-@media (max-width: 639px) {
-  .q-panel__body :deep(pre) {
-    padding: 16px 0 18px;
+.q-panel__out {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--q-border);
+}
+
+.q-demo {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--q-border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--q-fg);
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.q-demo:hover {
+  border-color: var(--q-border-strong);
+  background: var(--q-surface);
+}
+
+.q-demo:active {
+  translate: 0 1px;
+}
+
+.q-how {
+  display: grid;
+  gap: 1px;
+  border-bottom: 1px solid var(--q-border);
+  background: var(--q-border);
+}
+
+@media (min-width: 1024px) {
+  .q-how {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 6fr);
+  }
+}
+
+.q-how__intro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 56px 20px;
+  background: var(--q-bg);
+}
+
+@media (min-width: 640px) {
+  .q-how__intro {
+    padding: 64px 40px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .q-how__intro {
+    padding: 88px 48px;
+  }
+}
+
+.q-how__steps {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--q-border);
+}
+
+.q-step {
+  display: grid;
+  gap: 10px;
+  padding: 28px 20px;
+  background: var(--q-bg);
+}
+
+@media (min-width: 640px) {
+  .q-step {
+    grid-template-columns: 120px minmax(0, 1fr);
+    gap: 10px 24px;
+    padding: 32px 40px;
   }
 
-  .q-panel__body :deep(pre code) {
-    padding: 0 16px;
+  .q-step .q-label {
+    padding-top: 6px;
   }
+
+  .q-step__code {
+    grid-column: 2;
+  }
+}
+
+@media (min-width: 1024px) {
+  .q-step {
+    padding: 36px 48px;
+  }
+}
+
+.q-step__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.q-step__body .q-cell__title {
+  margin: 0;
+}
+
+.q-step__code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 12.5px;
+  color: var(--q-fg);
+  overflow-wrap: anywhere;
 }
 
 .q-head {
@@ -639,7 +637,7 @@ const links = [
   flex-direction: column;
   align-items: flex-start;
   gap: 16px;
-  padding: 56px 24px;
+  padding: 56px 20px;
   border-bottom: 1px solid var(--q-border);
 }
 
@@ -651,26 +649,27 @@ const links = [
 
 @media (min-width: 1024px) {
   .q-head {
-    padding: 80px 48px;
+    padding: 88px 48px 72px;
   }
 }
 
-.q-more {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-  font-size: 14.5px;
-  font-weight: 500;
+.q-h2 {
+  margin: 0;
+  font-size: clamp(30px, 3.4vw, 44px);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
   color: var(--q-fg);
-  text-decoration: underline;
-  text-decoration-color: var(--q-border);
-  text-underline-offset: 5px;
-  transition: text-decoration-color 0.15s;
+  text-wrap: balance;
 }
 
-.q-more:hover {
-  text-decoration-color: var(--q-accent);
+.q-lede {
+  max-width: 58ch;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--q-muted);
+  text-wrap: pretty;
 }
 
 .q-grid {
@@ -681,13 +680,13 @@ const links = [
 }
 
 @media (min-width: 768px) {
-  .q-grid {
+  .q-grid--3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 1024px) {
-  .q-grid {
+  .q-grid--3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
@@ -696,13 +695,19 @@ const links = [
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 32px 24px;
+  padding: 32px 20px;
   background: var(--q-bg);
+}
+
+@media (min-width: 640px) {
+  .q-cell {
+    padding: 36px 40px;
+  }
 }
 
 @media (min-width: 1024px) {
   .q-cell {
-    padding: 40px 36px;
+    padding: 40px 48px 44px;
   }
 }
 
@@ -724,40 +729,45 @@ const links = [
 }
 
 .q-cell__code {
-  align-self: flex-start;
-  margin-top: 8px;
-  padding: 5px 9px;
-  border: 1px solid var(--q-border);
-  border-radius: 6px;
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--q-border);
   font-family: var(--vp-font-family-mono);
   font-size: 12.5px;
   color: var(--q-fg);
-}
-
-.q-bench-block {
-  border-bottom: 1px solid var(--q-border);
+  overflow-wrap: anywhere;
 }
 
 .q-cta {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
-  padding: 72px 24px;
+  gap: 24px;
+  padding: 72px 20px;
   border-bottom: 1px solid var(--q-border);
   text-align: center;
 }
 
 @media (min-width: 1024px) {
   .q-cta {
-    padding: 96px 48px;
+    padding: 112px 48px;
   }
+}
+
+.q-cta__title {
+  font-size: clamp(34px, 4.6vw, 60px);
+  letter-spacing: -0.045em;
+}
+
+.q-cta .q-actions {
+  justify-content: center;
+  margin-top: 0;
 }
 
 .q-footer {
   display: grid;
   gap: 20px;
-  padding: 32px 24px 40px;
+  padding: 32px 20px 36px;
 }
 
 @media (min-width: 768px) {

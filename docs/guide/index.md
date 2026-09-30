@@ -30,7 +30,7 @@ document.getElementById("root").append(<Counter />);
 
 Clicking the button changes `count.value`, and Qwrk updates the button's text in place. `Counter` itself never runs again.
 
-The [compiler](/guide/compiler) goes further: it turns the static parts of your JSX into templates copied with `cloneNode`, and any expression that reads a `.value` updates on its own. [Benchmarks](/guide/benchmarks) shows how that compares with Solid, Svelte and React.
+The [compiler](/guide/compiler) goes further: it turns the static parts of your JSX into templates copied with `cloneNode`, and any expression that reads a `.value` updates on its own.
 
 ::: tip 0.4 is in beta
 These docs describe Qwrk 0.4, published on the `next` tag. To try it, see [Try the 0.4 beta](/guide/getting-started#try-the-0-4-beta).
