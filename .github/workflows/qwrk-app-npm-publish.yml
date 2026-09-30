@@ -33,4 +33,6 @@ jobs:
         run: npm test
 
       - name: Publish to npm registry
-        run: npm publish --access public --provenance --tag "$(node -p "require('./package.json').version.includes('-') ? 'next' : 'latest'")"
+        run: |
+          tag=$(node -p "require('./package.json').version.includes('-') ? 'next' : 'latest'")
+          npm publish --access public --provenance --tag "$tag"
