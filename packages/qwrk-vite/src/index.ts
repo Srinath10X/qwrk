@@ -72,7 +72,7 @@ export default function qwrk() {
       return {
         code: [
           `import { template as _$template } from "qwrk/internal";`,
-          `const _tmpl$ = _$template(\`${markup}\`${fragment ? ", true" : ""});`,
+          `const _tmpl$ = _$template(\`${markup}\`, ${fragment}, true);`,
           `/** An SVG file as a component: \`props\` land on its root. */`,
           `export default function Svg(props = {}) {`,
           `  const el = _tmpl$();`,

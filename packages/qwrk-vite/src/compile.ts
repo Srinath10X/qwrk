@@ -28,6 +28,8 @@ interface Element {
   children: Slot[];
   ref?: string;
   needed?: boolean;
+  /** Whether it must start in the page's document, see {@link ADOPTED}. */
+  adopt?: boolean;
 }
 
 /** A static text or an empty comment of a template. */
@@ -96,6 +98,19 @@ interface Declared {
 const IGNORED = new Set(["key"]);
 
 const ALIASES: Record<string, string> = { className: "class", htmlFor: "for" };
+
+/**
+ * Attributes whose element behaves differently before insertion when it is
+ * cloned from the template's inert document: URLs resolve against it, and
+ * `is` names a custom element. A template with one of them, or with a custom
+ * element, is imported into the page's document first.
+ */
+const ADOPTED = new Set(
+  (
+    "action background cite codebase data formaction href icon is itemid " +
+    "itemtype loading longdesc manifest ping poster src srcset usemap"
+  ).split(" "),
+);
 
 /** Set as properties by the runtime, so never written into templates. */
 const PROPERTIES = new Set(["value", "checked", "selected"]);
@@ -891,8 +906,10 @@ function template(
   const svg = isSvg(tag);
   const root = element(context, node, tag, [], operations);
 
+  const adopt = adopts(root);
+
   if (!operations.length) {
-    const name = declare(context, markup(root), svg && tag !== "svg");
+    const name = declare(context, markup(root), svg && tag !== "svg", adopt);
     return [statements ? `return ${name}(); ` : `${name}()`];
   }
 
@@ -928,7 +945,7 @@ function template(
   if (fusedOp) {
     (fusedOp.text.target as Element).children.push({ kind: "text", text: " " });
   }
-  const name = declare(context, markup(root), svg && tag !== "svg");
+  const name = declare(context, markup(root), svg && tag !== "svg", adopt);
 
   root.ref = local(context, "el");
   const declarations = [`${root.ref} = ${name}()`];
@@ -1054,9 +1071,21 @@ function renderFusedTail(
   ];
 }
 
+/** Whether a template element or one inside it must start in the page's document. */
+function adopts(slot: Slot): boolean {
+  return (
+    slot.kind === "element" && (!!slot.adopt || slot.children.some(adopts))
+  );
+}
+
 /** Declares a template once per module, and returns its name. */
-function declare(context: Context, markup: string, svg: boolean) {
-  const id = `${svg ? 1 : 0}${markup}`;
+function declare(
+  context: Context,
+  markup: string,
+  svg: boolean,
+  adopt: boolean,
+) {
+  const id = `${svg ? 1 : 0}${adopt ? 1 : 0}${markup}`;
   let name = context.templates.get(id);
   if (!name) {
     name = local(context, "tmpl");
@@ -1084,6 +1113,7 @@ function element(
     svg: isSvg(tag),
     attributes: "",
     children: [],
+    adopt: tag.includes("-"),
   };
   const attributes = (node.openingElement.attributes as Node[]).filter(
     (attribute) => !IGNORED.has(nameOf(attribute)),
@@ -1116,6 +1146,7 @@ function element(
       continue;
     }
 
+    if (ADOPTED.has(name)) self.adopt = true;
     const fixed = staticValue(attribute);
     if (
       fixed !== undefined &&
@@ -1626,9 +1657,10 @@ function prepend(context: Context, program: Node) {
     lines.push(`import { ${internal.join(", ")} } from "qwrk/internal";`);
   }
   for (const [id, name] of context.templates) {
-    const svg = id[0] === "1" ? ", true" : "";
+    const svg = id[0] === "1";
+    const flags = id[1] === "1" ? `, ${svg}, true` : svg ? ", true" : "";
     lines.push(
-      `const ${name} = /*#__PURE__*/ ${helper(context, "template")}(${quote(id.slice(1))}${svg});`,
+      `const ${name} = /*#__PURE__*/ ${helper(context, "template")}(${quote(id.slice(2))}${flags});`,
     );
   }
   lines.push(...context.handlers);

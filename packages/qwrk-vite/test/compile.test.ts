@@ -199,6 +199,20 @@ describe("compile", () => {
     expect(code).toContain(`_$template("<g><path d=M0></path></g>", true)`);
   });
 
+  it("starts templates with URLs or custom elements in the page's document", () => {
+    const code = output(
+      `const a = <p><a href="/x">x</a></p>; const b = <div><img src={s} /></div>; const c = <x-y />; const d = <g><image href="i" /></g>; const e = <p><a>x</a></p>;`,
+    );
+
+    expect(code).toContain(`_$template("<p><a href=/x>x", false, true)`);
+    expect(code).toContain(`_$template("<div><img>", false, true)`);
+    expect(code).toContain(`_$template("<x-y>", false, true)`);
+    expect(code).toContain(
+      `_$template("<g><image href=i></image></g>", true, true)`,
+    );
+    expect(code).toContain(`_$template("<p><a>x")`);
+  });
+
   it("falls back to createElement for spreads and namespaced names", () => {
     const code = output(
       `const a = <div><p {...props} class="c">{x.value}</p><use xlink:href="#a" /></div>;`,

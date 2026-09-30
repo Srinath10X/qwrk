@@ -24,7 +24,15 @@ describe("template", () => {
 
     expect(first.outerHTML).toBe('<tr class="a"><td>1</td><td></td></tr>');
     expect(first).not.toBe(second);
+    document.createElement("table").append(first);
     expect(first.ownerDocument).toBe(document);
+  });
+
+  it("starts clones in the page's document when told to adopt", () => {
+    const link = template('<a href="x">x</a>', false, true)() as HTMLElement;
+
+    expect(link.ownerDocument).toBe(document);
+    expect(link.outerHTML).toBe('<a href="x">x</a>');
   });
 
   it("creates SVG elements in the SVG namespace", () => {
