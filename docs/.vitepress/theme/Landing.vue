@@ -544,6 +544,14 @@ const links = [
             <span class="q-output__lights" aria-hidden="true">
               <i></i><i></i><i></i>
             </span>
+            <svg
+              class="q-output__nav q-output__nav--wide"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <rect x="3.5" y="5" width="17" height="14" rx="3" />
+              <path d="M9.5 5v14M6 8.5h1M6 11h1" />
+            </svg>
             <svg class="q-output__nav" viewBox="0 0 24 24" aria-hidden="true">
               <path d="m14.5 6-6 6 6 6" />
             </svg>
@@ -554,16 +562,25 @@ const links = [
             >
               <path d="m9.5 6 6 6-6 6" />
             </svg>
-            <svg class="q-output__nav" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M19 12a7 7 0 1 1-2.05-4.95M19 4.5v4h-4" />
+            <span class="q-output__address">localhost:5173</span>
+            <svg
+              class="q-output__nav q-output__nav--wide"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 3.5v11M8.5 7 12 3.5 15.5 7M8.5 10H7a1.5 1.5 0 0 0-1.5 1.5v7A1.5 1.5 0 0 0 7 20h10a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 17 10h-1.5"
+              />
             </svg>
-            <span class="q-output__address">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="5.5" y="10.5" width="13" height="9" rx="2" />
-                <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
-              </svg>
-              localhost:5173
-            </span>
+            <svg class="q-output__nav" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 5.5v13M5.5 12h13" />
+            </svg>
+            <svg class="q-output__nav" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="8" y="8" width="12.5" height="12.5" rx="2.5" />
+              <path
+                d="M16 8V6a2.5 2.5 0 0 0-2.5-2.5h-7A2.5 2.5 0 0 0 4 6v7a2.5 2.5 0 0 0 2.5 2.5H8"
+              />
+            </svg>
           </div>
           <div class="q-output__view">
             <button type="button" class="q-demo" @click="bump">
@@ -1233,7 +1250,7 @@ const links = [
 .q-output {
   position: relative;
   z-index: 2;
-  width: min(320px, 88%);
+  width: min(380px, 92%);
   margin: -24px 0 0 auto;
   overflow: hidden;
   border-radius: 12px;
@@ -1304,6 +1321,16 @@ const links = [
   stroke-linejoin: round;
 }
 
+@media (max-width: 639px) {
+  .q-output__bar {
+    gap: 8px;
+  }
+
+  .q-output__nav--wide {
+    display: none;
+  }
+}
+
 .q-output__nav.is-off {
   stroke: var(--q-border-strong);
 }
@@ -1313,26 +1340,14 @@ const links = [
   flex: 1;
   align-items: center;
   justify-content: center;
-  gap: 6px;
   min-width: 0;
   height: 26px;
-  margin-left: 2px;
+  margin: 0 6px;
   border-radius: 7px;
   background: rgb(15 14 13 / 0.7);
   font-size: 12px;
   color: var(--q-muted);
   white-space: nowrap;
-}
-
-.q-output__address svg {
-  width: 11px;
-  height: 11px;
-  flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .q-output__view {
