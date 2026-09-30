@@ -174,6 +174,7 @@ const links = [
 <template>
   <div class="q-landing">
     <section class="q-hero">
+      <div class="q-aurora" aria-hidden="true"></div>
       <div class="q-hero__copy enter">
         <p class="q-label q-label--muted">
           Reactive &middot; No virtual DOM &middot; Compiled
@@ -402,7 +403,10 @@ const links = [
 }
 
 .q-hero {
+  position: relative;
+  isolation: isolate;
   display: grid;
+  overflow: hidden;
   border-bottom: 1px solid var(--q-border);
 }
 
@@ -410,6 +414,76 @@ const links = [
   .q-hero {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: center;
+  }
+}
+
+/*
+ * Aurora: page-coloured stripes over a blue, pink and teal band, blurred and
+ * faded out from the top right. A second copy drifts across it and blends by
+ * difference, so the light slowly shifts.
+ */
+.q-aurora {
+  --q-stripes: repeating-linear-gradient(
+    100deg,
+    var(--q-bg) 0%,
+    var(--q-bg) 7%,
+    transparent 10%,
+    transparent 12%,
+    var(--q-bg) 16%
+  );
+  --q-rainbow: repeating-linear-gradient(
+    100deg,
+    #60a5fa 10%,
+    #e879f9 15%,
+    #60a5fa 20%,
+    #5eead4 25%,
+    #60a5fa 30%
+  );
+  position: absolute;
+  inset: -10px;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--q-stripes), var(--q-rainbow);
+  background-size: 300%, 200%;
+  background-position:
+    50% 50%,
+    50% 50%;
+  filter: blur(10px) opacity(50%) saturate(200%);
+  -webkit-mask-image: radial-gradient(
+    ellipse at 100% 0%,
+    black 40%,
+    transparent 70%
+  );
+  mask-image: radial-gradient(ellipse at 100% 0%, black 40%, transparent 70%);
+}
+
+.q-aurora::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--q-stripes), var(--q-rainbow);
+  background-size: 200%, 100%;
+  background-attachment: fixed;
+  mix-blend-mode: difference;
+  animation: q-aurora 60s linear infinite;
+}
+
+@keyframes q-aurora {
+  from {
+    background-position:
+      50% 50%,
+      50% 50%;
+  }
+  to {
+    background-position:
+      350% 50%,
+      350% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-aurora::after {
+    animation: none;
   }
 }
 

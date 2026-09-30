@@ -330,7 +330,7 @@ html.dark .Layout {
   }
 }
 
-/* Nav: solid, inside the rails, with a hairline under it. It stays put on doc pages and scrolls away on the landing page. */
+/* Nav: solid, inside the rails, with a hairline under it. It stays put on every page. */
 html.dark .VPNavBar {
   background-color: var(--q-bg);
 }
@@ -373,15 +373,14 @@ html.dark .VPNavBarTitle .logo {
     align-items: center;
   }
 
-  html.dark .VPNavBar .content-body .menu {
+  html.dark .VPNavBarSearch {
     order: -1;
+    flex-grow: 0;
     margin-right: auto;
-    margin-left: 12px;
+    padding-left: 24px;
   }
 
-  html.dark .VPNavBarSearch {
-    flex-grow: 0;
-    padding-left: 0;
+  html.dark .VPNavBar .content-body .menu {
     margin-right: 8px;
   }
 }
@@ -392,13 +391,6 @@ html.dark .VPNavBarTitle .logo {
     right: calc(var(--q-rail) + 1px);
     width: auto;
     border-top: 1px solid var(--q-border);
-  }
-
-  html.dark .Layout.q-home .VPNav {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
   }
 
   html.dark .VPNavBar.has-sidebar .wrapper {
@@ -566,8 +558,8 @@ html.dark .VPSidebarItem.level-1 > .item > .indicator {
   border-radius: 0;
 }
 
-html.dark .VPSidebarItem.level-1.is-active > .item > .indicator {
-  background-color: var(--q-accent);
+html.dark .VPSidebarItem .indicator {
+  display: none;
 }
 
 html.dark .VPSidebar .group + .group {
@@ -590,8 +582,7 @@ html.dark .VPDocAsideOutline .content {
 }
 
 html.dark .VPDocAsideOutline .outline-marker {
-  width: 2px;
-  border-radius: 0;
+  display: none;
 }
 
 html.dark .VPDocOutlineItem .outline-link {
@@ -706,7 +697,14 @@ html.dark .VPHome {
   letter-spacing: -0.02em;
 }
 
-.vp-doc .header-anchor {
+.vp-doc .header-anchor,
+.vp-doc h2 .header-anchor,
+.vp-doc h3 .header-anchor {
+  position: static;
+  top: auto;
+  margin: 0 0 0 0.3em;
+  font-size: 0.8em;
+  font-weight: 500;
   color: var(--q-label);
 }
 
@@ -724,8 +722,10 @@ html.dark .VPHome {
   text-decoration-color: var(--q-accent);
 }
 
-.vp-doc a.header-anchor {
+.vp-doc a.header-anchor,
+.vp-doc a.header-anchor:hover {
   text-decoration: none;
+  color: var(--q-label);
 }
 
 .vp-doc :not(pre) > code {
