@@ -42,7 +42,7 @@ export function append(parent: Node, children: unknown, marker?: Node | null) {
  */
 export function text(parent: Node, value: unknown) {
   if (isReactive(value) && isTextValue(peek(value))) {
-    bind(new Label(null, null, null, "", "", parent, value));
+    bind(new Label(parent, value));
   } else if (isTextValue(value)) {
     parent.textContent = toText(value);
   } else {
@@ -72,7 +72,7 @@ export function fused(
   parent: Node,
   label: unknown,
 ) {
-  bind(new Label(element, source, key, yes, no, parent, label), element);
+  bind(new Label(parent, label, element, source, key, yes, no), element);
 }
 
 /**
@@ -81,15 +81,15 @@ export function fused(
  * nodes, a {@link Slot} owned by the same owner takes it over.
  */
 class Label extends Binding {
-  /** The element whose class it sets, or `null` for text only. */
-  declare readonly a: Element | null;
+  /** The element whose class it sets, if any: text only without. */
+  declare readonly a?: Element;
   /** The state compared to `k`. */
   declare readonly b: unknown;
   declare readonly k: unknown;
   /** The class when `b` is `k`. */
-  declare readonly y: string;
+  declare readonly y?: string;
   /** The class otherwise. */
-  declare readonly x: string;
+  declare readonly x?: string;
   /** The element whose text it writes. */
   declare readonly h: Node;
   /** The text: a state, or a plain value. */
@@ -100,13 +100,13 @@ class Label extends Binding {
   t: ChildNode | null | undefined = null;
 
   constructor(
-    a: Element | null,
-    b: unknown,
-    k: unknown,
-    y: string,
-    x: string,
     h: Node,
     g: unknown,
+    a?: Element,
+    b?: unknown,
+    k?: unknown,
+    y?: string,
+    x?: string,
   ) {
     super();
     this.a = a;
@@ -126,8 +126,8 @@ class Label extends Binding {
       const cls = (
         isReactive(source) ? is(source, this.k) : source.value === this.k
       )
-        ? this.y
-        : this.x;
+        ? this.y!
+        : this.x!;
       if (cls !== this.u) {
         if (cls || element.hasAttribute("class")) {
           element.setAttribute("class", cls);
@@ -141,18 +141,19 @@ class Label extends Binding {
     const parent = this.h;
 
     if (isTextValue(value)) {
+      const text = toText(value);
       let node = this.t;
 
       if (node?.parentNode !== parent) {
         node = parent.firstChild;
         if (node?.nodeType !== 3 || node !== parent.lastChild) {
-          parent.textContent = toText(value);
+          parent.textContent = text;
           this.t = parent.firstChild;
           return;
         }
         this.t = node;
       }
-      (node as Text).data = toText(value);
+      (node as Text).data = text;
       return;
     }
 
