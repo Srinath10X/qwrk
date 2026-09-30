@@ -627,6 +627,10 @@ const links = [
   text-align: left;
 }
 
+.q-hero__copy .q-install {
+  margin-top: 16px;
+}
+
 .q-install__tabs {
   display: flex;
   border-bottom: 1px solid var(--q-border);
