@@ -559,26 +559,19 @@ export function bind(node: Binding, holder?: object) {
 }
 
 /**
- * Creates an effect and runs it, now or once the page is loaded. Unless a
- * derive or an effect owns it, it lives until stopped.
+ * Creates an effect and hands it to `start`, which runs it now by default.
+ * Unless a derive or an effect owns it, it lives until stopped.
  *
  * @returns A function that stops it.
  */
-export function watcher(fn: () => void, deps?: unknown[], mounted?: boolean) {
+export function watcher(
+  fn: () => void,
+  deps?: unknown[],
+  start: (node: Computation) => void = run,
+) {
   const node = computation({ e: 1 }, fn, deps);
   node.p || roots.add(node);
-
-  function start() {
-    run(node);
-  }
-
-  if (!mounted) start();
-  else if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", start, { once: true });
-  } else {
-    queueMicrotask(start);
-  }
-
+  start(node);
   return () => dispose(node);
 }
 
