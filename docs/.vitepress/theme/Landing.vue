@@ -173,8 +173,8 @@ const links = [
 
 <template>
   <div class="q-landing">
+    <div class="q-aurora" aria-hidden="true"></div>
     <section class="q-hero">
-      <div class="q-aurora" aria-hidden="true"></div>
       <div class="q-hero__copy enter">
         <p class="q-label q-label--muted">
           Reactive &middot; No virtual DOM &middot; Compiled
@@ -399,14 +399,18 @@ const links = [
 
 <style scoped>
 .q-landing {
+  position: relative;
+  isolation: isolate;
   overflow-x: clip;
 }
 
-.q-hero {
+.q-landing > :not(.q-aurora) {
   position: relative;
-  isolation: isolate;
+  z-index: 1;
+}
+
+.q-hero {
   display: grid;
-  overflow: hidden;
   border-bottom: 1px solid var(--q-border);
 }
 
@@ -440,8 +444,11 @@ const links = [
     #60a5fa 30%
   );
   position: absolute;
-  inset: -10px;
-  z-index: -1;
+  top: calc(-1 * var(--vp-nav-height) - 10px);
+  right: -10px;
+  left: -10px;
+  z-index: 0;
+  height: 640px;
   pointer-events: none;
   background-image: var(--q-stripes), var(--q-rainbow);
   background-size: 300%, 200%;
@@ -450,11 +457,15 @@ const links = [
     50% 50%;
   filter: blur(10px) opacity(50%) saturate(200%);
   -webkit-mask-image: radial-gradient(
-    ellipse at 100% 0%,
-    black 40%,
-    transparent 70%
+    ellipse 90% 100% at 50% 0%,
+    black 30%,
+    transparent 72%
   );
-  mask-image: radial-gradient(ellipse at 100% 0%, black 40%, transparent 70%);
+  mask-image: radial-gradient(
+    ellipse 90% 100% at 50% 0%,
+    black 30%,
+    transparent 72%
+  );
 }
 
 .q-aurora::after {
