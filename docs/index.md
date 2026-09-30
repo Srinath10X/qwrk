@@ -1,43 +1,43 @@
 ---
 layout: home
-
-hero:
-  name: "Qwrk"
-  text: "A reactive JavaScript micro-framework."
-  tagline: Lightweight reactivity. No VDOM. Full control.
-  image:
-    src: /qwrk.svg
-    alt: Qwrk
-  actions:
-    - theme: brand
-      text: Get started
-      link: /guide/getting-started
-    - theme: alt
-      text: GitHub
-      link: https://github.com/Srinath10X/qwrk
-
-features:
-  - title: Blazing Fast
-    icon: ⚡ 
-    details: No virtual DOM, and fine-grained updates directly tied to reactive state changes.
-
-  - title: Fine-Grained Reactivity
-    icon: 🧠 
-    details: Only the parts that change get updated. No re-renders, no wasted work.
-
-  - title: Featherlight
-    icon: 📦 
-    details: Tiny bundle size, near-zero runtime overhead. Ships fast, loads faster.
-
-  - title: Simple API
-    icon: 🛠️ 
-    details: Learn it in minutes. Minimal surface area, maximum power. No boilerplate, just logic.
-
-  - title: JSX Support
-    icon: 🧩
-    details: Bring your favorite syntax. Works seamlessly with JSX while keeping the runtime thin.
-
-  - title: Instant Setup
-    icon: 🧰
-    details: create-qwrk-app scaffolds a JavaScript or TypeScript project with npm, pnpm, yarn or bun.
+title: Qwrk
+titleTemplate: ":title · Reactive UI without re-renders"
+markdownStyles: false
 ---
+
+<Landing>
+<template #code>
+
+```jsx
+import { state } from "qwrk";
+
+export function App() {
+  const count = state(0);
+  const selected = state(1);
+  const todos = state([
+    { id: 1, text: "Write docs" },
+    { id: 2, text: "Ship it" },
+  ]);
+
+  return (
+    <main>
+      <button onClick={() => count.value++}>
+        clicked {count.value} times
+      </button>
+      <ul>
+        {todos.map((todo) => (
+          <li
+            class={selected.value === todo.id ? "active" : ""}
+            onClick={() => (selected.value = todo.id)}
+          >
+            {todo.text}
+          </li>
+        ))}
+      </ul>
+    </main>
+  );
+}
+```
+
+</template>
+</Landing>
