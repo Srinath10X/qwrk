@@ -5,7 +5,7 @@ const site = "https://qwrk.srinath.website";
 const github = "https://github.com/Srinath10X/qwrk";
 const title = "Qwrk";
 const description =
-  "A small reactive JavaScript framework: fine-grained state, a JSX compiler that clones templates, keyed lists and no virtual DOM.";
+  "Qwrk is a small reactive JavaScript framework. Components run once, and a state change updates only the DOM that reads it.";
 
 export default defineConfig({
   title,

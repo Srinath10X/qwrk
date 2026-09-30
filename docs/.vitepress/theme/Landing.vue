@@ -150,7 +150,7 @@ type Point = [number, number, number];
  */
 type Item =
   | { box: [...Point, number, number, number]; kind?: "wire" | "lit" | "ghost" }
-  | { path: Point[]; arc?: number }
+  | { path: Point[]; arc?: number; bare?: boolean }
   | { lattice: number; size: number }
   | { logo: string; at: Point; size: number }
   | { label: string; at: Point; lit?: boolean };
@@ -248,7 +248,7 @@ function draw(items: Item[], font: number) {
           ? `M${item.path.map(pt).join(" L")}`
           : `M${pt(a)} Q${pt([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2 + item.arc])} ${pt(b)}`;
       const [cx, cy] = iso(a);
-      return { d, dot: { cx, cy, r: font * 0.28 } };
+      return { d, dot: item.bare ? undefined : { cx, cy, r: font * 0.28 } };
     }
     if ("logo" in item) {
       const [x, y] = at(item.at);
@@ -348,14 +348,14 @@ function wired(from: number[], x: number, into: Point, bus: number): Item[] {
 
 const bento = [
   {
-    title: "Fine-grained by default",
-    text: "A write re-runs only the bindings that read that state: one text node, one attribute, one row. There is no tree to diff.",
+    title: "Updates touch one node",
+    text: "Changing a state re-runs the bindings that read it. If one text node shows count, that text node is all that changes.",
     wide: true,
     art: scene(fineGrained()),
   },
   {
     title: "As low as 2.9 KB",
-    text: "A whole counter app, runtime included, is 2.9 KB gzipped. The compiler does its work at build time, not in the browser.",
+    text: "A counter app, runtime included, is 2.9 KB gzipped when built with esbuild and the Qwrk plugin.",
     art: scene([
       { lattice: 5, size: 5 },
       { box: [0, 0, 0, 5, 5, 5], kind: "ghost" },
@@ -364,7 +364,7 @@ const bento = [
   },
   {
     title: "Components run once",
-    text: "A component is a plain function that returns real DOM. It never runs again; its bindings keep the DOM current.",
+    text: "A component is a function that returns DOM nodes. Qwrk calls it once, and bindings handle every change after that.",
     art: scene([
       { box: [0, 0, 0, 3, 3, 0.4] },
       { box: [0.6, 0.6, 0.4, 1.8, 1.8, 0.4] },
@@ -379,39 +379,32 @@ const bento = [
     ]),
   },
   {
-    title: "Compiled templates",
-    text: "Static JSX becomes a template cloned with cloneNode(true), and each .value read is wired to its own binding.",
+    title: "JSX becomes templates",
+    text: "The compiler turns static JSX into a <template> and copies it with cloneNode(true). Only the dynamic parts get a binding.",
     art: scene([
       { box: [0, 0, 0, 0.25, 2.2, 2.8], kind: "lit" },
+      ...(
+        [
+          [0, 2.8],
+          [2.2, 2.8],
+          [0, 0],
+          [2.2, 0],
+        ] as const
+      ).map(([y, z]): Item => ({
+        path: [
+          [0.25, y, z],
+          [4.8, y, z],
+        ],
+        bare: true,
+      })),
       { box: [1.6, 0, 0, 0.25, 2.2, 2.8] },
       { box: [3.2, 0, 0, 0.25, 2.2, 2.8] },
       { box: [4.8, 0, 0, 0.25, 2.2, 2.8] },
-      {
-        path: [
-          [0.125, 1.1, 2.8],
-          [1.725, 1.1, 2.8],
-        ],
-        arc: 1,
-      },
-      {
-        path: [
-          [0.125, 1.1, 2.8],
-          [3.325, 1.1, 2.8],
-        ],
-        arc: 1.8,
-      },
-      {
-        path: [
-          [0.125, 1.1, 2.8],
-          [4.925, 1.1, 2.8],
-        ],
-        arc: 2.6,
-      },
     ]),
   },
   {
     title: "Batched writes",
-    text: "batch() turns several writes into one update. Derives, the DOM and effects settle once, glitch-free.",
+    text: "Wrap several writes in batch() and derives, the DOM and effects update once, after the last write.",
     art: scene([
       { box: [0, 0, 0, 3, 3, 0.2] },
       { box: [0, 0, 0.8, 3, 3, 0.2] },
@@ -421,13 +414,13 @@ const bento = [
   },
   {
     title: "Keyed lists",
-    text: ".map() keys each row by its item. A push inserts one row, and a sort or swap moves the nodes that already exist.",
+    text: "Render lists with .map(). Rows are keyed by item, so a sort moves the existing DOM nodes instead of rebuilding them.",
     wide: true,
     art: scene(keyedRows()),
   },
   {
     title: "TypeScript, Vite, esbuild",
-    text: "Typed state and JSX, with plugins for Vite and esbuild. SVG files import as components.",
+    text: "Types ship with the package. There are plugins for Vite and esbuild, and .svg files import as components.",
     art: scene([
       { box: [0, 0, 0, 1.6, 1.6, 0.3] },
       { logo: "typescript", at: [0.8, 0.8, 0.3], size: 0.95 },
@@ -454,15 +447,12 @@ const links = [
     <div ref="aurora" class="q-aurora" aria-hidden="true"></div>
     <section class="q-hero">
       <div class="q-hero__copy enter">
-        <p class="q-label q-label--muted">
-          Reactive &middot; No virtual DOM &middot; Compiled
-        </p>
         <h1 class="q-hero__title">
           Reactive UI,<br />no re-renders<span class="q-signal">.</span>
         </h1>
         <p class="q-hero__pitch">
-          Components run once. A state write updates only the text, attribute or
-          row that reads it.
+          A Qwrk component runs once and returns real DOM. When a state changes,
+          only the text or attribute that reads it is updated.
         </p>
         <div class="q-actions">
           <a
@@ -615,12 +605,10 @@ const links = [
     <section class="q-features">
       <div class="q-head">
         <p class="q-label">Features</p>
-        <h2 class="q-h2">
-          A small core, and sharp tools<span class="q-signal">.</span>
-        </h2>
+        <h2 class="q-h2">Under the hood<span class="q-signal">.</span></h2>
         <p class="q-lede">
-          Reactive state, derives, effects and keyed lists in the runtime. The
-          rest happens in the compiler, before your code ships.
+          A small runtime keeps track of state. The compiler turns your JSX into
+          plain DOM code at build time.
         </p>
       </div>
 
@@ -655,7 +643,11 @@ const links = [
                 />
                 <g v-else-if="'d' in shape">
                   <path class="q-flow" :d="shape.d" />
-                  <circle class="q-flow__dot" v-bind="shape.dot" />
+                  <circle
+                    v-if="shape.dot"
+                    class="q-flow__dot"
+                    v-bind="shape.dot"
+                  />
                 </g>
                 <image
                   v-else-if="'logo' in shape"
@@ -689,13 +681,10 @@ const links = [
 
     <section class="q-start">
       <div class="q-start__copy">
-        <h2 class="q-h2">
-          Start with one command<span class="q-signal">.</span>
-        </h2>
+        <h2 class="q-h2">Create an app<span class="q-signal">.</span></h2>
         <p class="q-lede">
-          create-qwrk-app sets up a Vite project with the compiler already in
-          place, in JavaScript or TypeScript, and prints the next steps for your
-          package manager.
+          create-qwrk-app sets up a Vite project with the compiler configured.
+          Pick JavaScript or TypeScript, then run the commands it prints.
         </p>
         <div class="q-actions">
           <a
