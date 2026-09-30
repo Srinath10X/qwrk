@@ -84,7 +84,9 @@ export interface Computation {
 }
 
 const KEEP = Symbol();
-const NONE: any[] = [];
+
+/** The empty list of whatever has none yet. Never written to. */
+export const NONE: any[] = [];
 
 /**
  * States read while a derive or an effect runs, each followed by its version
@@ -503,29 +505,19 @@ export function computation<T extends object>(
 }
 
 /**
- * A DOM binding: a computation whose `f` updates the DOM, and that runs
- * before the effects. Subclasses add the fields `f` reads, so a binding is one
- * object, without closures. Their names must not be ones the scheduler reads
- * on computations and listeners (`c d e n o p q r s v _`): an `e` would make
- * it an effect, an `r` a listener.
+ * Runs `node`, a DOM binding, now, and again whenever a state it read
+ * changes, subscribing it to what it read. A binding is a computation whose
+ * `f` updates the DOM, and that runs before the effects: one object literal
+ * with all of its fields, see {@link Key}, whose `f` reads the others, so it
+ * needs no closure. Their names must not be ones the scheduler reads on
+ * computations and listeners (`c d e n o p q r s v _`) for anything else: an
+ * `e` would make it an effect, an `r` a listener.
+ *
+ * The running derive, binding or list row owns it, like a derive, and when
+ * there is none, `holder` keeps it alive. One that read no state will never
+ * run again, so it hands what it created over to its owner.
  */
-export abstract class Binding implements Computation {
-  s = NONE;
-  p: Computation | null = null;
-  q = 0;
-  c?: Computation = undefined;
-  n?: Computation = undefined;
-  abstract f(): unknown;
-}
-
-/**
- * Runs `node` now, and again whenever a state it read changes, subscribing
- * it to what it read. The running derive, binding or list row owns it, like
- * a derive, and when there is none, `holder` keeps it alive. One that read
- * no state will never run again, so it hands what it created over to its
- * owner.
- */
-export function bind(node: Binding, holder?: object) {
+export function bind(node: Computation, holder?: object) {
   const parent = (node.p = owner?.q != 3 && !owner?.e ? owner : null);
   run(node);
 
@@ -579,7 +571,7 @@ function link(source: Signal<any> | Key, owner: Computation): number {
   } else {
     subs.push(owner);
   }
-  if (source instanceof Key) source.m.set(source.k, source);
+  if (!(source instanceof Signal)) source.m.set(source.k, source);
   return source.o.length - 1;
 }
 
@@ -601,7 +593,7 @@ function unlinkSource(
       const i = last.s.indexOf(source);
       if (i >= 0) last.s[i + 2] = slot;
     }
-    if (!subs.length && source instanceof Key) source.m.delete(source.k);
+    if (!subs.length && !(source instanceof Signal)) source.m.delete(source.k);
   }
 }
 
@@ -685,25 +677,28 @@ export function trackKey(
   key: any,
 ) {
   let found = keys.get(key);
-  if (!found) keys.set(key, (found = new Key(key, keys)));
+  if (!found) {
+    keys.set(key, (found = { v: 0, o: NONE, w: NONE, k: key, m: keys }));
+  }
   track(found as any);
 }
 
 /**
  * A key of a map, with subscriptions of its own: a source that leaves the map
  * once it has none.
+ *
+ * Like everything created per list row, it is an object literal with all of
+ * its fields: V8 keeps a literal's shape for as long as the code creating it,
+ * but drops the shapes a class instance reaches through its fields once no
+ * instance is left, as after clearing a list, and with them the optimized
+ * code that relied on them.
  */
-export class Key {
-  declare k: any;
-  declare m: Map<unknown, Key> | WeakMap<object, Key>;
-  v = 0;
-  o: Computation[] = NONE;
-  w: Entry[] = NONE;
-
-  constructor(k: any, m: Map<unknown, Key> | WeakMap<object, Key>) {
-    this.k = k;
-    this.m = m;
-  }
+export interface Key {
+  v: number;
+  o: Computation[];
+  w: Entry[];
+  k: any;
+  m: Map<unknown, Key> | WeakMap<object, Key>;
 }
 
 /**

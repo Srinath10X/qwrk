@@ -176,7 +176,8 @@ function chain(self: List, next: Row[]) {
  * item, untracked, in a new scope that owns what `fn` creates. Reads through
  * the state still wrap and track, but the item a row captured never does:
  * change it through the state instead. Rows of a list whose markers left the
- * page go to a fragment nobody holds.
+ * page go to a fragment nobody holds. A row is an object literal with all of
+ * its fields, see `Key`.
  */
 function insert(
   self: List,
@@ -193,7 +194,15 @@ function insert(
   const at = parent && anchor;
 
   for (let j = from; j < to; j++) {
-    const row = { s: self.s, p: self, q: 0 } as any as Row;
+    const row = {
+      s: self.s,
+      p: self,
+      q: 0,
+      c: undefined,
+      n: undefined,
+      h: null,
+      t: null,
+    } as any as Row;
     const result: any = own(row, self.f, items[j]);
 
     if (result instanceof Node && result.nodeType != 11) {

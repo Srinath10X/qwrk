@@ -1,12 +1,13 @@
 import {
   bind,
-  Binding,
   dispose,
   is,
   isReactive,
+  NONE,
   own,
   peek,
   retain,
+  type Computation,
   type State,
 } from "#qwrk/reactivity/state.js";
 
@@ -20,9 +21,9 @@ export function append(parent: Node, children: unknown, marker?: Node | null) {
   if (Array.isArray(children)) {
     for (const child of children) append(parent, child, marker);
   } else if (typeof children === "function" || isReactive(children)) {
-    const slot = new Slot(parent, marker, children);
+    const slot = createSlot(parent, marker, children);
     bind(slot);
-    if (slot.q != 3) for (const node of slot.l) retain(node, slot);
+    if (slot.q != 3) for (const node of slot.l!) retain(node, slot);
   } else if (
     !marker &&
     !parent.hasChildNodes() &&
@@ -42,7 +43,7 @@ export function append(parent: Node, children: unknown, marker?: Node | null) {
  */
 export function text(parent: Node, value: unknown) {
   if (isReactive(value) && isTextValue(peek(value))) {
-    bind(new Label(parent, value));
+    bind(createLabel(parent, value));
   } else if (isTextValue(value)) {
     parent.textContent = toText(value);
   } else {
@@ -72,7 +73,7 @@ export function fused(
   parent: Node,
   label: unknown,
 ) {
-  bind(new Label(parent, label, element, source, key, yes, no), element);
+  bind(createLabel(parent, label, element, source, key, yes, no), element);
 }
 
 /**
@@ -80,89 +81,103 @@ export function fused(
  * class that element gets from whether `b` is `k`. Once the text renders
  * nodes, a {@link Slot} owned by the same owner takes it over.
  */
-class Label extends Binding {
+interface Label extends Computation {
   /** The element whose class it sets, if any: text only without. */
-  declare readonly a?: Element;
+  a?: Element;
   /** The state compared to `k`. */
-  declare readonly b: unknown;
-  declare readonly k: unknown;
+  b: unknown;
+  k: unknown;
   /** The class when `b` is `k`. */
-  declare readonly y?: string;
+  y?: string;
   /** The class otherwise. */
-  declare readonly x?: string;
+  x?: string;
   /** The element whose text it writes. */
-  declare readonly h: Node;
+  h: Node;
   /** The text: a state, or a plain value. */
-  declare readonly g: unknown;
+  g: unknown;
   /** The class written last. */
-  u: string | null = null;
+  u: string | null;
   /** The text node it writes, or `undefined` once a slot took the text over. */
-  t: ChildNode | null | undefined = null;
+  t: ChildNode | null | undefined;
+}
 
-  constructor(
-    h: Node,
-    g: unknown,
-    a?: Element,
-    b?: unknown,
-    k?: unknown,
-    y?: string,
-    x?: string,
-  ) {
-    super();
-    this.a = a;
-    this.b = b;
-    this.k = k;
-    this.y = y;
-    this.x = x;
-    this.h = h;
-    this.g = g;
+/**
+ * Creates a {@link Label}. It is made per row, so it is an object literal
+ * with all of its fields, not a class instance, see `Key`.
+ */
+function createLabel(
+  h: Node,
+  g: unknown,
+  a?: Element,
+  b?: unknown,
+  k?: unknown,
+  y?: string,
+  x?: string,
+): Label {
+  return {
+    s: NONE,
+    p: null,
+    q: 0,
+    c: undefined,
+    n: undefined,
+    f: updateLabel,
+    a,
+    b,
+    k,
+    y,
+    x,
+    h,
+    g,
+    u: null,
+    t: null,
+  };
+}
+
+/** Updates a {@link Label}. */
+function updateLabel(this: Label) {
+  const element = this.a;
+
+  if (element) {
+    const source = this.b as any;
+    const cls = (
+      isReactive(source) ? is(source, this.k) : source.value === this.k
+    )
+      ? this.y!
+      : this.x!;
+    if (cls !== this.u) {
+      if (cls || element.hasAttribute("class")) {
+        element.setAttribute("class", cls);
+      }
+      this.u = cls;
+    }
+  }
+  if (this.t === undefined) return;
+
+  const value = read(this.g);
+  const parent = this.h;
+
+  if (isTextValue(value)) {
+    const text = toText(value);
+    let node = this.t;
+
+    if (node?.parentNode !== parent) {
+      node = parent.firstChild;
+      if (node?.nodeType !== 3 || node !== parent.lastChild) {
+        parent.textContent = text;
+        this.t = parent.firstChild;
+        return;
+      }
+      this.t = node;
+    }
+    (node as Text).data = text;
+    return;
   }
 
-  f() {
-    const element = this.a;
-
-    if (element) {
-      const source = this.b as any;
-      const cls = (
-        isReactive(source) ? is(source, this.k) : source.value === this.k
-      )
-        ? this.y!
-        : this.x!;
-      if (cls !== this.u) {
-        if (cls || element.hasAttribute("class")) {
-          element.setAttribute("class", cls);
-        }
-        this.u = cls;
-      }
-    }
-    if (this.t === undefined) return;
-
-    const value = read(this.g);
-    const parent = this.h;
-
-    if (isTextValue(value)) {
-      const text = toText(value);
-      let node = this.t;
-
-      if (node?.parentNode !== parent) {
-        node = parent.firstChild;
-        if (node?.nodeType !== 3 || node !== parent.lastChild) {
-          parent.textContent = text;
-          this.t = parent.firstChild;
-          return;
-        }
-        this.t = node;
-      }
-      (node as Text).data = text;
-      return;
-    }
-
-    const owner = this.p;
-    this.t = undefined;
-    if (!element) dispose(this);
-    parent.textContent = "";
-    own(owner, () => append(parent, this.g));
-  }
+  const owner = this.p;
+  this.t = undefined;
+  if (!element) dispose(this);
+  parent.textContent = "";
+  own(owner, () => append(parent, this.g));
 }
 
 /**
@@ -176,49 +191,59 @@ class Label extends Binding {
  * place, everything between them goes too, such as the rows a list added
  * since.
  */
-class Slot extends Binding {
+interface Slot extends Computation {
   /** Where it inserts its nodes, cleared once they are in. */
-  declare h: Node | null;
-  declare m: Node | null | undefined;
+  h: Node | null;
+  m: Node | null | undefined;
   /** A state, or a function. */
-  declare readonly g: unknown;
+  g: unknown;
   /** The nodes it renders as, which keep it alive. */
-  declare l: ChildNode[];
+  l?: ChildNode[];
+}
 
-  constructor(h: Node, m: Node | null | undefined, g: unknown) {
-    super();
-    this.h = h;
-    this.m = m;
-    this.g = g;
-  }
+/** Creates a {@link Slot}, an object literal like a {@link Label}. */
+function createSlot(h: Node, m: Node | null | undefined, g: unknown): Slot {
+  return {
+    s: NONE,
+    p: null,
+    q: 0,
+    c: undefined,
+    n: undefined,
+    f: updateSlot,
+    h,
+    m,
+    g,
+    l: undefined,
+  };
+}
 
-  f() {
-    const g = this.g;
-    const value = read(typeof g === "function" ? g() : g);
-    const nodes = this.l;
+/** Updates a {@link Slot}. */
+function updateSlot(this: Slot) {
+  const g = this.g;
+  const value = read(typeof g === "function" ? g() : g);
+  const nodes = this.l;
 
-    if (nodes) {
-      const first = nodes[0];
-      const last = nodes[nodes.length - 1];
+  if (nodes) {
+    const first = nodes[0];
+    const last = nodes[nodes.length - 1];
 
-      if (first === last && first instanceof Text && isTextValue(value)) {
-        first.data = toText(value);
-        return;
-      }
-
-      first.before((this.m = blank()));
-      this.h = this.m.parentNode;
-      if (last.parentNode === this.h) relocate(first, last);
-      else nodes.forEach((node) => node.remove());
+    if (first === last && first instanceof Text && isTextValue(value)) {
+      first.data = toText(value);
+      return;
     }
 
-    for (const node of (this.l = render(value))) {
-      if (nodes) retain(node, this);
-      this.h?.insertBefore(node, this.m ?? null);
-    }
-    if (nodes) (this.m as ChildNode).remove();
-    this.h = this.m = null;
+    first.before((this.m = blank()));
+    this.h = this.m.parentNode;
+    if (last.parentNode === this.h) relocate(first, last);
+    else nodes.forEach((node) => node.remove());
   }
+
+  for (const node of (this.l = render(value))) {
+    if (nodes) retain(node, this);
+    this.h?.insertBefore(node, this.m ?? null);
+  }
+  if (nodes) (this.m as ChildNode).remove();
+  this.h = this.m = null;
 }
 
 /** The value of a state, read so the running computation tracks it, or `value`. */
