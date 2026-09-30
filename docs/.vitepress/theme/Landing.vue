@@ -6,17 +6,101 @@ const install = "npm create qwrk-app@latest";
 const github = "https://github.com/Srinath10X/qwrk";
 const copied = ref("");
 const clicks = ref(0);
+const flash = ref(0);
 let reset: ReturnType<typeof setTimeout> | undefined;
 
-/** Copies the install command, and marks which copy button did it. */
-async function copy(where: string) {
-  await navigator.clipboard.writeText(install);
+/** Copies `text`, and marks which copy button did it. */
+async function copy(where: string, text = install) {
+  await navigator.clipboard.writeText(text);
   copied.value = where;
   clearTimeout(reset);
   reset = setTimeout(() => (copied.value = ""), 1800);
 }
 
 onBeforeUnmount(() => clearTimeout(reset));
+
+/** Runs the demo: a click writes the state, and both the binding in the code and the text it updates flash. */
+function bump() {
+  clicks.value++;
+  flash.value++;
+}
+
+/**
+ * The hero example, one token per span: keyword, string, punctuation, name,
+ * function, number, and the `{count}` binding the demo highlights.
+ */
+const code: [string, string][][] = [
+  [
+    ["k", "import"],
+    ["p", " { "],
+    ["t", "state"],
+    ["p", " } "],
+    ["k", "from"],
+    ["t", " "],
+    ["s", '"qwrk"'],
+    ["p", ";"],
+  ],
+  [],
+  [
+    ["k", "function"],
+    ["t", " "],
+    ["f", "Counter"],
+    ["p", "() {"],
+  ],
+  [
+    ["t", "  "],
+    ["k", "const"],
+    ["t", " count "],
+    ["p", "="],
+    ["t", " "],
+    ["f", "state"],
+    ["p", "("],
+    ["n", "0"],
+    ["p", ");"],
+  ],
+  [],
+  [
+    ["t", "  "],
+    ["k", "return"],
+    ["p", " ("],
+  ],
+  [
+    ["t", "    "],
+    ["p", "<"],
+    ["k", "button"],
+    ["t", " onClick"],
+    ["p", "={() "],
+    ["k", "=>"],
+    ["t", " count"],
+    ["p", "."],
+    ["t", "value"],
+    ["p", "++}>"],
+  ],
+  [
+    ["t", "      clicked "],
+    ["b", "{count}"],
+    ["t", " times"],
+  ],
+  [
+    ["t", "    "],
+    ["p", "</"],
+    ["k", "button"],
+    ["p", ">"],
+  ],
+  [
+    ["t", "  "],
+    ["p", ");"],
+  ],
+  [["p", "}"]],
+];
+
+const managers = [
+  { name: "npm", install: "npm install", dev: "npm run dev" },
+  { name: "bun", install: "bun install", dev: "bun run dev" },
+  { name: "pnpm", install: "pnpm install", dev: "pnpm dev" },
+  { name: "yarn", install: "yarn install", dev: "yarn dev" },
+];
+const manager = ref(managers[0]);
 
 const steps = [
   {
@@ -153,19 +237,27 @@ const links = [
       </div>
 
       <div class="q-hero__code">
-        <figure class="q-panel">
-          <figcaption class="q-panel__bar">
-            <span class="q-label">src/Counter.jsx</span>
-          </figcaption>
-          <div class="q-panel__body vp-doc">
-            <slot name="code" />
+        <figure class="q-editor">
+          <div class="q-editor__bar">
+            <span class="q-editor__tab">Counter.jsx</span>
           </div>
-          <div class="q-panel__out">
-            <span class="q-label">Output</span>
-            <button type="button" class="q-demo" @click="clicks++">
-              clicked {{ clicks }} times
+          <pre
+            class="q-editor__code"
+          ><code><span v-for="(line, i) in code" :key="i" class="q-editor__line"><span v-for="([kind, text], j) in line" :key="kind === 'b' ? `b${flash}` : j" :class="['t-' + kind, kind === 'b' && flash ? 'is-flash' : '']">{{ text }}</span></span></code></pre>
+          <figcaption class="q-editor__run">
+            <button type="button" class="q-demo" @click="bump">
+              clicked
+              <span
+                :key="flash"
+                :class="['q-demo__n', flash ? 'is-flash' : '']"
+                >{{ clicks }}</span
+              >
+              times
             </button>
-          </div>
+            <span class="q-editor__note">
+              Only <code>{count}</code> updates. The component never runs again.
+            </span>
+          </figcaption>
         </figure>
       </div>
     </section>
@@ -213,43 +305,72 @@ const links = [
       </article>
     </div>
 
-    <section class="q-cta">
-      <h2 class="q-h2 q-cta__title">
-        Start with one command<span class="q-signal">.</span>
-      </h2>
-      <div class="q-install">
-        <span class="q-install__prompt" aria-hidden="true">$</span>
-        <code class="q-install__cmd">{{ install }}</code>
-        <button
-          type="button"
-          class="q-install__copy"
-          :aria-label="copied === 'cta' ? 'Copied' : 'Copy the install command'"
-          @click="copy('cta')"
-        >
-          <svg v-if="copied !== 'cta'" viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="8.5" y="8.5" width="12" height="12" rx="2" />
-            <path
-              d="M15.5 8.5v-3a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"
-            />
-          </svg>
-          <svg v-else viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m5 12.5 4.5 4.5L19 7.5" />
-          </svg>
-        </button>
+    <section class="q-start">
+      <div class="q-start__copy">
+        <h2 class="q-h2">
+          Start with one command<span class="q-signal">.</span>
+        </h2>
+        <p class="q-lede">
+          create-qwrk-app sets up a Vite project with the compiler already in
+          place, in JavaScript or TypeScript, and prints the next steps for your
+          package manager.
+        </p>
+        <div class="q-actions">
+          <a
+            class="q-btn q-btn--primary q-btn--lg"
+            :href="withBase('/guide/getting-started')"
+          >
+            Read the guide
+          </a>
+          <a
+            class="q-btn q-btn--outline q-btn--lg"
+            :href="withBase('/api/state')"
+          >
+            API reference
+          </a>
+        </div>
       </div>
-      <div class="q-actions">
-        <a
-          class="q-btn q-btn--primary q-btn--lg"
-          :href="withBase('/guide/getting-started')"
-        >
-          Read the guide
-        </a>
-        <a
-          class="q-btn q-btn--outline q-btn--lg"
-          :href="withBase('/api/state')"
-        >
-          API reference
-        </a>
+
+      <div class="q-term">
+        <div class="q-term__bar">
+          <div class="q-term__tabs" aria-label="Package manager">
+            <button
+              v-for="m in managers"
+              :key="m.name"
+              type="button"
+              class="q-term__tab"
+              :aria-pressed="manager.name === m.name"
+              @click="manager = m"
+            >
+              {{ m.name }}
+            </button>
+          </div>
+          <button
+            type="button"
+            class="q-install__copy"
+            :aria-label="
+              copied === 'term' ? 'Copied' : 'Copy the create command'
+            "
+            @click="copy('term', `${manager.name} create qwrk-app@latest`)"
+          >
+            <svg
+              v-if="copied !== 'term'"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <rect x="8.5" y="8.5" width="12" height="12" rx="2" />
+              <path
+                d="M15.5 8.5v-3a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"
+              />
+            </svg>
+            <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m5 12.5 4.5 4.5L19 7.5" />
+            </svg>
+          </button>
+        </div>
+        <pre
+          class="q-term__body"
+        ><code><span class="q-term__line"><span class="q-term__prompt">$</span> {{ manager.name }} create qwrk-app@latest my-app</span><span class="q-term__line"><span class="q-term__prompt">$</span> cd my-app</span><span class="q-term__line"><span class="q-term__prompt">$</span> {{ manager.install }}</span><span class="q-term__line"><span class="q-term__prompt">$</span> {{ manager.dev }}</span></code></pre>
       </div>
       <span class="visually-hidden" aria-live="polite">{{
         copied ? "Copied to clipboard" : ""
@@ -278,66 +399,60 @@ const links = [
 
 .q-hero {
   display: grid;
-  gap: 1px;
   border-bottom: 1px solid var(--q-border);
-  background: var(--q-border);
 }
 
 @media (min-width: 1024px) {
   .q-hero {
-    grid-template-columns: minmax(0, 7fr) minmax(0, 6fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
   }
-}
-
-.q-hero__copy,
-.q-hero__code {
-  background: var(--q-bg);
 }
 
 .q-hero__copy {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 22px;
-  padding: 56px 20px 48px;
+  gap: 20px;
+  padding: 48px 20px 8px;
 }
 
 @media (min-width: 640px) {
   .q-hero__copy {
-    padding: 80px 40px 64px;
+    padding: 72px 40px 16px;
   }
 }
 
 @media (min-width: 1024px) {
   .q-hero__copy {
-    justify-content: center;
-    padding: 112px 48px;
+    padding: 104px 24px 104px 48px;
   }
 }
 
 .q-hero__title {
   margin: 0;
-  font-size: 46px;
+  font-size: 40px;
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.045em;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
   color: var(--q-fg);
+  text-wrap: balance;
 }
 
 @media (min-width: 640px) {
   .q-hero__title {
-    font-size: 68px;
+    font-size: 52px;
   }
 }
 
 @media (min-width: 1280px) {
   .q-hero__title {
-    font-size: 84px;
+    font-size: 64px;
   }
 }
 
 .q-hero__pitch {
-  max-width: 42ch;
+  max-width: 40ch;
   margin: 0;
   font-size: 16px;
   line-height: 1.6;
@@ -347,7 +462,7 @@ const links = [
 
 @media (min-width: 1024px) {
   .q-hero__pitch {
-    font-size: 18px;
+    font-size: 17px;
   }
 }
 
@@ -450,81 +565,151 @@ const links = [
 }
 
 .q-hero__code {
-  display: grid;
-  align-items: center;
-  padding: 32px 12px;
+  min-width: 0;
+  padding: 32px 20px 48px;
 }
 
 @media (min-width: 640px) {
   .q-hero__code {
-    padding: 48px 40px;
+    padding: 40px 40px 72px;
   }
 }
 
 @media (min-width: 1024px) {
   .q-hero__code {
-    padding: 64px 48px;
+    padding: 64px 48px 64px 24px;
   }
 }
 
-.q-panel {
-  min-width: 0;
+.q-editor {
   margin: 0;
-  overflow: hidden;
   border: 1px solid var(--q-border);
-  border-radius: 10px;
   background: var(--q-code);
 }
 
-.q-panel__bar {
+.q-editor__bar {
   display: flex;
-  align-items: center;
-  height: 42px;
-  padding: 0 18px;
   border-bottom: 1px solid var(--q-border);
 }
 
-.q-panel__body :deep(div[class*="language-"]) {
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.q-panel__body :deep(span.lang),
-.q-panel__body :deep(button.copy) {
-  display: none;
-}
-
-.q-panel__body :deep(pre) {
-  padding: 20px 0 22px;
-}
-
-.q-panel__body :deep(pre code) {
-  padding: 0 18px;
+.q-editor__tab {
+  margin-bottom: -1px;
+  padding: 10px 18px 9px;
+  border-right: 1px solid var(--q-border);
+  border-bottom: 1px solid var(--q-accent);
+  background: var(--q-code);
+  font-family: var(--vp-font-family-mono);
   font-size: 12.5px;
+  color: var(--q-fg);
+}
+
+.q-editor__code {
+  margin: 0;
+  padding: 18px 20px 20px 0;
+  overflow-x: auto;
+  counter-reset: line;
+  font-family: var(--vp-font-family-mono);
+  font-size: 12px;
+  line-height: 1.75;
+  color: #d8d4cf;
+  tab-size: 2;
 }
 
 @media (min-width: 640px) {
-  .q-panel__body :deep(pre code) {
-    font-size: 13.5px;
+  .q-editor__code {
+    font-size: 13px;
   }
 }
 
-.q-panel__out {
+.q-editor__code code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  font: inherit;
+}
+
+.q-editor__line {
+  display: block;
+  min-height: 1.75em;
+  white-space: pre;
+  counter-increment: line;
+}
+
+.q-editor__line::before {
+  content: counter(line);
+  display: inline-block;
+  width: 2ch;
+  margin: 0 18px 0 16px;
+  text-align: right;
+  color: var(--q-label);
+  opacity: 0.55;
+  user-select: none;
+}
+
+.t-k {
+  color: var(--q-accent);
+}
+
+.t-s,
+.t-n {
+  color: #d6c4a4;
+}
+
+.t-p {
+  color: #8a847d;
+}
+
+.t-f,
+.t-b {
+  color: var(--q-fg);
+}
+
+.t-b {
+  border-radius: 3px;
+}
+
+.is-flash {
+  animation: q-flash 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes q-flash {
+  0%,
+  30% {
+    color: var(--q-accent);
+    background-color: var(--q-accent-soft);
+  }
+}
+
+.q-editor__run {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 12px 16px;
   padding: 14px 18px;
   border-top: 1px solid var(--q-border);
+  background: var(--q-bg);
+}
+
+.q-editor__note {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--q-muted);
+}
+
+.q-editor__note code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 12.5px;
+  color: var(--q-fg);
 }
 
 .q-demo {
+  display: inline-block;
   height: 34px;
+  line-height: 32px;
   padding: 0 14px;
-  border: 1px solid var(--q-border);
+  border: 1px solid var(--q-border-strong);
   border-radius: 8px;
+  background: var(--q-surface);
   font-size: 14px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -535,12 +720,17 @@ const links = [
 }
 
 .q-demo:hover {
-  border-color: var(--q-border-strong);
-  background: var(--q-surface);
+  border-color: var(--q-muted);
 }
 
 .q-demo:active {
   translate: 0 1px;
+}
+
+.q-demo__n {
+  min-width: 1ch;
+  padding: 0 2px;
+  border-radius: 3px;
 }
 
 .q-how {
@@ -738,30 +928,99 @@ const links = [
   overflow-wrap: anywhere;
 }
 
-.q-cta {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  padding: 72px 20px;
+.q-start {
+  display: grid;
+  gap: 32px;
+  padding: 56px 20px;
   border-bottom: 1px solid var(--q-border);
-  text-align: center;
 }
 
-@media (min-width: 1024px) {
-  .q-cta {
-    padding: 112px 48px;
+@media (min-width: 640px) {
+  .q-start {
+    padding: 72px 40px;
   }
 }
 
-.q-cta__title {
-  font-size: clamp(34px, 4.6vw, 60px);
-  letter-spacing: -0.045em;
+@media (min-width: 1024px) {
+  .q-start {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 48px;
+    padding: 96px 48px;
+  }
 }
 
-.q-cta .q-actions {
-  justify-content: center;
-  margin-top: 0;
+.q-start__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.q-start__copy .q-lede {
+  max-width: 46ch;
+}
+
+.q-term {
+  min-width: 0;
+  border: 1px solid var(--q-border);
+  background: var(--q-code);
+}
+
+.q-term__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 6px;
+  border-bottom: 1px solid var(--q-border);
+}
+
+.q-term__tabs {
+  display: flex;
+}
+
+.q-term__tab {
+  margin-bottom: -1px;
+  padding: 10px 16px 9px;
+  border-right: 1px solid var(--q-border);
+  border-bottom: 1px solid transparent;
+  font-family: var(--vp-font-family-mono);
+  font-size: 12.5px;
+  color: var(--q-muted);
+  transition: color 0.15s;
+}
+
+.q-term__tab:hover {
+  color: var(--q-fg);
+}
+
+.q-term__tab[aria-pressed="true"] {
+  border-bottom-color: var(--q-accent);
+  color: var(--q-fg);
+}
+
+.q-term__body {
+  margin: 0;
+  padding: 18px 20px 20px;
+  overflow-x: auto;
+  font-family: var(--vp-font-family-mono);
+  font-size: 13px;
+  line-height: 1.9;
+  color: #d8d4cf;
+}
+
+.q-term__body code {
+  font: inherit;
+}
+
+.q-term__line {
+  display: block;
+  white-space: pre;
+}
+
+.q-term__prompt {
+  color: var(--q-label);
+  user-select: none;
 }
 
 .q-footer {
