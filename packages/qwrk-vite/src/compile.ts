@@ -82,8 +82,10 @@ interface Context {
   handlers: string[];
   /** The bindings each scope declares, read once per scope. */
   scopes: Map<Node, Map<string, Declared>>;
-  /** The props that are always strings, per component, see {@link strings}. */
+  /** The props that are always strings, per component, see {@link analyze}. */
   fixed: Map<Node, Set<string>>;
+  /** Components that never read `children`, see {@link analyze}. */
+  childless: Set<string>;
 }
 
 /**
@@ -287,7 +289,7 @@ export function compile(
     path: [],
     handlers: [],
     scopes: new Map(),
-    fixed: strings(program as unknown as Node),
+    ...analyze(program as unknown as Node),
   };
   visit(context, program as unknown as Node, false);
   if (!context.changed) return null;
@@ -653,7 +655,9 @@ function component(context: Context, node: Node, name: string): Part[] {
   }
 
   const items = list(context, node.children, true);
-  if (items.length || !explicit) parts.push(" children: [", ...items, "]");
+  if (items.length || !(explicit || context.childless.has(name))) {
+    parts.push(" children: [", ...items, "]");
+  }
   parts.push(" })");
   return parts;
 }
@@ -1440,7 +1444,7 @@ function render(context: Context, operation: Operation): Part[] {
 
 /**
  * Whether `value` is a prop that is a string in every call of its component,
- * see {@link strings}, so the DOM takes it as it is, without a binding.
+ * see {@link analyze}, so the DOM takes it as it is, without a binding.
  */
 function isString(context: Context, value: Part[]) {
   if (value.length !== 1 || typeof value[0] === "string") return false;
@@ -1454,14 +1458,21 @@ function isString(context: Context, value: Part[]) {
 }
 
 /**
- * The props that are strings in every call of their component: the module
- * declares the component as a function whose parameter destructures its
- * props, never refers to it but as a JSX tag, and passes a string literal
- * for the prop in every tag, without spreads. The local the prop is bound to
- * is never assigned. Returns the names of those locals, per function.
+ * What the module's own components show about their props. It looks at the
+ * components the module declares as a function without parameters, or whose
+ * one parameter destructures its props, and never refers to but as a JSX
+ * tag.
+ *
+ * - `fixed`: per function, the locals of the props that are strings in every
+ *   call: every tag passes a string literal for them, without spreads, and
+ *   the local is never assigned.
+ * - `childless`: the components that can't read `children`: no rest, no
+ *   `children` key, no computed key and no `arguments`. A tag without
+ *   children then passes none, instead of an empty array.
  */
-function strings(program: Node) {
+function analyze(program: Node) {
   const fixed = new Map<Node, Set<string>>();
+  const childless = new Set<string>();
   const components = new Map<string, Node>();
   const uses = new Map<string, number>();
   const tags = new Map<string, Node[]>();
@@ -1471,13 +1482,14 @@ function strings(program: Node) {
       statement.type === "FunctionDeclaration" &&
       statement.id &&
       /^[A-Z]/.test(statement.id.name) &&
-      statement.params.length === 1 &&
-      statement.params[0].type === "ObjectPattern"
+      (!statement.params.length ||
+        (statement.params.length === 1 &&
+          statement.params[0].type === "ObjectPattern"))
     ) {
       components.set(statement.id.name, statement);
     }
   }
-  if (!components.size) return fixed;
+  if (!components.size) return { fixed, childless };
 
   has(
     program,
@@ -1500,6 +1512,23 @@ function strings(program: Node) {
   for (const [name, fn] of components) {
     const opened = tags.get(name);
     if (uses.get(name) !== 1 || !opened) continue;
+
+    const properties: Node[] = fn.params[0]?.properties ?? [];
+    if (
+      properties.every(
+        (property: Node) =>
+          property.type === "Property" &&
+          !property.computed &&
+          (property.key.name ?? property.key.value) !== "children",
+      ) &&
+      !has(
+        fn.body,
+        (n) => n.type === "Identifier" && n.name === "arguments",
+        true,
+      )
+    ) {
+      childless.add(name);
+    }
     if (
       opened.some((tag) =>
         tag.attributes.some((a: Node) => a.type === "JSXSpreadAttribute"),
@@ -1509,7 +1538,7 @@ function strings(program: Node) {
     }
 
     const locals = new Set<string>();
-    for (const property of fn.params[0].properties as Node[]) {
+    for (const property of properties) {
       if (
         property.type !== "Property" ||
         property.computed ||
@@ -1534,7 +1563,7 @@ function strings(program: Node) {
     }
     if (locals.size) fixed.set(fn, locals);
   }
-  return fixed;
+  return { fixed, childless };
 }
 
 /** Whether a JSX attribute's value is a string literal. */

@@ -296,6 +296,22 @@ describe("compile", () => {
     }
   });
 
+  it("passes no children to local components that can't read them", () => {
+    const code = output(
+      `function A() { return <p />; } function B({ n }) { return <p>{n}</p>; }
+       function C({ children }) { return <p>{children}</p>; } function D({ ...rest }) { return <p />; }
+       function E({ n }) { return <p>{arguments[0].children}</p>; }
+       const x = [<A />, <B n={1} />, <B n={2}>kid</B>, <C />, <D />, <E n={1} />];`,
+    );
+
+    expect(code).toContain("_$component(A, { })");
+    expect(code).toContain("_$component(B, { n: 1, })");
+    expect(code).toContain('_$component(B, { n: 2, children: ["kid"] })');
+    expect(code).toContain("_$component(C, { children: [] })");
+    expect(code).toContain("_$component(D, { children: [] })");
+    expect(code).toContain("_$component(E, { n: 1, children: [] })");
+  });
+
   it("uses createElement for JSX that awaits", () => {
     const code = output(
       `async function f() { return <p class={await c}>{await t}</p>; }`,
