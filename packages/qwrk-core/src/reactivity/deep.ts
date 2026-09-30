@@ -27,9 +27,7 @@ const readers = new WeakMap<object, Key>();
 
 /** Returns the object a proxy wraps, or `value` itself. */
 export function toRaw<T>(value: T): T {
-  return typeof value === "object" && value !== null
-    ? ((originals.get(value as object) as T | undefined) ?? value)
-    : value;
+  return (originals.get(value as object) as T | undefined) ?? value;
 }
 
 /**
@@ -52,8 +50,7 @@ function handler(source: Signal<any>): ProxyHandler<any> {
         if (Array.isArray(target)) {
           if (MUTATORS.has(key as string)) {
             return (...args: unknown[]) => {
-              for (let i = 0; i < args.length; i++) args[i] = toRaw(args[i]);
-              const result = (item as Function).apply(target, args);
+              const result = (item as Function).apply(target, args.map(toRaw));
               changed(source, target);
               return result === target ? receiver : result;
             };
@@ -65,7 +62,6 @@ function handler(source: Signal<any>): ProxyHandler<any> {
         }
         return item;
       }
-      if (typeof item !== "object" || item === null) return item;
 
       const value = deep(item, source);
       if (value !== item && reads) trackKey(readers, item);
@@ -109,12 +105,7 @@ export function deep<T>(value: T, source: Signal<any>): T {
   if (typeof value !== "object" || value === null) return value;
 
   const raw = toRaw(value) as object;
-  if (raw !== value) {
-    const found = source.m?.get(raw);
-    if (found) return found as T;
-  } else if (!isPlain(raw)) {
-    return raw as unknown as T;
-  }
+  if (raw === value && !isPlain(raw)) return value;
 
   const proxies = (source.m ??= new WeakMap());
   let proxy = proxies.get(raw);
