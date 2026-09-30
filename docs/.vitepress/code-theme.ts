@@ -1,4 +1,9 @@
-import type { ThemeRegistration } from "shiki";
+import type { MarkdownOptions } from "vitepress";
+
+type ThemeRegistration = Exclude<
+  NonNullable<MarkdownOptions["theme"]>,
+  string | { light: unknown; dark: unknown }
+>;
 
 /**
  * Syntax theme on the site's warm near-black: text in tones of the page
