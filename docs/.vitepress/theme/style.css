@@ -145,9 +145,9 @@
 
   --vp-nav-height: 64px;
   --vp-nav-logo-height: 24px;
-  --vp-nav-bg-color: transparent;
+  --vp-nav-bg-color: var(--q-bg);
   --vp-nav-screen-bg-color: var(--q-bg);
-  --vp-local-nav-bg-color: rgb(15 14 13 / 0.72);
+  --vp-local-nav-bg-color: var(--q-bg);
   --vp-sidebar-bg-color: var(--q-bg);
   --vp-backdrop-bg-color: rgb(8 7 6 / 0.72);
 
@@ -330,7 +330,7 @@ html.dark .Layout {
   }
 }
 
-/* Nav: part of the page, not sticky, inside the rails, with a hairline under it. */
+/* Nav: solid, inside the rails, with a hairline under it. It stays put on doc pages and scrolls away on the landing page. */
 html.dark .VPNavBar {
   background-color: var(--q-bg);
 }
@@ -341,7 +341,7 @@ html.dark .VPNavBar.screen-open {
 
 html.dark .VPNavBar .content-body,
 html.dark .VPNavBar .container > .title {
-  background-color: transparent;
+  background-color: var(--q-bg);
 }
 
 html.dark .VPNavBar .divider-line,
@@ -388,12 +388,17 @@ html.dark .VPNavBarTitle .logo {
 
 @media (min-width: 960px) {
   html.dark .VPNav {
+    left: calc(var(--q-rail) + 1px);
+    right: calc(var(--q-rail) + 1px);
+    width: auto;
+    border-top: 1px solid var(--q-border);
+  }
+
+  html.dark .Layout.q-home .VPNav {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    width: auto;
-    border-top: 1px solid var(--q-border);
   }
 
   html.dark .VPNavBarTitle.has-sidebar::after {
@@ -502,11 +507,8 @@ html.dark .VPLocalNav {
 /* Sidebar: same surface as the page, a hairline rail on its right. */
 @media (min-width: 960px) {
   html.dark .VPSidebar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: auto;
-    overflow: visible;
+    left: calc(var(--q-rail) + 1px);
+    bottom: 0;
     width: var(--vp-sidebar-width);
     padding-left: 32px;
     border-right: 1px solid var(--q-border);
