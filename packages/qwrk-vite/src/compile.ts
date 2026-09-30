@@ -28,6 +28,8 @@ interface Element {
   children: Slot[];
   ref?: string;
   needed?: boolean;
+  /** Whether it must start in the page's document, see {@link ADOPTED}. */
+  adopt?: boolean;
 }
 
 /** A static text or an empty comment of a template. */
@@ -80,6 +82,10 @@ interface Context {
   handlers: string[];
   /** The bindings each scope declares, read once per scope. */
   scopes: Map<Node, Map<string, Declared>>;
+  /** The props that are always strings, per component, see {@link analyze}. */
+  fixed: Map<Node, Set<string>>;
+  /** Components that never read `children`, see {@link analyze}. */
+  childless: Set<string>;
 }
 
 /**
@@ -96,6 +102,19 @@ interface Declared {
 const IGNORED = new Set(["key"]);
 
 const ALIASES: Record<string, string> = { className: "class", htmlFor: "for" };
+
+/**
+ * Attributes whose element behaves differently before insertion when it is
+ * cloned from the template's inert document: URLs resolve against it, and
+ * `is` names a custom element. A template with one of them, or with a custom
+ * element, is imported into the page's document first.
+ */
+const ADOPTED = new Set(
+  (
+    "action background cite codebase data formaction href icon is itemid " +
+    "itemtype loading longdesc manifest ping poster src srcset usemap"
+  ).split(" "),
+);
 
 /** Set as properties by the runtime, so never written into templates. */
 const PROPERTIES = new Set(["value", "checked", "selected"]);
@@ -270,6 +289,7 @@ export function compile(
     path: [],
     handlers: [],
     scopes: new Map(),
+    ...analyze(program as unknown as Node),
   };
   visit(context, program as unknown as Node, false);
   if (!context.changed) return null;
@@ -635,7 +655,9 @@ function component(context: Context, node: Node, name: string): Part[] {
   }
 
   const items = list(context, node.children, true);
-  if (items.length || !explicit) parts.push(" children: [", ...items, "]");
+  if (items.length || !(explicit || context.childless.has(name))) {
+    parts.push(" children: [", ...items, "]");
+  }
   parts.push(" })");
   return parts;
 }
@@ -891,8 +913,10 @@ function template(
   const svg = isSvg(tag);
   const root = element(context, node, tag, [], operations);
 
+  const adopt = adopts(root);
+
   if (!operations.length) {
-    const name = declare(context, markup(root), svg && tag !== "svg");
+    const name = declare(context, markup(root), svg && tag !== "svg", adopt);
     return [statements ? `return ${name}(); ` : `${name}()`];
   }
 
@@ -928,7 +952,7 @@ function template(
   if (fusedOp) {
     (fusedOp.text.target as Element).children.push({ kind: "text", text: " " });
   }
-  const name = declare(context, markup(root), svg && tag !== "svg");
+  const name = declare(context, markup(root), svg && tag !== "svg", adopt);
 
   root.ref = local(context, "el");
   const declarations = [`${root.ref} = ${name}()`];
@@ -972,7 +996,6 @@ function fuse(
   text: Extract<Operation, { kind: "insert" }>;
   sRef: string;
   kRef: string;
-  lRef: string;
 } | null {
   let cond: Extract<Operation, { kind: "cond" }> | null = null;
   let text: Extract<Operation, { kind: "insert" }> | null = null;
@@ -1011,7 +1034,6 @@ function fuse(
     text,
     sRef: local(context, "s"),
     kRef: local(context, "k"),
-    lRef: local(context, "l"),
   };
 }
 
@@ -1032,8 +1054,9 @@ function renderFusedHead(
 }
 
 /**
- * Reads a fused binding's text and calls it, at its own source position, so
- * every fused value is emitted in source order.
+ * Calls a fused binding at its text's own source position, with the text as
+ * the last argument, read right before the call, so every fused value is
+ * emitted in source order.
  */
 function renderFusedTail(
   context: Context,
@@ -1042,26 +1065,41 @@ function renderFusedTail(
     text: Extract<Operation, { kind: "insert" }>;
     sRef: string;
     kRef: string;
-    lRef: string;
   },
 ): Part[] {
-  const { cond, text, sRef, kRef, lRef } = fusedOp;
+  const { cond, text, sRef, kRef } = fusedOp;
   return [
-    `const ${lRef} = `,
+    `${helper(context, "fused")}(${cond.target.ref!}, ${sRef}, ${kRef}`,
+    `, ${quote(cond.yes)}, ${quote(cond.no)}, ${text.target.ref!}, `,
     ...text.value,
-    `; ${helper(context, "fused")}(${cond.target.ref!}, ${sRef}, ${kRef}`,
-    `, ${quote(cond.yes)}, ${quote(cond.no)}, ${text.target.ref!}, ${lRef}); `,
+    "); ",
   ];
 }
 
-/** Declares a template once per module, and returns its name. */
-function declare(context: Context, markup: string, svg: boolean) {
-  const id = `${svg ? 1 : 0}${markup}`;
+/** Whether a template element or one inside it must start in the page's document. */
+function adopts(slot: Slot): boolean {
+  return (
+    slot.kind === "element" && (!!slot.adopt || slot.children.some(adopts))
+  );
+}
+
+/**
+ * Declares a template once per module, and returns its name. Plain HTML
+ * that clones the same from the template's inert document uses the lean
+ * `clone`, the rest `template` with its flags.
+ */
+function declare(
+  context: Context,
+  markup: string,
+  svg: boolean,
+  adopt: boolean,
+) {
+  const id = `${svg ? 1 : 0}${adopt ? 1 : 0}${markup}`;
   let name = context.templates.get(id);
   if (!name) {
     name = local(context, "tmpl");
     context.templates.set(id, name);
-    helper(context, "template");
+    helper(context, svg || adopt ? "template" : "clone");
   }
   return name;
 }
@@ -1084,6 +1122,7 @@ function element(
     svg: isSvg(tag),
     attributes: "",
     children: [],
+    adopt: tag.includes("-"),
   };
   const attributes = (node.openingElement.attributes as Node[]).filter(
     (attribute) => !IGNORED.has(nameOf(attribute)),
@@ -1116,6 +1155,7 @@ function element(
       continue;
     }
 
+    if (ADOPTED.has(name)) self.adopt = true;
     const fixed = staticValue(attribute);
     if (
       fixed !== undefined &&
@@ -1341,6 +1381,26 @@ function needs(slot: Slot): boolean {
 function render(context: Context, operation: Operation): Part[] {
   const target = operation.target.ref!;
 
+  if (
+    operation.kind === "insert" &&
+    operation.text &&
+    isString(context, operation.value)
+  ) {
+    return [`${target}.textContent = `, ...operation.value, "; "];
+  }
+  if (
+    operation.kind === "attr" &&
+    operation.name !== "class" &&
+    operation.name !== "style" &&
+    !PROPERTIES.has(operation.name) &&
+    isString(context, operation.value)
+  ) {
+    return [
+      `${target}.setAttribute(${quote(operation.name)}, `,
+      ...operation.value,
+      "); ",
+    ];
+  }
   if (operation.kind === "insert") {
     const marker = operation.marker ? `, ${operation.marker.ref}` : "";
     const name = operation.text ? "text" : "insert";
@@ -1382,6 +1442,142 @@ function render(context: Context, operation: Operation): Part[] {
     ...operation.value,
     "); ",
   ];
+}
+
+/**
+ * Whether `value` is a prop that is a string in every call of its component,
+ * see {@link analyze}, so the DOM takes it as it is, without a binding.
+ */
+function isString(context: Context, value: Part[]) {
+  if (value.length !== 1 || typeof value[0] === "string") return false;
+  const { node } = value[0];
+  if (node.type !== "Identifier") return false;
+  const scope = declaring(context, node.name);
+  return (
+    scope?.declared.kind === "param" &&
+    !!context.fixed.get(scope.node)?.has(node.name)
+  );
+}
+
+/**
+ * What the module's own components show about their props. It looks at the
+ * components the module declares as a function without parameters, or whose
+ * one parameter destructures its props, and never refers to but as a JSX
+ * tag.
+ *
+ * - `fixed`: per function, the locals of the props that are strings in every
+ *   call: every tag passes a string literal for them, without spreads, and
+ *   the local is never assigned.
+ * - `childless`: the components that can't read `children`: no rest, no
+ *   `children` key, no computed key and no `arguments`. A tag without
+ *   children then passes none, instead of an empty array.
+ */
+function analyze(program: Node) {
+  const fixed = new Map<Node, Set<string>>();
+  const childless = new Set<string>();
+  const components = new Map<string, Node>();
+  const uses = new Map<string, number>();
+  const tags = new Map<string, Node[]>();
+
+  for (const statement of program.body as Node[]) {
+    if (
+      statement.type === "FunctionDeclaration" &&
+      statement.id &&
+      /^[A-Z]/.test(statement.id.name) &&
+      (!statement.params.length ||
+        (statement.params.length === 1 &&
+          statement.params[0].type === "ObjectPattern"))
+    ) {
+      components.set(statement.id.name, statement);
+    }
+  }
+  if (!components.size) return { fixed, childless };
+
+  has(
+    program,
+    (node) => {
+      if (node.type === "Identifier" && components.has(node.name)) {
+        uses.set(node.name, (uses.get(node.name) ?? 0) + 1);
+      } else if (
+        node.type === "JSXOpeningElement" &&
+        node.name.type === "JSXIdentifier" &&
+        components.has(node.name.name)
+      ) {
+        const list = tags.get(node.name.name) ?? [];
+        tags.set(node.name.name, [...list, node]);
+      }
+      return false;
+    },
+    true,
+  );
+
+  for (const [name, fn] of components) {
+    const opened = tags.get(name);
+    if (uses.get(name) !== 1 || !opened) continue;
+
+    const properties: Node[] = fn.params[0]?.properties ?? [];
+    if (
+      properties.every(
+        (property: Node) =>
+          property.type === "Property" &&
+          !property.computed &&
+          (property.key.name ?? property.key.value) !== "children",
+      ) &&
+      !has(
+        fn.body,
+        (n) => n.type === "Identifier" && n.name === "arguments",
+        true,
+      )
+    ) {
+      childless.add(name);
+    }
+    if (
+      opened.some((tag) =>
+        tag.attributes.some((a: Node) => a.type === "JSXSpreadAttribute"),
+      )
+    ) {
+      continue;
+    }
+
+    const locals = new Set<string>();
+    for (const property of properties) {
+      if (
+        property.type !== "Property" ||
+        property.computed ||
+        property.key.type !== "Identifier" ||
+        property.value.type !== "Identifier" ||
+        property.key.name === "children" ||
+        IGNORED.has(property.key.name)
+      ) {
+        continue;
+      }
+      const key = property.key.name;
+      const local = property.value.name;
+      if (
+        opened.every((tag) => {
+          const found = tag.attributes.filter((a: Node) => nameOf(a) === key);
+          return found.length > 0 && found.every(isStringAttribute);
+        }) &&
+        !assigns(fn.body, local)
+      ) {
+        locals.add(local);
+      }
+    }
+    if (locals.size) fixed.set(fn, locals);
+  }
+  return { fixed, childless };
+}
+
+/** Whether a JSX attribute's value is a string literal. */
+function isStringAttribute(attribute: Node) {
+  const { value } = attribute;
+  if (value?.type === "Literal") return true;
+  if (value?.type !== "JSXExpressionContainer") return false;
+  const node = unwrap(value.expression);
+  return (
+    (node.type === "Literal" && typeof node.value === "string") ||
+    (node.type === "TemplateLiteral" && !node.expressions.length)
+  );
 }
 
 /**
@@ -1626,9 +1822,11 @@ function prepend(context: Context, program: Node) {
     lines.push(`import { ${internal.join(", ")} } from "qwrk/internal";`);
   }
   for (const [id, name] of context.templates) {
-    const svg = id[0] === "1" ? ", true" : "";
+    const svg = id[0] === "1";
+    const flags = id[1] === "1" ? `, ${svg}, true` : svg ? ", true" : "";
+    const fn = helper(context, flags ? "template" : "clone");
     lines.push(
-      `const ${name} = /*#__PURE__*/ ${helper(context, "template")}(${quote(id.slice(1))}${svg});`,
+      `const ${name} = /*#__PURE__*/ ${fn}(${quote(id.slice(2))}${flags});`,
     );
   }
   lines.push(...context.handlers);

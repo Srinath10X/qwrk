@@ -185,6 +185,54 @@ describe("derive", () => {
     expect(sum.value).toBe(10);
   });
 
+  it("re-runs in place, keeping the same dependency list", () => {
+    const a = state(1);
+    const b = state(1);
+    const sum = derive(() => a.value + b.value) as any;
+    const list = sum.s;
+
+    a.value = 2;
+    b.value = 3;
+
+    expect(sum.s).toBe(list);
+    expect(sum.value).toBe(5);
+  });
+
+  it("follows states read in another order, or for the first time", () => {
+    const flip = state(false);
+    const a = state("a");
+    const b = state("b");
+    const c = state("c");
+    let runs = 0;
+    const joined = derive(
+      () => (
+        runs++,
+        flip.value ? c.value + b.value + a.value : a.value + b.value
+      ),
+    );
+
+    flip.value = true;
+    expect(joined.value).toBe("cba");
+    for (const source of [flip, a, b, c]) {
+      expect((source as any).o.length).toBe(1);
+    }
+
+    c.value = "C";
+    a.value = "A";
+    expect(joined.value).toBe("CbA");
+
+    flip.value = false;
+    expect(joined.value).toBe("Ab");
+    expect((c as any).o.length).toBe(0);
+
+    runs = 0;
+    c.value = "x";
+    expect(runs).toBe(0);
+    b.value = "B";
+    expect(joined.value).toBe("AB");
+    expect(runs).toBe(1);
+  });
+
   it("unsubscribes from a state it stopped reading", () => {
     const pick = state(true);
     const a = state("a");

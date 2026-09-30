@@ -1,4 +1,4 @@
-import { watcher } from "#qwrk/reactivity/state.js";
+import { run, watcher } from "#qwrk/reactivity/state.js";
 
 /**
  * Runs `callback` once after the component is mounted, then again whenever a
@@ -20,5 +20,13 @@ import { watcher } from "#qwrk/reactivity/state.js";
  * @returns A function that stops the effect.
  */
 export function effect(callback: () => void, deps?: unknown[]): () => void {
-  return watcher(callback, deps, true);
+  return watcher(callback, deps, (node) => {
+    const start = () => run(node);
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", start, { once: true });
+    } else {
+      queueMicrotask(start);
+    }
+  });
 }

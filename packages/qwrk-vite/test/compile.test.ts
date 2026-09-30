@@ -21,17 +21,15 @@ describe("compile", () => {
     );
 
     expect(code).toContain(
-      `_$template("<div id=a class=\\"b &quot;c&quot;\\">Tom &amp; Jerry<br><img alt=x>")`,
+      `_$clone("<div id=a class=\\"b &quot;c&quot;\\">Tom &amp; Jerry<br><img alt=x>")`,
     );
     expect(code).toContain("const a = _tmpl$1();");
-    expect(code).toContain(
-      'import { template as _$template } from "qwrk/internal";',
-    );
+    expect(code).toContain('import { clone as _$clone } from "qwrk/internal";');
   });
 
   it("reuses a template used twice", () => {
     const code = output(`const a = <p>x</p>; const b = <p>x</p>;`);
-    expect(code.match(/_\$template\(/g)).toHaveLength(1);
+    expect(code.match(/_\$clone\(/g)).toHaveLength(1);
   });
 
   it("wraps expressions that may read .value in thunks", () => {
@@ -194,9 +192,23 @@ describe("compile", () => {
     );
 
     expect(code).toContain(
-      `_$template("<svg viewBox=\\"0 0 1 1\\"><circle></circle></svg>")`,
+      `_$clone("<svg viewBox=\\"0 0 1 1\\"><circle></circle></svg>")`,
     );
     expect(code).toContain(`_$template("<g><path d=M0></path></g>", true)`);
+  });
+
+  it("starts templates with URLs or custom elements in the page's document", () => {
+    const code = output(
+      `const a = <p><a href="/x">x</a></p>; const b = <div><img src={s} /></div>; const c = <x-y />; const d = <g><image href="i" /></g>; const e = <p><a>x</a></p>;`,
+    );
+
+    expect(code).toContain(`_$template("<p><a href=/x>x", false, true)`);
+    expect(code).toContain(`_$template("<div><img>", false, true)`);
+    expect(code).toContain(`_$template("<x-y>", false, true)`);
+    expect(code).toContain(
+      `_$template("<g><image href=i></image></g>", true, true)`,
+    );
+    expect(code).toContain(`_$clone("<p><a>x")`);
   });
 
   it("falls back to createElement for spreads and namespaced names", () => {
@@ -220,7 +232,7 @@ describe("compile", () => {
     expect(code).toContain('import { svg as _$svg } from "qwrk";');
     expect(code).toContain('_$svg("circle", { ...props, })');
     expect(code).toContain(
-      '_$template("<svg viewBox=\\"0 0 1 1\\"><line x1=0></line></svg>")',
+      '_$clone("<svg viewBox=\\"0 0 1 1\\"><line x1=0></line></svg>")',
     );
     expect(code).not.toContain("_$h(");
   });
@@ -255,6 +267,49 @@ describe("compile", () => {
     );
   });
 
+  it("writes props that are strings in every call without bindings", () => {
+    const code = output(
+      `function B({ id, text, n }) { return <p id={id} class={id} data-n={n}>{text}</p>; }
+       const a = <B id="a" text="x" n="1" />, b = <B id={"b"} text={\`y\`} n={2} />;`,
+    );
+
+    expect(code).toContain('_el$2.setAttribute("id", id);');
+    expect(code).toContain("_el$2.textContent = text;");
+    expect(code).toContain('_$attribute(_el$2, "class", id);');
+    expect(code).toContain('_$attribute(_el$2, "data-n", n);');
+  });
+
+  it("keeps bindings for props of components called otherwise", () => {
+    const sources = [
+      `export function B({ id }) { return <p id={id} />; } const a = <B id="a" />;`,
+      `function B({ id }) { return <p id={id} />; } const a = <B id="a" />; f(B);`,
+      `function B({ id }) { return <p id={id} />; } const a = <B id="a" />, b = <B {...p} />;`,
+      `function B({ id }) { return <p id={id} />; } const a = <B id="a" />, b = <B />;`,
+      `function B({ id }) { id = id + "!"; return <p id={id} />; } const a = <B id="a" />;`,
+      `function B({ id }) { return <p id={id} />; } function C({ B }) { return <B id="a" />; }`,
+    ];
+
+    for (const source of sources) {
+      expect(output(source), source).toContain('_$attribute(_el$2, "id", id);');
+    }
+  });
+
+  it("passes no children to local components that can't read them", () => {
+    const code = output(
+      `function A() { return <p />; } function B({ n }) { return <p>{n}</p>; }
+       function C({ children }) { return <p>{children}</p>; } function D({ ...rest }) { return <p />; }
+       function E({ n }) { return <p>{arguments[0].children}</p>; }
+       const x = [<A />, <B n={1} />, <B n={2}>kid</B>, <C />, <D />, <E n={1} />];`,
+    );
+
+    expect(code).toContain("_$component(A, { })");
+    expect(code).toContain("_$component(B, { n: 1, })");
+    expect(code).toContain('_$component(B, { n: 2, children: ["kid"] })');
+    expect(code).toContain("_$component(C, { children: [] })");
+    expect(code).toContain("_$component(D, { children: [] })");
+    expect(code).toContain("_$component(E, { n: 1, children: [] })");
+  });
+
   it("uses createElement for JSX that awaits", () => {
     const code = output(
       `async function f() { return <p class={await c}>{await t}</p>; }`,
@@ -264,8 +319,8 @@ describe("compile", () => {
 
   it("splits markup the HTML parser would move", () => {
     const code = output(`const a = <table><tr><td>{x}</td></tr></table>;`);
-    expect(code).toContain('_$template("<table>")');
-    expect(code).toContain('_$template("<tr><td>")');
+    expect(code).toContain('_$clone("<table>")');
+    expect(code).toContain('_$clone("<tr><td>")');
   });
 
   it("inserts the header after directives, with a source map", () => {

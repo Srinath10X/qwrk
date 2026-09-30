@@ -1,11 +1,12 @@
 import { read } from "#qwrk/dom/children.js";
 import {
   bind,
-  Binding,
   is,
   isReactive,
+  NONE,
   peek,
   watch,
+  type Computation,
 } from "#qwrk/reactivity/state.js";
 
 const ALIASES: Record<string, string> = { className: "class", htmlFor: "for" };
@@ -40,7 +41,21 @@ type Setter = (element: Element, name: string, value: unknown) => void;
 
 function bindWith(element: Element, name: string, value: unknown, set: Setter) {
   if (typeof value === "function") {
-    bind(new Attribute(element, name, value as () => unknown, set), element);
+    bind(
+      {
+        s: NONE,
+        p: null,
+        q: 0,
+        c: undefined,
+        n: undefined,
+        f: updateAttribute,
+        a: element,
+        b: name,
+        g: value,
+        h: set,
+      } as Attribute,
+      element,
+    );
   } else if (isReactive(value)) {
     set(element, name, peek(value));
     watch(value, element, set, name);
@@ -49,20 +64,20 @@ function bindWith(element: Element, name: string, value: unknown, set: Setter) {
   }
 }
 
-/** An attribute set from a function, again whenever a state it read changes. */
-class Attribute extends Binding {
-  constructor(
-    readonly a: Element,
-    readonly b: string,
-    readonly g: () => unknown,
-    readonly h: Setter,
-  ) {
-    super();
-  }
+/**
+ * An attribute set from a function, again whenever a state it read changes:
+ * a binding, see `bind`.
+ */
+interface Attribute extends Computation {
+  a: Element;
+  b: string;
+  g: () => unknown;
+  h: Setter;
+}
 
-  f() {
-    this.h(this.a, this.b, read(this.g()));
-  }
+/** Updates an {@link Attribute}. */
+function updateAttribute(this: Attribute) {
+  this.h(this.a, this.b, read(this.g()));
 }
 
 /**
@@ -77,30 +92,47 @@ export function classIf(
   yes: string,
   no: string,
 ) {
-  bind(new ClassIf(element, source, key, yes, no), element);
+  bind(
+    {
+      s: NONE,
+      p: null,
+      q: 0,
+      c: undefined,
+      n: undefined,
+      f: updateClassIf,
+      a: element,
+      b: source,
+      k: key,
+      y: yes,
+      x: no,
+    } as ClassIf,
+    element,
+  );
 }
 
-/** A class set from `source` being `key`, tracked on that key only. */
-class ClassIf extends Binding {
-  constructor(
-    readonly a: Element,
-    readonly source: unknown,
-    readonly k: unknown,
-    readonly y: string,
-    readonly no: string,
-  ) {
-    super();
-  }
+/**
+ * A class set from `b` being `k`, tracked on that key only: a binding, see
+ * `bind`.
+ */
+interface ClassIf extends Computation {
+  a: Element;
+  b: unknown;
+  k: unknown;
+  /** The class when `b` is `k`. */
+  y: string;
+  /** The class otherwise. */
+  x: string;
+}
 
-  f() {
-    const source = this.source as any;
-    const cls = (
-      isReactive(source) ? is(source, this.k) : source.value === this.k
-    )
-      ? this.y
-      : this.no;
-    if (cls || this.a.hasAttribute("class")) this.a.setAttribute("class", cls);
-  }
+/** Updates a {@link ClassIf}. */
+function updateClassIf(this: ClassIf) {
+  const source = this.b as any;
+  const cls = (
+    isReactive(source) ? is(source, this.k) : source.value === this.k
+  )
+    ? this.y
+    : this.x;
+  if (cls || this.a.hasAttribute("class")) this.a.setAttribute("class", cls);
 }
 
 /** Sets a property, a style object, or else an attribute, see {@link setPlain}. */

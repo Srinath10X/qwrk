@@ -3,6 +3,7 @@ import { createElement as h, derive, effect, state } from "../dist/index.js";
 import {
   attr,
   classIf,
+  clone,
   component,
   delegate,
   equals,
@@ -24,7 +25,23 @@ describe("template", () => {
 
     expect(first.outerHTML).toBe('<tr class="a"><td>1</td><td></td></tr>');
     expect(first).not.toBe(second);
+    document.createElement("table").append(first);
     expect(first.ownerDocument).toBe(document);
+  });
+
+  it("clones plain HTML with clone()", () => {
+    const row = clone('<tr class="a"><td>1</td><td></td></tr>');
+    const first = row() as HTMLElement;
+
+    expect(first.outerHTML).toBe('<tr class="a"><td>1</td><td></td></tr>');
+    expect(row()).not.toBe(first);
+  });
+
+  it("starts clones in the page's document when told to adopt", () => {
+    const link = template('<a href="x">x</a>', false, true)() as HTMLElement;
+
+    expect(link.ownerDocument).toBe(document);
+    expect(link.outerHTML).toBe('<a href="x">x</a>');
   });
 
   it("creates SVG elements in the SVG namespace", () => {
@@ -275,12 +292,16 @@ describe("delegate", () => {
   });
 
   it("listens once per event name", () => {
-    const spy = vi.spyOn(document, "addEventListener");
     delegate(["keydown", "keydown"]);
     delegate(["keydown"]);
+    const div = document.createElement("div");
+    const handler = vi.fn();
+    (div as any).$$keydown = handler;
+    document.body.append(div);
 
-    expect(spy).toHaveBeenCalledTimes(1);
-    spy.mockRestore();
+    div.dispatchEvent(new Event("keydown", { bubbles: true }));
+    expect(handler).toHaveBeenCalledTimes(1);
+    div.remove();
   });
 });
 
@@ -362,6 +383,48 @@ describe("fused", () => {
     fused(tr, selected, 2, "danger", "", a, label);
     expect(tr.hasAttribute("class")).toBe(false);
     expect(a.textContent).toBe("one");
+  });
+
+  it("writes into the text node the template left", () => {
+    const selected = state(1);
+    const label = state("one");
+    const tr = document.createElement("tr");
+    const a = document.createElement("a");
+    a.append(" ");
+    tr.append(a);
+    const node = a.firstChild;
+
+    fused(tr, selected, 1, "danger", "", a, label);
+    label.value = "two";
+
+    expect(a.firstChild).toBe(node);
+    expect(a.textContent).toBe("two");
+  });
+
+  it("rewrites the text only when the label changed", () => {
+    const selected = state(1);
+    const label = state("one");
+    const tr = document.createElement("tr");
+    const a = document.createElement("a");
+    a.append(" ");
+    tr.append(a);
+    fused(tr, selected, 1, "danger", "", a, label);
+    const writes = new MutationObserver(() => {});
+    writes.observe(a, { characterData: true, subtree: true });
+
+    selected.value = 2;
+    expect(tr.className).toBe("");
+    expect(writes.takeRecords()).toHaveLength(0);
+
+    label.value = "two";
+    expect(writes.takeRecords()).toHaveLength(1);
+    expect(tr.className).toBe("");
+
+    selected.value = 1;
+    expect(tr.className).toBe("danger");
+    expect(writes.takeRecords()).toHaveLength(0);
+    expect(a.textContent).toBe("two");
+    writes.disconnect();
   });
 
   it("hands non-text labels to a full slot", () => {

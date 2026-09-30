@@ -214,6 +214,35 @@ const cases: Record<string, string> = {
     };
   `,
 
+  "components that always get string props": `
+    import { state } from "qwrk";
+    function Button({ id, text, kind: type, onClick }) {
+      return (
+        <button id={id} type={type} data-id={id} onClick={onClick}>
+          {text}
+        </button>
+      );
+    }
+    function Label({ text }) {
+      return <span title={text}>{text}</span>;
+    }
+    export default () => {
+      const n = state(0);
+      return {
+        node: (
+          <div>
+            <Button id="a" text="A" kind="button" onClick={() => n.value++} />
+            <Button id={"b"} text={\`B\`} kind="submit" onClick={() => n.value--} />
+            <Button id="" text="" kind="reset" onClick={() => {}} />
+            <Label text={n} />
+            <p>{n}</p>
+          </div>
+        ),
+        steps: [(root) => root.querySelector("button").click()],
+      };
+    };
+  `,
+
   "fragments at the top and nested": `
     import { state } from "qwrk";
     export default () => {

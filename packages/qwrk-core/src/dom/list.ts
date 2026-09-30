@@ -1,4 +1,4 @@
-import { append, relocate } from "#qwrk/dom/children.js";
+import { append, blank, fragment, relocate } from "#qwrk/dom/children.js";
 import { toRaw } from "#qwrk/reactivity/deep.js";
 import {
   computation,
@@ -32,8 +32,6 @@ interface List extends Row {
   rs: Row[];
   /** Each row's item, unwrapped. */
   k: unknown[];
-  /** The array's state. */
-  g: State<unknown>;
 }
 
 /**
@@ -41,9 +39,9 @@ interface List extends Row {
  * {@link State.map}.
  */
 export function list(source: State<unknown>, fn: (item: any) => unknown) {
-  const nodes = document.createDocumentFragment();
+  const nodes = fragment();
   const self = computation(
-    { rs: [], k: [], g: source, h: text(), t: text() },
+    { rs: [], k: [], h: blank(), t: blank() },
     fn as () => unknown,
   ) as unknown as List;
 
@@ -52,10 +50,6 @@ export function list(source: State<unknown>, fn: (item: any) => unknown) {
   update(self, 0, peek(source));
   watch(source, self, update);
   return nodes;
-}
-
-function text() {
-  return document.createTextNode("");
 }
 
 /**
@@ -71,20 +65,8 @@ function update(self: List, _: unknown, value: unknown) {
 
   const items: unknown[] = Array.isArray(value) ? value : [];
   const { k: a, rs: rows, h: start, t: end } = self;
-  const b = Array(items.length);
-  const next: Row[] = Array(b.length);
-
-  for (let i = 0; i < items.length; i++) b[i] = toRaw(items[i]);
-
-  self.k = b;
-  self.rs = next;
-
-  if (!a.length) {
-    insert(self, items, next, 0, b.length);
-    chain(self, next);
-    return;
-  }
-
+  const b = (self.k = items.map(toRaw));
+  const next: Row[] = (self.rs = Array(b.length));
   const old: (Row | 0)[] = rows;
   let sources: Int32Array | undefined;
   let s = 0;
@@ -109,7 +91,6 @@ function update(self: List, _: unknown, value: unknown) {
     }
   }
 
-  let matched = false;
   let kept: number[] | undefined;
 
   /**
@@ -130,7 +111,6 @@ function update(self: List, _: unknown, value: unknown) {
       const i = positions.get(b[j]) ?? -1;
 
       if (i >= 0) {
-        matched = true;
         positions.set(b[j], same[i]);
         sources[j] = i + 1;
         next[j] = rows[i];
@@ -138,7 +118,7 @@ function update(self: List, _: unknown, value: unknown) {
       }
     }
 
-    if (matched) kept = sequence(sources);
+    kept = sequence(sources);
   }
 
   if (kept?.length) {
@@ -190,10 +170,14 @@ function chain(self: List, next: Row[]) {
 }
 
 /**
- * Creates the rows of `items[from..to)` and inserts them at once. Each one
- * calls `fn` with its raw item, untracked, in a new scope that owns what
- * `fn` creates. Reads through the state still wrap and track, but the item
- * a row captured never does: change it through the state instead.
+ * Creates the rows of `items[from..to)`, inserting each one before the row
+ * after them as soon as it is rendered: a clone goes straight to its place,
+ * without a detour through a fragment. Each one calls `fn` with its raw
+ * item, untracked, in a new scope that owns what `fn` creates. Reads through
+ * the state still wrap and track, but the item a row captured never does:
+ * change it through the state instead. Rows of a list whose markers left the
+ * page go to a fragment nobody holds. A row is an object literal with all of
+ * its fields, see `Key`.
  */
 function insert(
   self: List,
@@ -204,22 +188,32 @@ function insert(
 ) {
   if (from >= to) return;
 
-  const nodes = document.createDocumentFragment();
+  const anchor = next[to]?.h ?? self.t;
+  const parent = anchor.parentNode;
+  const nodes = parent ?? fragment();
+  const at = parent && anchor;
 
   for (let j = from; j < to; j++) {
-    const row = { s: self.s, p: self, q: 0 } as any as Row;
+    const row = {
+      s: self.s,
+      p: self,
+      q: 0,
+      c: undefined,
+      n: undefined,
+      h: null,
+      t: null,
+    } as any as Row;
     const result: any = own(row, self.f, items[j]);
 
     if (result instanceof Node && result.nodeType != 11) {
-      row.h = row.t = nodes.appendChild(result as ChildNode);
+      row.h = row.t = nodes.insertBefore(result as ChildNode, at);
     } else {
-      row.h = nodes.appendChild(text());
-      append(nodes, result);
-      row.t = nodes.appendChild(text());
+      row.h = nodes.insertBefore(blank(), at);
+      append(nodes, result, at);
+      row.t = nodes.insertBefore(blank(), at);
     }
     next[j] = row;
   }
-  (next[to]?.h ?? self.t).before(nodes);
 }
 
 /**
