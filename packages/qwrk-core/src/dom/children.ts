@@ -169,9 +169,14 @@ class Label extends Binding {
  * returns, again whenever a state it read changes. Owned like any binding,
  * so a parent that disposes (a row, a derive) unlinks it eagerly, and one
  * without a parent is left to the collector.
+ *
+ * Text updates reuse the same node; anything else replaces the nodes, each
+ * of which keeps the slot alive. When its first and last nodes are still in
+ * place, everything between them goes too, such as the rows a list added
+ * since.
  */
 class Slot extends Binding {
-  /** Where it inserts its first nodes, cleared once they are in. */
+  /** Where it inserts its nodes, cleared once they are in. */
   declare h: Node | null;
   declare m: Node | null | undefined;
   /** A state, or a function. */
@@ -189,9 +194,28 @@ class Slot extends Binding {
   f() {
     const g = this.g;
     const value = read(typeof g === "function" ? g() : g);
-    if (this.l) return update(this, value);
-    this.l = render(value);
-    for (const node of this.l) this.h!.insertBefore(node, this.m ?? null);
+    const nodes = this.l;
+
+    if (nodes) {
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+
+      if (first === last && first instanceof Text && isTextValue(value)) {
+        first.data = toText(value);
+        return;
+      }
+
+      first.before((this.m = blank()));
+      this.h = this.m.parentNode;
+      if (last.parentNode === this.h) relocate(first, last);
+      else nodes.forEach((node) => node.remove());
+    }
+
+    for (const node of (this.l = render(value))) {
+      if (nodes) retain(node, this);
+      this.h?.insertBefore(node, this.m ?? null);
+    }
+    if (nodes) (this.m as ChildNode).remove();
     this.h = this.m = null;
   }
 }
@@ -256,35 +280,6 @@ function collect(value: unknown, nodes: ChildNode[]) {
     nodes.push(toNode(value));
   }
   return nodes;
-}
-
-/**
- * Text updates reuse the same node; anything else replaces the nodes, each of
- * which keeps the slot alive. When its first and last nodes are still in
- * place, everything between them goes too, such as the rows a list added
- * since.
- */
-function update(slot: Slot, value: unknown) {
-  const nodes = slot.l;
-  const first = nodes[0];
-  const last = nodes[nodes.length - 1];
-
-  if (first === last && first instanceof Text && isTextValue(value)) {
-    first.data = toText(value);
-    return;
-  }
-
-  const anchor = blank();
-  const group = fragment();
-  first.before(anchor);
-  if (last.parentNode === anchor.parentNode) relocate(first, last);
-  else nodes.forEach((node) => node.remove());
-  slot.l = render(value);
-  for (const node of slot.l) {
-    retain(node, slot);
-    group.appendChild(node);
-  }
-  anchor.replaceWith(group);
 }
 
 /**
