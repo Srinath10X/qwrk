@@ -197,10 +197,17 @@ export function read(value: unknown) {
 }
 
 /**
- * `false`, `true`, `null` and `undefined` render as empty text.
+ * `false`, `true`, `null` and `undefined` render as empty text. Numbers other
+ * than zero go to the DOM as they are, which writes the same text without
+ * growing the engine's number-to-string cache for good, as a list of ids
+ * would. Some DOM implementations write nothing for a raw `0`.
  */
-function toText(value: unknown) {
-  return value == null || typeof value === "boolean" ? "" : String(value);
+function toText(value: unknown): string {
+  return value == null || typeof value === "boolean"
+    ? ""
+    : typeof value === "number" && value
+      ? (value as unknown as string)
+      : String(value);
 }
 
 function toNode(value: unknown): ChildNode {
