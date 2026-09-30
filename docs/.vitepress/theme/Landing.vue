@@ -129,15 +129,13 @@ type Point = [number, number, number];
 
 /**
  * One piece of isometric art, painted in order: a block, a flow along points
- * (or an arc between two), a logo or a label printed on a top face, or a
- * callout with a leader line.
+ * (or an arc between two), or a logo or a label printed on a top face.
  */
 type Item =
   | { box: [...Point, number, number, number]; kind?: "wire" | "lit" | "ghost" }
   | { path: Point[]; arc?: number }
   | { logo: string; at: Point; size: number }
-  | { label: string; at: Point; lit?: boolean }
-  | { note: string; at: Point; dx: number; dy: number };
+  | { label: string; at: Point; lit?: boolean };
 
 const unit = 20;
 const cos30 = Math.cos(Math.PI / 6);
@@ -208,31 +206,11 @@ function draw(items: Item[], font: number) {
         transform: `matrix(${cos30} 0.5 ${-cos30} 0.5 ${x.toFixed(1)} ${y.toFixed(1)})`,
       };
     }
-    if ("label" in item) {
-      const [x, y] = at(item.at);
-      return {
-        label: item.label,
-        lit: item.lit,
-        transform: `matrix(${cos30} -0.5 ${cos30} 0.5 ${x.toFixed(1)} ${y.toFixed(1)})`,
-      };
-    }
-    const [x1, y1] = at(item.at);
-    const x2 = x1 + item.dx;
-    const y2 = y1 + item.dy;
-    const end = item.dx < 0;
-    const gap = font * 0.5;
-    const width = item.note.length * font * 0.62;
-    xs.push(x2, end ? x2 - gap - width : x2 + gap + width);
-    ys.push(y2 - font, y2 + font);
+    const [x, y] = at(item.at);
     return {
-      note: item.note,
-      line: { x1, y1, x2, y2 },
-      text: {
-        x: end ? x2 - gap : x2 + gap,
-        y: y2,
-        anchor: end ? "end" : "start",
-      },
-      dot: { cx: x1, cy: y1, r: font * 0.22 },
+      label: item.label,
+      lit: item.lit,
+      transform: `matrix(${cos30} -0.5 ${cos30} 0.5 ${x.toFixed(1)} ${y.toFixed(1)})`,
     };
   });
   const pad = 14;
@@ -274,9 +252,6 @@ function fineGrained(): Item[] {
       ],
     },
     { box: [4.1, 1.5, 3.1, 0.6, 0.6, 0.6], kind: "lit" },
-    { note: "count.value++", at: [4.7, 1.8, 3.4], dx: 36, dy: -10 },
-    { note: "{count}", at: [4.9, 1.8, 0.6], dx: 70, dy: 18 },
-    { note: "untouched", at: [0.5, 2.1, 0.3], dx: -36, dy: 20 },
   );
   return items;
 }
@@ -306,7 +281,6 @@ function keyedRows(): Item[] {
       ],
       arc: 1.8,
     },
-    { note: "same nodes, new order", at: [4.2, 0.6, 2.0], dx: 0, dy: -26 },
   );
   return items;
 }
@@ -331,8 +305,6 @@ const bento = [
     art: scene([
       { box: [0, 0, 0, 4, 4, 4], kind: "ghost" },
       { box: [1.55, 1.55, 0, 0.9, 0.9, 0.9], kind: "lit" },
-      { note: "build time", at: [0, 0, 4], dx: -24, dy: -12 },
-      { note: "2.9 KB shipped", at: [2.45, 2, 0.6], dx: 64, dy: 40 },
     ]),
   },
   {
@@ -349,9 +321,6 @@ const bento = [
         ],
       },
       { box: [0.7, 0.7, 3, 1.6, 1.6, 1.6], kind: "ghost" },
-      { note: "Counter(), once", at: [2.3, 1.5, 3.8], dx: 30, dy: -14 },
-      { note: "binding", at: [1.9, 1.5, 1.0], dx: 60, dy: 4 },
-      { note: "real DOM", at: [3, 2.2, 0.2], dx: 30, dy: 22 },
     ]),
   },
   {
@@ -383,8 +352,6 @@ const bento = [
         ],
         arc: 2.6,
       },
-      { note: "<template>", at: [0.125, 2.2, 1.2], dx: -24, dy: 18 },
-      { note: "cloneNode(true)", at: [5.05, 1.1, 1.2], dx: 24, dy: 20 },
     ]),
   },
   {
@@ -396,10 +363,6 @@ const bento = [
       { box: [0, 3.6, 0, 0.8, 0.8, 0.8] },
       ...wired([0.4, 2.2, 4], 0.8, [3.9, 2.2, 0.4], 2.4),
       { box: [3.9, 1.4, 0, 1.6, 1.6, 1.6], kind: "lit" },
-      { note: "a.value = 1", at: [0, 0.4, 0.6], dx: -20, dy: -8 },
-      { note: "b.value = 2", at: [0, 2.2, 0.6], dx: -20, dy: -8 },
-      { note: "c.value = 3", at: [0, 4, 0.6], dx: -20, dy: -8 },
-      { note: "one update", at: [4.7, 2.2, 1.6], dx: 30, dy: -24 },
     ]),
   },
   {
@@ -420,7 +383,6 @@ const bento = [
       { logo: "esbuild", at: [0.8, 5.2, 0.3], size: 0.95 },
       ...wired([0.8, 3, 5.2], 1.6, [4, 3, 0.15], 2.8),
       { box: [4, 2.2, 0, 1.6, 1.6, 1.6], kind: "lit" },
-      { note: "qwrk-vite", at: [4.8, 3, 1.6], dx: 30, dy: -24 },
     ]),
   },
 ];
@@ -605,7 +567,7 @@ const links = [
                   :transform="shape.transform"
                 />
                 <text
-                  v-else-if="'label' in shape"
+                  v-else
                   :class="['q-tag', shape.lit && 'q-tag--lit']"
                   :transform="shape.transform"
                   :font-size="cell.art.font"
@@ -614,20 +576,6 @@ const links = [
                 >
                   {{ shape.label }}
                 </text>
-                <g v-else class="q-note">
-                  <line v-bind="shape.line" />
-                  <circle v-bind="shape.dot" />
-                  <text
-                    :x="shape.text.x"
-                    :y="shape.text.y"
-                    :text-anchor="shape.text.anchor"
-                    :font-size="cell.art.font"
-                    :stroke-width="cell.art.font * 0.4"
-                    dominant-baseline="central"
-                  >
-                    {{ shape.note }}
-                  </text>
-                </g>
               </template>
             </svg>
           </div>
@@ -1481,24 +1429,6 @@ const links = [
 
 .q-tag--lit {
   fill: #0f1a2c;
-}
-
-.q-note line {
-  stroke: rgb(246 245 244 / 0.4);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-
-.q-note circle {
-  fill: var(--q-fg);
-}
-
-.q-note text {
-  font-family: var(--vp-font-family-mono);
-  fill: #cfcac4;
-  stroke: #151413;
-  stroke-linejoin: round;
-  paint-order: stroke;
 }
 
 @keyframes q-flow {
