@@ -60,6 +60,9 @@ importers:
       oxc-parser:
         specifier: ^0.151.0
         version: 0.151.0
+      qwrk:
+        specifier: ^0.4.0-beta.1
+        version: link:../qwrk-core
     devDependencies:
       '@types/node':
         specifier: ^24.13.6

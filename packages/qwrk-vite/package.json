@@ -1,6 +1,6 @@
 {
   "name": "qwrk-vite",
-  "version": "0.2.0",
+  "version": "0.3.0-beta.1",
   "description": "qwrk plugin for vite",
   "main": "dist/index.js",
   "type": "module",
@@ -28,6 +28,18 @@
   "files": [
     "dist"
   ],
+  "peerDependencies": {
+    "qwrk": "^0.4.0-beta.1"
+  },
+  "peerDependenciesMeta": {
+    "qwrk": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "magic-string": "^1.4.2",
+    "oxc-parser": "^0.151.0"
+  },
   "devDependencies": {
     "@types/node": "^24.13.6",
     "esbuild": "^0.28.2",
@@ -35,9 +47,5 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
     "vitest": "^5.0.1"
-  },
-  "dependencies": {
-    "magic-string": "^1.4.2",
-    "oxc-parser": "^0.151.0"
   }
 }
