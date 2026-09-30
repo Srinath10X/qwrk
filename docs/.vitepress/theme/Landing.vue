@@ -127,12 +127,17 @@ const manager = ref(managers[0]);
 
 type Point = [number, number, number];
 
-/** One piece of isometric art: a block, a flow line, an arc, or a logo printed on a block's top. */
+/**
+ * One piece of isometric art, painted in order: a block, a flow along points
+ * (or an arc between two), a logo or a label printed on a top face, or a
+ * callout with a leader line.
+ */
 type Item =
   | { box: [...Point, number, number, number]; kind?: "wire" | "lit" | "ghost" }
-  | { line: [Point, Point] }
-  | { arc: [Point, Point]; lift: number }
-  | { logo: string; at: Point; size: number };
+  | { path: Point[]; arc?: number }
+  | { logo: string; at: Point; size: number }
+  | { label: string; at: Point; lit?: boolean }
+  | { note: string; at: Point; dx: number; dy: number };
 
 const unit = 20;
 const cos30 = Math.cos(Math.PI / 6);
@@ -142,16 +147,20 @@ function iso([x, y, z]: Point): [number, number] {
   return [(x - y) * cos30 * unit, ((x + y) / 2 - z) * unit];
 }
 
-/** Turns items into SVG shapes, painted in order, and a viewBox that fits them all. */
-function scene(items: Item[]) {
+/** Draws items at one font size, in page units, and returns the shapes with their bounds. */
+function draw(items: Item[], font: number) {
   const xs: number[] = [];
   const ys: number[] = [];
-  const pt = (p: Point) => {
+  const at = (p: Point) => {
     const [x, y] = iso(p);
     xs.push(x);
     ys.push(y);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
+    return [x, y];
   };
+  const pt = (p: Point) =>
+    at(p)
+      .map((n) => n.toFixed(1))
+      .join(",");
   const shapes = items.map((item) => {
     if ("box" in item) {
       const [x, y, z, w, d, h] = item.box;
@@ -180,25 +189,50 @@ function scene(items: Item[]) {
         ].map((face) => face.map((p) => pt(p as Point)).join(" ")),
       };
     }
-    if ("line" in item) {
-      return { d: `M${pt(item.line[0])} L${pt(item.line[1])}` };
+    if ("path" in item) {
+      const [a, b] = item.path;
+      const d =
+        item.arc === undefined
+          ? `M${item.path.map(pt).join(" L")}`
+          : `M${pt(a)} Q${pt([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2 + item.arc])} ${pt(b)}`;
+      const [cx, cy] = iso(a);
+      return { d, dot: { cx, cy, r: font * 0.28 } };
     }
-    if ("arc" in item) {
-      const [a, b] = item.arc;
-      const mid: Point = [
-        (a[0] + b[0]) / 2,
-        (a[1] + b[1]) / 2,
-        (a[2] + b[2]) / 2 + item.lift,
-      ];
-      return { d: `M${pt(a)} Q${pt(mid)} ${pt(b)}` };
+    if ("logo" in item) {
+      const [x, y] = at(item.at);
+      const half = (item.size * unit) / 2;
+      return {
+        logo: item.logo,
+        size: half * 2,
+        offset: -half,
+        transform: `matrix(${cos30} 0.5 ${-cos30} 0.5 ${x.toFixed(1)} ${y.toFixed(1)})`,
+      };
     }
-    const [x, y] = iso(item.at);
-    const half = (item.size * unit) / 2;
+    if ("label" in item) {
+      const [x, y] = at(item.at);
+      return {
+        label: item.label,
+        lit: item.lit,
+        transform: `matrix(${cos30} -0.5 ${cos30} 0.5 ${x.toFixed(1)} ${y.toFixed(1)})`,
+      };
+    }
+    const [x1, y1] = at(item.at);
+    const x2 = x1 + item.dx;
+    const y2 = y1 + item.dy;
+    const end = item.dx < 0;
+    const gap = font * 0.5;
+    const width = item.note.length * font * 0.62;
+    xs.push(x2, end ? x2 - gap - width : x2 + gap + width);
+    ys.push(y2 - font, y2 + font);
     return {
-      logo: item.logo,
-      size: half * 2,
-      offset: -half,
-      transform: `matrix(${cos30} 0.5 ${-cos30} 0.5 ${x.toFixed(1)} ${y.toFixed(1)})`,
+      note: item.note,
+      line: { x1, y1, x2, y2 },
+      text: {
+        x: end ? x2 - gap : x2 + gap,
+        y: y2,
+        anchor: end ? "end" : "start",
+      },
+      dot: { cx: x1, cy: y1, r: font * 0.22 },
     };
   });
   const pad = 14;
@@ -206,7 +240,16 @@ function scene(items: Item[]) {
   const top = Math.min(...ys) - pad;
   const width = Math.max(...xs) + pad - left;
   const height = Math.max(...ys) + pad - top;
-  return { view: `${left} ${top} ${width} ${height}`, shapes };
+  return { view: `${left} ${top} ${width} ${height}`, height, font, shapes };
+}
+
+/** Draws a scene, sizing its text to read at about 11px once the art is fitted to its 192px well. */
+function scene(items: Item[]) {
+  let art = draw(items, 11);
+  for (let pass = 0; pass < 2; pass++) {
+    art = draw(items, (11 * art.height) / 192);
+  }
+  return art;
 }
 
 /** A floor of slabs, back to front, with one raised and lit under the state it reads. */
@@ -225,34 +268,54 @@ function fineGrained(): Item[] {
   }
   items.push(
     {
-      line: [
+      path: [
         [4.4, 1.8, 3.1],
-        [4.4, 1.8, 1.25],
+        [4.4, 1.8, 1.1],
       ],
     },
     { box: [4.1, 1.5, 3.1, 0.6, 0.6, 0.6], kind: "lit" },
+    { note: "count.value++", at: [4.7, 1.8, 3.4], dx: 36, dy: -10 },
+    { note: "{count}", at: [4.9, 1.8, 0.6], dx: 70, dy: 18 },
+    { note: "untouched", at: [0.5, 2.1, 0.3], dx: -36, dy: 20 },
   );
   return items;
 }
 
-/** Rows along a line, back to front, with two lit rows trading places. */
+/** Rows keyed a to g, back to front, with b and f trading places along two arcs. */
 function keyedRows(): Item[] {
   const items: Item[] = [];
   for (let i = 0; i < 7; i++) {
     const lit = i === 1 || i === 5;
-    items.push({
-      box: [i * 1.25, 0, 0, 0.9, 2.4, 0.3],
-      kind: lit ? "lit" : "wire",
-    });
+    items.push(
+      { box: [i * 1.25, 0, 0, 0.9, 2.4, 0.3], kind: lit ? "lit" : "wire" },
+      { label: "abcdefg"[i], at: [i * 1.25 + 0.45, 1.2, 0.3], lit },
+    );
   }
-  items.push({
-    arc: [
-      [1.7, 1.2, 0.3],
-      [6.7, 1.2, 0.3],
-    ],
-    lift: 3.2,
-  });
+  items.push(
+    {
+      path: [
+        [1.7, 0.6, 0.3],
+        [6.7, 0.6, 0.3],
+      ],
+      arc: 3.4,
+    },
+    {
+      path: [
+        [6.7, 1.8, 0.3],
+        [1.7, 1.8, 0.3],
+      ],
+      arc: 1.8,
+    },
+    { note: "same nodes, new order", at: [4.2, 0.6, 2.0], dx: 0, dy: -26 },
+  );
   return items;
+}
+
+/** Plates for each writer, wired along the floor into one lit block. */
+function wired(from: number[], x: number, into: Point, bus: number): Item[] {
+  return from.map((y): Item => ({
+    path: [[x, y, into[2]], [bus, y, into[2]], [bus, into[1], into[2]], into],
+  }));
 }
 
 const bento = [
@@ -263,11 +326,13 @@ const bento = [
     art: scene(fineGrained()),
   },
   {
-    title: "A tiny runtime",
-    text: "The compiler does its work at build time, so only a few kilobytes of runtime reach the browser.",
+    title: "As low as 2.9 KB",
+    text: "A whole counter app, runtime included, is 2.9 KB gzipped. The compiler does its work at build time, not in the browser.",
     art: scene([
       { box: [0, 0, 0, 4, 4, 4], kind: "ghost" },
-      { box: [1.6, 1.6, 0, 0.9, 0.9, 0.9], kind: "lit" },
+      { box: [1.55, 1.55, 0, 0.9, 0.9, 0.9], kind: "lit" },
+      { note: "build time", at: [0, 0, 4], dx: -24, dy: -12 },
+      { note: "2.9 KB shipped", at: [2.45, 2, 0.6], dx: 64, dy: 40 },
     ]),
   },
   {
@@ -278,12 +343,15 @@ const bento = [
       { box: [0.6, 0.6, 0.4, 1.8, 1.8, 0.4] },
       { box: [1.1, 1.1, 0.8, 0.8, 0.8, 0.4], kind: "lit" },
       {
-        line: [
+        path: [
           [1.5, 1.5, 3],
-          [1.5, 1.5, 1.3],
+          [1.5, 1.5, 1.2],
         ],
       },
       { box: [0.7, 0.7, 3, 1.6, 1.6, 1.6], kind: "ghost" },
+      { note: "Counter(), once", at: [2.3, 1.5, 3.8], dx: 30, dy: -14 },
+      { note: "binding", at: [1.9, 1.5, 1.0], dx: 60, dy: 4 },
+      { note: "real DOM", at: [3, 2.2, 0.2], dx: 30, dy: 22 },
     ]),
   },
   {
@@ -291,43 +359,47 @@ const bento = [
     text: "Static JSX becomes a template cloned with cloneNode(true), and each .value read is wired to its own binding.",
     art: scene([
       { box: [0, 0, 0, 0.25, 2.2, 2.8], kind: "lit" },
+      { box: [1.6, 0, 0, 0.25, 2.2, 2.8] },
+      { box: [3.2, 0, 0, 0.25, 2.2, 2.8] },
+      { box: [4.8, 0, 0, 0.25, 2.2, 2.8] },
       {
-        line: [
-          [0.25, 0, 2.8],
-          [3.55, 0, 2.8],
+        path: [
+          [0.125, 1.1, 2.8],
+          [1.725, 1.1, 2.8],
         ],
+        arc: 1,
       },
-      { box: [1.1, 0, 0, 0.25, 2.2, 2.8] },
-      { box: [2.2, 0, 0, 0.25, 2.2, 2.8] },
-      { box: [3.3, 0, 0, 0.25, 2.2, 2.8] },
+      {
+        path: [
+          [0.125, 1.1, 2.8],
+          [3.325, 1.1, 2.8],
+        ],
+        arc: 1.8,
+      },
+      {
+        path: [
+          [0.125, 1.1, 2.8],
+          [4.925, 1.1, 2.8],
+        ],
+        arc: 2.6,
+      },
+      { note: "<template>", at: [0.125, 2.2, 1.2], dx: -24, dy: 18 },
+      { note: "cloneNode(true)", at: [5.05, 1.1, 1.2], dx: 24, dy: 20 },
     ]),
   },
   {
     title: "Batched writes",
     text: "batch() turns several writes into one update. Derives, the DOM and effects settle once, glitch-free.",
     art: scene([
-      {
-        line: [
-          [0.4, 0.4, 0.8],
-          [4.7, 2.2, 1.6],
-        ],
-      },
-      {
-        line: [
-          [0.4, 2.2, 0.8],
-          [4.7, 2.2, 1.6],
-        ],
-      },
-      {
-        line: [
-          [0.4, 4, 0.8],
-          [4.7, 2.2, 1.6],
-        ],
-      },
       { box: [0, 0, 0, 0.8, 0.8, 0.8] },
       { box: [0, 1.8, 0, 0.8, 0.8, 0.8] },
       { box: [0, 3.6, 0, 0.8, 0.8, 0.8] },
+      ...wired([0.4, 2.2, 4], 0.8, [3.9, 2.2, 0.4], 2.4),
       { box: [3.9, 1.4, 0, 1.6, 1.6, 1.6], kind: "lit" },
+      { note: "a.value = 1", at: [0, 0.4, 0.6], dx: -20, dy: -8 },
+      { note: "b.value = 2", at: [0, 2.2, 0.6], dx: -20, dy: -8 },
+      { note: "c.value = 3", at: [0, 4, 0.6], dx: -20, dy: -8 },
+      { note: "one update", at: [4.7, 2.2, 1.6], dx: 30, dy: -24 },
     ]),
   },
   {
@@ -340,31 +412,15 @@ const bento = [
     title: "TypeScript, Vite, esbuild",
     text: "Typed state and JSX, with plugins for Vite and esbuild. SVG files import as components.",
     art: scene([
-      {
-        line: [
-          [0.8, 0.8, 0.3],
-          [4.8, 3, 0.8],
-        ],
-      },
-      {
-        line: [
-          [0.8, 3, 0.3],
-          [4.8, 3, 0.8],
-        ],
-      },
-      {
-        line: [
-          [0.8, 5.2, 0.3],
-          [4.8, 3, 0.8],
-        ],
-      },
       { box: [0, 0, 0, 1.6, 1.6, 0.3] },
       { logo: "typescript", at: [0.8, 0.8, 0.3], size: 0.95 },
       { box: [0, 2.2, 0, 1.6, 1.6, 0.3] },
       { logo: "vite", at: [0.8, 3, 0.3], size: 0.95 },
       { box: [0, 4.4, 0, 1.6, 1.6, 0.3] },
       { logo: "esbuild", at: [0.8, 5.2, 0.3], size: 0.95 },
+      ...wired([0.8, 3, 5.2], 1.6, [4, 3, 0.15], 2.8),
       { box: [4, 2.2, 0, 1.6, 1.6, 1.6], kind: "lit" },
+      { note: "qwrk-vite", at: [4.8, 3, 1.6], dx: 30, dy: -24 },
     ]),
   },
 ];
@@ -535,9 +591,12 @@ const links = [
                     :points="face"
                   />
                 </g>
-                <path v-else-if="'d' in shape" class="q-flow" :d="shape.d" />
+                <g v-else-if="'d' in shape">
+                  <path class="q-flow" :d="shape.d" />
+                  <circle class="q-flow__dot" v-bind="shape.dot" />
+                </g>
                 <image
-                  v-else
+                  v-else-if="'logo' in shape"
                   :href="withBase(`/logos/${shape.logo}.svg`)"
                   :x="shape.offset"
                   :y="shape.offset"
@@ -545,6 +604,30 @@ const links = [
                   :height="shape.size"
                   :transform="shape.transform"
                 />
+                <text
+                  v-else-if="'label' in shape"
+                  :class="['q-tag', shape.lit && 'q-tag--lit']"
+                  :transform="shape.transform"
+                  :font-size="cell.art.font"
+                  text-anchor="middle"
+                  dominant-baseline="central"
+                >
+                  {{ shape.label }}
+                </text>
+                <g v-else class="q-note">
+                  <line v-bind="shape.line" />
+                  <circle v-bind="shape.dot" />
+                  <text
+                    :x="shape.text.x"
+                    :y="shape.text.y"
+                    :text-anchor="shape.text.anchor"
+                    :font-size="cell.art.font"
+                    :stroke-width="cell.art.font * 0.4"
+                    dominant-baseline="central"
+                  >
+                    {{ shape.note }}
+                  </text>
+                </g>
               </template>
             </svg>
           </div>
@@ -1328,15 +1411,15 @@ const links = [
 }
 
 .q-box--wire .q-face {
-  stroke: rgb(246 245 244 / 0.24);
+  stroke: rgb(246 245 244 / 0.36);
 }
 
 .q-box--wire .q-face--0 {
-  fill: #22211f;
+  fill: #272624;
 }
 
 .q-box--wire .q-face--1 {
-  fill: #181715;
+  fill: #1a1917;
 }
 
 .q-box--wire .q-face--2 {
@@ -1377,12 +1460,45 @@ const links = [
 .q-flow {
   fill: none;
   stroke: var(--q-accent);
-  stroke-width: 1.25;
-  stroke-dasharray: 2 5;
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
   stroke-linecap: round;
-  opacity: 0.7;
+  stroke-linejoin: round;
+  opacity: 0.85;
   vector-effect: non-scaling-stroke;
-  animation: q-flow 1.6s linear infinite;
+  animation: q-flow 1.2s linear infinite;
+}
+
+.q-flow__dot {
+  fill: var(--q-accent);
+}
+
+.q-tag {
+  font-family: var(--vp-font-family-mono);
+  font-weight: 600;
+  fill: var(--q-muted);
+}
+
+.q-tag--lit {
+  fill: #0f1a2c;
+}
+
+.q-note line {
+  stroke: rgb(246 245 244 / 0.4);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.q-note circle {
+  fill: var(--q-fg);
+}
+
+.q-note text {
+  font-family: var(--vp-font-family-mono);
+  fill: #cfcac4;
+  stroke: #151413;
+  stroke-linejoin: round;
+  paint-order: stroke;
 }
 
 @keyframes q-flow {
