@@ -147,14 +147,16 @@ const manager = ref(managers[0]);
 type Point = [number, number, number];
 
 /**
- * One piece of isometric art, painted in order: a block, a curve that leaves
- * and enters along the x axis, a lattice of cells on a box's floor and back
- * walls, or a logo or a label printed on a top face.
+ * One piece of isometric art, painted in order: a block (a flat one is a
+ * shadow), a curve that leaves and enters along the x axis, or a logo or a
+ * label printed on a top face.
  */
 type Item =
-  | { box: [...Point, number, number, number]; kind?: "wire" | "lit" | "ghost" }
+  | {
+      box: [...Point, number, number, number];
+      kind?: "wire" | "lit" | "shadow";
+    }
   | { path: [Point, Point]; sweep: number }
-  | { lattice: number; size: number }
   | { logo: string; at: Point; size: number }
   | { label: string; at: Point; lit?: boolean };
 
@@ -207,42 +209,6 @@ function draw(items: Item[], font: number) {
           ],
         ].map((face) => face.map((p) => pt(p as Point)).join(" ")),
       };
-    }
-    if ("lattice" in item) {
-      const { lattice: n, size } = item;
-      const segments: string[] = [];
-      for (let i = 0; i <= n; i++) {
-        const t = (i * size) / n;
-        for (const [a, b] of [
-          [
-            [t, 0, 0],
-            [t, size, 0],
-          ],
-          [
-            [0, t, 0],
-            [size, t, 0],
-          ],
-          [
-            [t, 0, 0],
-            [t, 0, size],
-          ],
-          [
-            [0, 0, t],
-            [size, 0, t],
-          ],
-          [
-            [0, t, 0],
-            [0, t, size],
-          ],
-          [
-            [0, 0, t],
-            [0, size, t],
-          ],
-        ]) {
-          segments.push(`M${pt(a as Point)} L${pt(b as Point)}`);
-        }
-      }
-      return { lattice: segments.join(" ") };
     }
     if ("path" in item) {
       const [a, b] = item.path;
@@ -340,9 +306,9 @@ const bento = [
     title: "As low as 2.9 KB",
     text: "A counter app, runtime included, is 2.9 KB gzipped when built with esbuild and the Qwrk plugin.",
     art: scene([
-      { lattice: 5, size: 5 },
-      { box: [0, 0, 0, 5, 5, 5], kind: "ghost" },
-      { box: [2, 2, 0, 1, 1, 1], kind: "lit" },
+      { box: [0, 0, 0, 4, 4, 0.3] },
+      { box: [1.5, 1.5, 0.3, 1, 1, 0], kind: "shadow" },
+      { box: [1.6, 1.6, 2, 0.8, 0.8, 0.8], kind: "lit" },
     ]),
   },
   {
@@ -598,11 +564,6 @@ const links = [
                     :points="face"
                   />
                 </g>
-                <path
-                  v-else-if="'lattice' in shape"
-                  class="q-lattice"
-                  :d="shape.lattice"
-                />
                 <path v-else-if="'d' in shape" class="q-flow" :d="shape.d" />
                 <image
                   v-else-if="'logo' in shape"
@@ -1484,6 +1445,29 @@ const links = [
   padding: 16px 24px 24px;
 }
 
+/*
+ * Wide cells on desktop: copy on the left, pinned to the bottom, and the art
+ * filling the rest of the cell at its full height.
+ */
+@media (min-width: 1024px) {
+  .q-bento__cell--wide {
+    flex-direction: row-reverse;
+  }
+
+  .q-bento__cell--wide .q-bento__art {
+    flex: 1.4;
+    height: auto;
+    min-height: 260px;
+    padding: 28px 32px;
+  }
+
+  .q-bento__cell--wide .q-bento__body {
+    flex: 1;
+    justify-content: flex-end;
+    padding: 24px 0 28px 28px;
+  }
+}
+
 .q-bento__title {
   margin: 0;
   font-size: 17px;
@@ -1524,12 +1508,13 @@ const links = [
   fill: #121110;
 }
 
-.q-box--ghost .q-face {
-  fill: rgb(246 245 244 / 0.02);
-  stroke: rgb(246 245 244 / 0.3);
+.q-box--shadow .q-face {
+  fill: rgb(0 0 0 / 0.5);
+  stroke: none;
 }
 
-.q-box--lit {
+.q-box--lit,
+.q-tag--lit {
   transition: translate 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1549,7 +1534,8 @@ const links = [
   fill: #5877ab;
 }
 
-.q-bento__cell:hover .q-box--lit {
+.q-bento__cell:hover .q-box--lit,
+.q-bento__cell:hover .q-tag--lit {
   translate: 0 -4px;
 }
 
@@ -1559,13 +1545,6 @@ const links = [
   stroke-width: 1;
   stroke-linecap: round;
   stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.q-lattice {
-  fill: none;
-  stroke: rgb(246 245 244 / 0.065);
-  stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
 
@@ -1580,7 +1559,8 @@ const links = [
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .q-box--lit {
+  .q-box--lit,
+  .q-tag--lit {
     transition: none;
   }
 }
