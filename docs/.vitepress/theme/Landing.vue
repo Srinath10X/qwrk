@@ -1796,7 +1796,7 @@ const links = [
 
 /*
  * The tooling art answers the pointer per tool: the plate and its logo rise,
- * its curve turns blue, and the block it feeds rises with it. The card itself
+ * its outline and curve turn white, and the block it feeds rises with it. The card itself
  * no longer lifts the block on hover.
  */
 .q-tool {
@@ -1809,7 +1809,11 @@ const links = [
 }
 
 .q-flow.is-active {
-  stroke: var(--q-accent);
+  stroke: rgb(246 245 244 / 0.95);
+}
+
+.q-tool.is-active .q-face {
+  stroke: rgb(246 245 244 / 0.9);
 }
 
 .q-bento__cell--tools:hover .q-box--lit {
