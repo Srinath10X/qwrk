@@ -147,13 +147,13 @@ const manager = ref(managers[0]);
 type Point = [number, number, number];
 
 /**
- * One piece of isometric art, painted in order: a block, a flow along points
- * (or an arc between two), a lattice of cells on a box's floor and back
+ * One piece of isometric art, painted in order: a block, a curve that leaves
+ * and enters along the x axis, a lattice of cells on a box's floor and back
  * walls, or a logo or a label printed on a top face.
  */
 type Item =
   | { box: [...Point, number, number, number]; kind?: "wire" | "lit" | "ghost" }
-  | { path: Point[]; arc?: number; sweep?: number }
+  | { path: [Point, Point]; sweep: number }
   | { lattice: number; size: number }
   | { logo: string; at: Point; size: number }
   | { label: string; at: Point; lit?: boolean };
@@ -246,13 +246,9 @@ function draw(items: Item[], font: number) {
     }
     if ("path" in item) {
       const [a, b] = item.path;
-      const d =
-        item.sweep !== undefined
-          ? `M${pt(a)} C${pt([a[0] + item.sweep, a[1], a[2]])} ${pt([b[0] - item.sweep, b[1], b[2]])} ${pt(b)}`
-          : item.arc === undefined
-            ? `M${item.path.map(pt).join(" L")}`
-            : `M${pt(a)} Q${pt([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2 + item.arc])} ${pt(b)}`;
-      return { d };
+      return {
+        d: `M${pt(a)} C${pt([a[0] + item.sweep, a[1], a[2]])} ${pt([b[0] - item.sweep, b[1], b[2]])} ${pt(b)}`,
+      };
     }
     if ("logo" in item) {
       const [x, y] = at(item.at);
@@ -288,7 +284,7 @@ function scene(items: Item[]) {
   return art;
 }
 
-/** A floor of slabs, back to front, with one raised and lit under the state it reads. */
+/** A floor of slabs, back to front, with the one a write reaches raised and lit. */
 function fineGrained(): Item[] {
   const items: Item[] = [];
   for (let sum = 0; sum <= 7; sum++) {
@@ -302,19 +298,10 @@ function fineGrained(): Item[] {
       });
     }
   }
-  items.push(
-    {
-      path: [
-        [4.4, 1.8, 3.1],
-        [4.4, 1.8, 1.1],
-      ],
-    },
-    { box: [4.1, 1.5, 3.1, 0.6, 0.6, 0.6], kind: "lit" },
-  );
   return items;
 }
 
-/** Rows keyed a to g, back to front, with b and f trading places along two arcs. */
+/** Rows keyed a to g, back to front, with b and f lit as the pair that trades places. */
 function keyedRows(): Item[] {
   const items: Item[] = [];
   for (let i = 0; i < 7; i++) {
@@ -324,36 +311,19 @@ function keyedRows(): Item[] {
       { label: "abcdefg"[i], at: [i * 1.25 + 0.45, 1.2, 0.3], lit },
     );
   }
-  items.push(
-    {
-      path: [
-        [1.7, 0.6, 0.3],
-        [6.7, 0.6, 0.3],
-      ],
-      arc: 3.4,
-    },
-    {
-      path: [
-        [6.7, 1.8, 0.3],
-        [1.7, 1.8, 0.3],
-      ],
-      arc: 1.8,
-    },
-  );
   return items;
 }
 
 /**
- * Curves leaving the front edge of each plate at three points along the
- * floor, then bending into a tight parallel bundle that runs into the block.
- * They stay in order end to end, so no two of them cross.
+ * One curve from the middle of each plate's front edge, along the floor,
+ * bending into a parallel bundle that runs into the block. They stay in
+ * order end to end, so they never cross.
  */
 function sweep(plates: number[], x: number, into: Point): Item[] {
-  const starts = plates.flatMap((y) => [y, y + 0.8, y + 1.6]);
-  return starts.map((y, i): Item => ({
+  return plates.map((y, i): Item => ({
     path: [
-      [x, y, 0.15],
-      [into[0], into[1] - 0.6 + (i * 1.2) / (starts.length - 1), 0.15],
+      [x, y + 0.8, 0.15],
+      [into[0], into[1] - 0.4 + (i * 0.8) / (plates.length - 1), 0.15],
     ],
     sweep: 1.1,
   }));
@@ -382,13 +352,6 @@ const bento = [
       { box: [0, 0, 0, 3, 3, 0.4] },
       { box: [0.6, 0.6, 0.4, 1.8, 1.8, 0.4] },
       { box: [1.1, 1.1, 0.8, 0.8, 0.8, 0.4], kind: "lit" },
-      {
-        path: [
-          [1.5, 1.5, 3],
-          [1.5, 1.5, 1.2],
-        ],
-      },
-      { box: [0.7, 0.7, 3, 1.6, 1.6, 1.6], kind: "ghost" },
     ]),
   },
   {
@@ -396,19 +359,6 @@ const bento = [
     text: "The compiler turns static JSX into a <template> and copies it with cloneNode(true). Only the dynamic parts get a binding.",
     art: scene([
       { box: [0, 0, 0, 0.25, 2.2, 2.8], kind: "lit" },
-      ...(
-        [
-          [0, 2.8],
-          [2.2, 2.8],
-          [0, 0],
-          [2.2, 0],
-        ] as const
-      ).map(([y, z]): Item => ({
-        path: [
-          [0.25, y, z],
-          [4.8, y, z],
-        ],
-      })),
       { box: [1.6, 0, 0, 0.25, 2.2, 2.8] },
       { box: [3.2, 0, 0, 0.25, 2.2, 2.8] },
       { box: [4.8, 0, 0, 0.25, 2.2, 2.8] },
@@ -1614,7 +1564,7 @@ const links = [
 
 .q-lattice {
   fill: none;
-  stroke: rgb(246 245 244 / 0.13);
+  stroke: rgb(246 245 244 / 0.065);
   stroke-width: 1;
   vector-effect: non-scaling-stroke;
 }
