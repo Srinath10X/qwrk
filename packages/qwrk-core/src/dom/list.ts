@@ -190,10 +190,13 @@ function chain(self: List, next: Row[]) {
 }
 
 /**
- * Creates the rows of `items[from..to)` and inserts them at once. Each one
- * calls `fn` with its raw item, untracked, in a new scope that owns what
- * `fn` creates. Reads through the state still wrap and track, but the item
- * a row captured never does: change it through the state instead.
+ * Creates the rows of `items[from..to)`, inserting each one before the row
+ * after them as soon as it is rendered: a clone goes straight to its place,
+ * without a detour through a fragment. Each one calls `fn` with its raw
+ * item, untracked, in a new scope that owns what `fn` creates. Reads through
+ * the state still wrap and track, but the item a row captured never does:
+ * change it through the state instead. Rows of a list whose markers left the
+ * page go to a fragment nobody holds.
  */
 function insert(
   self: List,
@@ -204,22 +207,24 @@ function insert(
 ) {
   if (from >= to) return;
 
-  const nodes = document.createDocumentFragment();
+  const anchor = next[to]?.h ?? self.t;
+  const parent = anchor.parentNode;
+  const nodes = parent ?? document.createDocumentFragment();
+  const at = parent && anchor;
 
   for (let j = from; j < to; j++) {
     const row = { s: self.s, p: self, q: 0 } as any as Row;
     const result: any = own(row, self.f, items[j]);
 
     if (result instanceof Node && result.nodeType != 11) {
-      row.h = row.t = nodes.appendChild(result as ChildNode);
+      row.h = row.t = nodes.insertBefore(result as ChildNode, at);
     } else {
-      row.h = nodes.appendChild(text());
-      append(nodes, result);
-      row.t = nodes.appendChild(text());
+      row.h = nodes.insertBefore(text(), at);
+      append(nodes, result, at);
+      row.t = nodes.insertBefore(text(), at);
     }
     next[j] = row;
   }
-  (next[to]?.h ?? self.t).before(nodes);
 }
 
 /**
