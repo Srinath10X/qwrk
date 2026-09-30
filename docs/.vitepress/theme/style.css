@@ -218,6 +218,7 @@ html.dark .DocSearch-Button:focus:not(:focus-visible) {
 }
 
 html.dark .Layout {
+  position: relative;
   min-height: 100vh;
   margin: 0 var(--q-rail);
   border: 1px solid var(--q-border);
@@ -329,11 +330,9 @@ html.dark .Layout {
   }
 }
 
-/* Nav: translucent, blurred, inside the rails, with a hairline under it. */
+/* Nav: part of the page, not sticky, inside the rails, with a hairline under it. */
 html.dark .VPNavBar {
-  background-color: rgb(15 14 13 / 0.4);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  background-color: var(--q-bg);
 }
 
 html.dark .VPNavBar.screen-open {
@@ -389,8 +388,10 @@ html.dark .VPNavBarTitle .logo {
 
 @media (min-width: 960px) {
   html.dark .VPNav {
-    left: calc(var(--q-rail) + 1px);
-    right: calc(var(--q-rail) + 1px);
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
     width: auto;
     border-top: 1px solid var(--q-border);
   }
@@ -501,8 +502,11 @@ html.dark .VPLocalNav {
 /* Sidebar: same surface as the page, a hairline rail on its right. */
 @media (min-width: 960px) {
   html.dark .VPSidebar {
-    left: calc(var(--q-rail) + 1px);
-    bottom: calc(var(--q-gutter) + 1px);
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: auto;
+    overflow: visible;
     width: var(--vp-sidebar-width);
     padding-left: 32px;
     border-right: 1px solid var(--q-border);
