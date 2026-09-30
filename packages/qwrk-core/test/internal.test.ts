@@ -3,6 +3,7 @@ import { createElement as h, derive, effect, state } from "../dist/index.js";
 import {
   attr,
   classIf,
+  clone,
   component,
   delegate,
   equals,
@@ -26,6 +27,14 @@ describe("template", () => {
     expect(first).not.toBe(second);
     document.createElement("table").append(first);
     expect(first.ownerDocument).toBe(document);
+  });
+
+  it("clones plain HTML with clone()", () => {
+    const row = clone('<tr class="a"><td>1</td><td></td></tr>');
+    const first = row() as HTMLElement;
+
+    expect(first.outerHTML).toBe('<tr class="a"><td>1</td><td></td></tr>');
+    expect(row()).not.toBe(first);
   });
 
   it("starts clones in the page's document when told to adopt", () => {

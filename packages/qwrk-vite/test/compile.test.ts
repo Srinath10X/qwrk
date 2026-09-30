@@ -21,17 +21,15 @@ describe("compile", () => {
     );
 
     expect(code).toContain(
-      `_$template("<div id=a class=\\"b &quot;c&quot;\\">Tom &amp; Jerry<br><img alt=x>")`,
+      `_$clone("<div id=a class=\\"b &quot;c&quot;\\">Tom &amp; Jerry<br><img alt=x>")`,
     );
     expect(code).toContain("const a = _tmpl$1();");
-    expect(code).toContain(
-      'import { template as _$template } from "qwrk/internal";',
-    );
+    expect(code).toContain('import { clone as _$clone } from "qwrk/internal";');
   });
 
   it("reuses a template used twice", () => {
     const code = output(`const a = <p>x</p>; const b = <p>x</p>;`);
-    expect(code.match(/_\$template\(/g)).toHaveLength(1);
+    expect(code.match(/_\$clone\(/g)).toHaveLength(1);
   });
 
   it("wraps expressions that may read .value in thunks", () => {
@@ -194,7 +192,7 @@ describe("compile", () => {
     );
 
     expect(code).toContain(
-      `_$template("<svg viewBox=\\"0 0 1 1\\"><circle></circle></svg>")`,
+      `_$clone("<svg viewBox=\\"0 0 1 1\\"><circle></circle></svg>")`,
     );
     expect(code).toContain(`_$template("<g><path d=M0></path></g>", true)`);
   });
@@ -210,7 +208,7 @@ describe("compile", () => {
     expect(code).toContain(
       `_$template("<g><image href=i></image></g>", true, true)`,
     );
-    expect(code).toContain(`_$template("<p><a>x")`);
+    expect(code).toContain(`_$clone("<p><a>x")`);
   });
 
   it("falls back to createElement for spreads and namespaced names", () => {
@@ -234,7 +232,7 @@ describe("compile", () => {
     expect(code).toContain('import { svg as _$svg } from "qwrk";');
     expect(code).toContain('_$svg("circle", { ...props, })');
     expect(code).toContain(
-      '_$template("<svg viewBox=\\"0 0 1 1\\"><line x1=0></line></svg>")',
+      '_$clone("<svg viewBox=\\"0 0 1 1\\"><line x1=0></line></svg>")',
     );
     expect(code).not.toContain("_$h(");
   });
@@ -321,8 +319,8 @@ describe("compile", () => {
 
   it("splits markup the HTML parser would move", () => {
     const code = output(`const a = <table><tr><td>{x}</td></tr></table>;`);
-    expect(code).toContain('_$template("<table>")');
-    expect(code).toContain('_$template("<tr><td>")');
+    expect(code).toContain('_$clone("<table>")');
+    expect(code).toContain('_$clone("<tr><td>")');
   });
 
   it("inserts the header after directives, with a source map", () => {

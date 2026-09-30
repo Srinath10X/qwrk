@@ -1085,7 +1085,11 @@ function adopts(slot: Slot): boolean {
   );
 }
 
-/** Declares a template once per module, and returns its name. */
+/**
+ * Declares a template once per module, and returns its name. Plain HTML
+ * that clones the same from the template's inert document uses the lean
+ * `clone`, the rest `template` with its flags.
+ */
 function declare(
   context: Context,
   markup: string,
@@ -1097,7 +1101,7 @@ function declare(
   if (!name) {
     name = local(context, "tmpl");
     context.templates.set(id, name);
-    helper(context, "template");
+    helper(context, svg || adopt ? "template" : "clone");
   }
   return name;
 }
@@ -1822,8 +1826,9 @@ function prepend(context: Context, program: Node) {
   for (const [id, name] of context.templates) {
     const svg = id[0] === "1";
     const flags = id[1] === "1" ? `, ${svg}, true` : svg ? ", true" : "";
+    const fn = helper(context, flags ? "template" : "clone");
     lines.push(
-      `const ${name} = /*#__PURE__*/ ${helper(context, "template")}(${quote(id.slice(2))}${flags});`,
+      `const ${name} = /*#__PURE__*/ ${fn}(${quote(id.slice(2))}${flags});`,
     );
   }
   lines.push(...context.handlers);

@@ -9,7 +9,7 @@ export {
 export { append as insert, fused, text } from "#qwrk/dom/children.js";
 export { delegate } from "#qwrk/dom/events.js";
 export { map } from "#qwrk/dom/list.js";
-export { template } from "#qwrk/dom/template.js";
+export { clone, template } from "#qwrk/dom/template.js";
 export { untrack as component } from "#qwrk/reactivity/state.js";
 
 /**
