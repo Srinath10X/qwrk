@@ -397,16 +397,10 @@ const bento = [
     title: "Batched writes",
     text: "batch() turns several writes into one update. Derives, the DOM and effects settle once, glitch-free.",
     art: scene([
-      { box: [0, 0, 0, 3, 3, 0.3], kind: "lit" },
-      {
-        path: [
-          [1.5, 1.5, 4.6],
-          [1.5, 1.5, 0.3],
-        ],
-      },
-      { box: [0, 0, 1.5, 3, 3, 0.15], kind: "ghost" },
-      { box: [0, 0, 2.9, 3, 3, 0.15], kind: "ghost" },
-      { box: [0, 0, 4.3, 3, 3, 0.15], kind: "ghost" },
+      { box: [0, 0, 0, 3, 3, 0.2] },
+      { box: [0, 0, 0.8, 3, 3, 0.2] },
+      { box: [0, 0, 1.6, 3, 3, 0.2] },
+      { box: [0, 0, 2.6, 3, 3, 0.3], kind: "lit" },
     ]),
   },
   {
