@@ -292,12 +292,16 @@ describe("delegate", () => {
   });
 
   it("listens once per event name", () => {
-    const spy = vi.spyOn(document, "addEventListener");
     delegate(["keydown", "keydown"]);
     delegate(["keydown"]);
+    const div = document.createElement("div");
+    const handler = vi.fn();
+    (div as any).$$keydown = handler;
+    document.body.append(div);
 
-    expect(spy).toHaveBeenCalledTimes(1);
-    spy.mockRestore();
+    div.dispatchEvent(new Event("keydown", { bubbles: true }));
+    expect(handler).toHaveBeenCalledTimes(1);
+    div.remove();
   });
 });
 

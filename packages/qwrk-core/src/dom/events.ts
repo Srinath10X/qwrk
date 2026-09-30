@@ -1,8 +1,6 @@
-/** Event names with a listener on the document. */
-const delegated = new Set<string>();
-
 /**
- * Listens to each event on the document, once per name. A delegated event
+ * Listens to each event on the document, once per name: the DOM ignores a
+ * listener that is already there. A delegated event
  * walks up from its target, calling each element's `$$` + name handler with
  * the element as `this` and `currentTarget`, until one stops propagation.
  * The handler gets the element's `$$` + name + `Data` after the event.
@@ -11,12 +9,7 @@ const delegated = new Set<string>();
  * @param names - Event names, such as `"click"`.
  */
 export function delegate(names: string[]) {
-  for (const name of names) {
-    if (!delegated.has(name)) {
-      delegated.add(name);
-      document.addEventListener(name, dispatch);
-    }
-  }
+  for (const name of names) document.addEventListener(name, dispatch);
 }
 
 function dispatch(event: Event) {
