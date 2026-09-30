@@ -489,7 +489,7 @@ export function dispose(node: Computation) {
       unlinkSource(node.s[i], node, node.s[i + 2]);
     }
     node.s = NONE;
-    roots.delete(node);
+    if (node.e) roots.delete(node);
   }
 }
 

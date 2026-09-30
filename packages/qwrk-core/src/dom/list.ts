@@ -32,8 +32,6 @@ interface List extends Row {
   rs: Row[];
   /** Each row's item, unwrapped. */
   k: unknown[];
-  /** The array's state. */
-  g: State<unknown>;
 }
 
 /**
@@ -43,7 +41,7 @@ interface List extends Row {
 export function list(source: State<unknown>, fn: (item: any) => unknown) {
   const nodes = document.createDocumentFragment();
   const self = computation(
-    { rs: [], k: [], g: source, h: text(), t: text() },
+    { rs: [], k: [], h: text(), t: text() },
     fn as () => unknown,
   ) as unknown as List;
 
@@ -71,20 +69,8 @@ function update(self: List, _: unknown, value: unknown) {
 
   const items: unknown[] = Array.isArray(value) ? value : [];
   const { k: a, rs: rows, h: start, t: end } = self;
-  const b = Array(items.length);
-  const next: Row[] = Array(b.length);
-
-  for (let i = 0; i < items.length; i++) b[i] = toRaw(items[i]);
-
-  self.k = b;
-  self.rs = next;
-
-  if (!a.length) {
-    insert(self, items, next, 0, b.length);
-    chain(self, next);
-    return;
-  }
-
+  const b = (self.k = items.map(toRaw));
+  const next: Row[] = (self.rs = Array(b.length));
   const old: (Row | 0)[] = rows;
   let sources: Int32Array | undefined;
   let s = 0;
@@ -109,7 +95,6 @@ function update(self: List, _: unknown, value: unknown) {
     }
   }
 
-  let matched = false;
   let kept: number[] | undefined;
 
   /**
@@ -130,7 +115,6 @@ function update(self: List, _: unknown, value: unknown) {
       const i = positions.get(b[j]) ?? -1;
 
       if (i >= 0) {
-        matched = true;
         positions.set(b[j], same[i]);
         sources[j] = i + 1;
         next[j] = rows[i];
@@ -138,7 +122,7 @@ function update(self: List, _: unknown, value: unknown) {
       }
     }
 
-    if (matched) kept = sequence(sources);
+    kept = sequence(sources);
   }
 
   if (kept?.length) {
