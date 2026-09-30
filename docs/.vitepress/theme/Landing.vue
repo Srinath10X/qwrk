@@ -789,6 +789,9 @@ const links = [
 
       <div class="q-term">
         <div class="q-term__bar">
+          <span class="q-lights" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
           <div class="q-term__tabs" aria-label="Package manager">
             <button
               v-for="m in managers"
@@ -832,7 +835,7 @@ const links = [
         </div>
         <pre
           class="q-term__body"
-        ><code><span class="q-term__line"><span class="q-term__prompt">$</span> {{ manager.name }} create qwrk-app@latest my-app</span><span class="q-term__line"><span class="q-term__prompt">$</span> cd my-app</span><span class="q-term__line"><span class="q-term__prompt">$</span> {{ manager.install }}</span><span class="q-term__line"><span class="q-term__prompt">$</span> {{ manager.dev }}</span></code></pre>
+        ><code><span class="q-term__line"><span class="q-term__prompt">$</span> {{ manager.name }} create qwrk-app@latest my-app</span><span class="q-term__line"><span class="q-term__prompt">$</span> cd my-app</span><span class="q-term__line"><span class="q-term__prompt">$</span> {{ manager.install }}</span><span class="q-term__line"><span class="q-term__prompt">$</span> {{ manager.dev }}</span><span class="q-term__line q-term__out"> </span><span class="q-term__line q-term__out">  ➜  Local:   <span class="q-term__link">http://localhost:5173/</span></span><span class="q-term__line"><span class="q-term__caret" aria-hidden="true"></span></span></code></pre>
       </div>
       <span class="visually-hidden" aria-live="polite">{{
         copied ? "Copied to clipboard" : ""
@@ -1884,19 +1887,29 @@ const links = [
   min-width: 0;
   overflow: hidden;
   border-radius: 12px;
-  background: var(--q-code);
+  background: rgb(17 16 15 / 0.9);
+  box-shadow: 0 24px 48px -16px rgb(0 0 0 / 0.6);
 }
 
 .q-term__bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding-right: 6px;
   border-bottom: 1px solid var(--q-border);
+  background: rgb(255 255 255 / 0.02);
+}
+
+.q-term__bar .q-lights {
+  margin: 0;
+  padding: 0 10px 0 16px;
 }
 
 .q-term__tabs {
   display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .q-term__tab {
@@ -1929,10 +1942,10 @@ const links = [
 
 .q-term__body {
   margin: 0;
-  padding: 18px 20px 20px;
+  padding: 20px 22px 22px;
   overflow-x: auto;
   font-family: var(--vp-font-family-mono);
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 1.9;
   color: #d8d4cf;
 }
@@ -1949,6 +1962,40 @@ const links = [
 .q-term__prompt {
   color: var(--q-label);
   user-select: none;
+}
+
+.q-term__out {
+  color: var(--q-muted);
+}
+
+.q-term__link {
+  color: var(--q-accent);
+}
+
+/* A block cursor waiting on the running dev server. */
+.q-term__caret {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.15em;
+  vertical-align: -0.2em;
+  background: #d8d4cf;
+  animation: q-caret 1.1s steps(1) infinite;
+}
+
+@keyframes q-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.q-landing.is-scrolling .q-term__caret {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-term__caret {
+    animation: none;
+  }
 }
 
 .q-footer {
