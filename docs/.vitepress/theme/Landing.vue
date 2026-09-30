@@ -615,10 +615,11 @@ const links = [
 }
 
 .q-install {
+  position: relative;
   width: 100%;
   max-width: 420px;
-  border: 1px solid var(--q-border);
-  border-radius: 8px;
+  overflow: hidden;
+  border-radius: 12px;
   background: rgb(15 14 13 / 0.45);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
@@ -629,6 +630,34 @@ const links = [
 
 .q-hero__copy .q-install {
   margin-top: 16px;
+}
+
+/*
+ * Hairline ring for the rounded panels: brightest where light catches the top
+ * right corner, faint along the edges, with a soft glint at the bottom left.
+ */
+.q-install::before,
+.q-editor::before,
+.q-term::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    225deg,
+    rgb(255 255 255 / 0.3),
+    rgb(255 255 255 / 0.08) 35%,
+    rgb(255 255 255 / 0.06) 70%,
+    rgb(255 255 255 / 0.14)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 .q-install__tabs {
@@ -786,8 +815,10 @@ const links = [
 }
 
 .q-editor {
+  position: relative;
   margin: 0;
-  border: 1px solid rgb(246 245 244 / 0.1);
+  overflow: hidden;
+  border-radius: 12px;
   background: rgb(19 18 17 / 0.55);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   backdrop-filter: blur(20px) saturate(140%);
@@ -1174,8 +1205,10 @@ const links = [
 }
 
 .q-term {
+  position: relative;
   min-width: 0;
-  border: 1px solid var(--q-border);
+  overflow: hidden;
+  border-radius: 12px;
   background: var(--q-code);
 }
 
