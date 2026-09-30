@@ -19,16 +19,29 @@ async function copy(where: string, text = install) {
 
 const landing = ref<HTMLElement>();
 let settle: ReturnType<typeof setTimeout> | undefined;
+let still = false;
 
-/** Holds the aurora still while the page scrolls, so a scroll frame never waits on it to repaint. */
-function pause() {
-  landing.value?.classList.add("is-scrolling");
-  clearTimeout(settle);
-  settle = setTimeout(
-    () => landing.value?.classList.remove("is-scrolling"),
-    200,
-  );
+/** Starts or stops the aurora and the art's beams together. */
+function hold(paused: boolean) {
+  still = paused;
+  landing.value?.classList.toggle("is-scrolling", paused);
+  for (const svg of landing.value?.querySelectorAll<SVGSVGElement>(
+    ".q-bento__art svg",
+  ) ?? []) {
+    if (paused) svg.pauseAnimations();
+    else svg.unpauseAnimations();
+  }
 }
+
+/** Holds every animation still while the page scrolls, so a scroll frame never waits on a repaint. */
+function pause() {
+  if (!still) hold(true);
+  clearTimeout(settle);
+  settle = setTimeout(() => hold(false), 200);
+}
+
+/** The tool plate under the pointer in the tooling art, or -1. */
+const hot = ref(-1);
 
 onMounted(() => addEventListener("scroll", pause, { passive: true }));
 
@@ -149,15 +162,17 @@ type Point = [number, number, number];
 /**
  * One piece of isometric art, painted in order: a block (a flat one is a
  * shadow, a ghost is only its edges), a curve that leaves and enters along
- * the x axis and may carry a beam, or a logo or a label on a top face.
+ * the x axis and may carry a beam, or a logo or a label on a top face. A
+ * `tool` index ties a plate, its logo and its curve together for hover.
  */
 type Item =
   | {
       box: [...Point, number, number, number];
       kind?: "wire" | "lit" | "shadow" | "ghost";
+      tool?: number;
     }
-  | { path: [Point, Point]; sweep: number; beam?: number }
-  | { logo: string; at: Point; size: number }
+  | { path: [Point, Point]; sweep: number; beam?: number; tool?: number }
+  | { logo: string; at: Point; size: number; tool?: number }
   | { label: string; at: Point; lit?: boolean };
 
 const unit = 20;
@@ -206,6 +221,7 @@ function draw(items: Item[], font: number) {
       }
       return {
         kind: item.kind ?? "wire",
+        tool: item.tool,
         faces: [
           [
             [x, y, top],
@@ -230,15 +246,34 @@ function draw(items: Item[], font: number) {
     }
     if ("path" in item) {
       const [a, b] = item.path;
+      const [x1, y1] = iso(a);
+      const [x2, y2] = iso(b);
+      const shift = (t: number) =>
+        `${((x2 - x1) * t).toFixed(1)} ${((y2 - y1) * t).toFixed(1)}`;
       return {
         d: `M${pt(a)} C${pt([a[0] + item.sweep, a[1], a[2]])} ${pt([b[0] - item.sweep, b[1], b[2]])} ${pt(b)}`,
-        beam: item.beam,
+        tool: item.tool,
+        beam:
+          item.beam === undefined
+            ? undefined
+            : {
+                id: `q-beam-${item.beam}`,
+                x1,
+                y1,
+                x2,
+                y2,
+                start: `translate(${shift(-0.65)})`,
+                values: `${shift(-0.65)};${shift(0.65)};${shift(0.65)}`,
+                dur: `${2.2 + item.beam * 0.4}s`,
+                begin: `${item.beam * 0.7}s`,
+              },
       };
     }
     if ("logo" in item) {
       const [x, y] = at(item.at);
       const half = (item.size * unit) / 2;
       return {
+        tool: item.tool,
         logo: item.logo,
         size: half * 2,
         offset: -half,
@@ -312,6 +347,7 @@ function sweep(plates: number[], x: number, into: Point): Item[] {
     ],
     sweep: 1.1,
     beam: i,
+    tool: i,
   }));
 }
 
@@ -368,13 +404,14 @@ const bento = [
   {
     title: "TypeScript, Vite, esbuild",
     text: "Types ship with the package. There are plugins for Vite and esbuild, and .svg files import as components.",
+    tools: true,
     art: scene([
-      { box: [0, 0, 0, 1.6, 1.6, 0.3] },
-      { logo: "typescript", at: [0.8, 0.8, 0.3], size: 0.95 },
-      { box: [0, 2.2, 0, 1.6, 1.6, 0.3] },
-      { logo: "vite", at: [0.8, 3, 0.3], size: 0.95 },
-      { box: [0, 4.4, 0, 1.6, 1.6, 0.3] },
-      { logo: "esbuild", at: [0.8, 5.2, 0.3], size: 0.95 },
+      { box: [0, 0, 0, 1.6, 1.6, 0.3], tool: 0 },
+      { logo: "typescript", at: [0.8, 0.8, 0.3], size: 0.95, tool: 0 },
+      { box: [0, 2.2, 0, 1.6, 1.6, 0.3], tool: 1 },
+      { logo: "vite", at: [0.8, 3, 0.3], size: 0.95, tool: 1 },
+      { box: [0, 4.4, 0, 1.6, 1.6, 0.3], tool: 2 },
+      { logo: "esbuild", at: [0.8, 5.2, 0.3], size: 0.95, tool: 2 },
       ...sweep([0, 2.2, 4.4], 1.6, [4.3, 3, 0.8]),
       { box: [4, 2.2, 0, 1.6, 1.6, 1.6], kind: "lit" },
     ]),
@@ -594,13 +631,18 @@ const links = [
         <article
           v-for="cell in bento"
           :key="cell.title"
-          :class="['q-bento__cell', cell.wide && 'q-bento__cell--wide']"
+          :class="[
+            'q-bento__cell',
+            cell.wide && 'q-bento__cell--wide',
+            cell.tools && 'q-bento__cell--tools',
+          ]"
         >
           <div class="q-bento__art">
             <svg
               :viewBox="cell.art.view"
               preserveAspectRatio="xMidYMid meet"
               aria-hidden="true"
+              :class="{ 'is-hot': cell.tools && hot >= 0 }"
             >
               <template v-for="(shape, k) in cell.art.shapes" :key="k">
                 <g v-if="'edges' in shape" class="q-ghost">
@@ -609,7 +651,16 @@ const links = [
                 </g>
                 <g
                   v-else-if="'faces' in shape"
-                  :class="`q-box q-box--${shape.kind}`"
+                  :class="[
+                    'q-box',
+                    `q-box--${shape.kind}`,
+                    shape.tool !== undefined && 'q-tool',
+                    shape.tool !== undefined &&
+                      hot === shape.tool &&
+                      'is-active',
+                  ]"
+                  @mouseenter="shape.tool !== undefined && (hot = shape.tool)"
+                  @mouseleave="hot = -1"
                 >
                   <polygon
                     v-for="(face, n) in shape.faces"
@@ -619,27 +670,73 @@ const links = [
                   />
                 </g>
                 <template v-else-if="'d' in shape">
-                  <path class="q-flow" :d="shape.d" />
-                  <g
-                    v-if="shape.beam !== undefined"
-                    class="q-beam"
-                    :style="{
-                      '--delay': `${shape.beam * 0.7}s`,
-                      '--pace': `${2.2 + shape.beam * 0.4}s`,
-                    }"
-                  >
+                  <path
+                    :class="[
+                      'q-flow',
+                      shape.tool !== undefined &&
+                        hot === shape.tool &&
+                        'is-active',
+                    ]"
+                    :d="shape.d"
+                  />
+                  <template v-if="shape.beam">
+                    <linearGradient
+                      :id="shape.beam.id"
+                      gradientUnits="userSpaceOnUse"
+                      :x1="shape.beam.x1"
+                      :y1="shape.beam.y1"
+                      :x2="shape.beam.x2"
+                      :y2="shape.beam.y2"
+                      :gradientTransform="shape.beam.start"
+                    >
+                      <stop
+                        offset="0.38"
+                        stop-color="#dbe7fe"
+                        stop-opacity="0"
+                      />
+                      <stop
+                        offset="0.46"
+                        stop-color="#dbe7fe"
+                        stop-opacity="0.4"
+                      />
+                      <stop
+                        offset="0.5"
+                        stop-color="#f2f6ff"
+                        stop-opacity="1"
+                      />
+                      <stop
+                        offset="0.54"
+                        stop-color="#dbe7fe"
+                        stop-opacity="0.4"
+                      />
+                      <stop
+                        offset="0.62"
+                        stop-color="#dbe7fe"
+                        stop-opacity="0"
+                      />
+                      <animateTransform
+                        attributeName="gradientTransform"
+                        type="translate"
+                        :values="shape.beam.values"
+                        keyTimes="0;0.6;1"
+                        :dur="shape.beam.dur"
+                        :begin="shape.beam.begin"
+                        repeatCount="indefinite"
+                      />
+                    </linearGradient>
                     <path
-                      v-for="n in 4"
-                      :key="n"
-                      :class="`q-beam__${n}`"
+                      class="q-beam"
                       :d="shape.d"
-                      pathLength="100"
+                      :stroke="`url(#${shape.beam.id})`"
                     />
-                  </g>
+                  </template>
                 </template>
                 <image
                   v-else-if="'logo' in shape"
+                  :class="['q-tool', hot === shape.tool && 'is-active']"
                   :href="withBase(`/logos/${shape.logo}.svg`)"
+                  @mouseenter="shape.tool !== undefined && (hot = shape.tool)"
+                  @mouseleave="hot = -1"
                   :x="shape.offset"
                   :y="shape.offset"
                   :width="shape.size"
@@ -1686,79 +1783,41 @@ const links = [
 
 /*
  * A streak of light that runs the length of its curve, then waits off the
- * end. Four thin dashes share one centre and grow longer and fainter, so the
- * streak is brightest in the middle and fades out at both ends. Each curve
- * gets its own delay and pace, so the streaks never move in step.
+ * end: the curve is stroked with a gradient that is clear except for one soft
+ * bright band, and the band slides along. Each curve gets its own delay and
+ * pace, so the streaks never move in step.
  */
-.q-beam path {
+.q-beam {
   fill: none;
-  stroke: #cfe0fd;
-  stroke-width: 1.2;
-  stroke-linecap: butt;
-  animation-duration: var(--pace);
-  animation-timing-function: linear;
-  animation-delay: var(--delay);
-  animation-iteration-count: infinite;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 
-.q-beam .q-beam__1 {
-  opacity: 0.55;
-  stroke-dasharray: 4 400;
-  stroke-dashoffset: 17;
-  animation-name: q-beam-1;
+/*
+ * The tooling art answers the pointer per tool: the plate and its logo rise,
+ * its curve turns blue, and the block it feeds rises with it. The card itself
+ * no longer lifts the block on hover.
+ */
+.q-tool {
+  cursor: pointer;
+  transition: translate 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.q-beam .q-beam__2 {
-  opacity: 0.3;
-  stroke-dasharray: 10 400;
-  stroke-dashoffset: 20;
-  animation-name: q-beam-2;
+.q-tool.is-active {
+  translate: 0 -4px;
 }
 
-.q-beam .q-beam__3 {
-  opacity: 0.16;
-  stroke-dasharray: 18 400;
-  stroke-dashoffset: 24;
-  animation-name: q-beam-3;
+.q-flow.is-active {
+  stroke: var(--q-accent);
 }
 
-.q-beam .q-beam__4 {
-  opacity: 0.08;
-  stroke-dasharray: 28 400;
-  stroke-dashoffset: 29;
-  animation-name: q-beam-4;
+.q-bento__cell--tools:hover .q-box--lit {
+  translate: none;
 }
 
-@keyframes q-beam-1 {
-  55%,
-  100% {
-    stroke-dashoffset: -113;
-  }
-}
-
-@keyframes q-beam-2 {
-  55%,
-  100% {
-    stroke-dashoffset: -110;
-  }
-}
-
-@keyframes q-beam-3 {
-  55%,
-  100% {
-    stroke-dashoffset: -106;
-  }
-}
-
-@keyframes q-beam-4 {
-  55%,
-  100% {
-    stroke-dashoffset: -101;
-  }
-}
-
-.q-landing.is-scrolling .q-beam path {
-  animation-play-state: paused;
+.q-bento__cell--tools .is-hot .q-box--lit {
+  translate: 0 -4px;
 }
 
 .q-tag {
@@ -1777,7 +1836,8 @@ const links = [
   }
 
   .q-box--lit,
-  .q-tag--lit {
+  .q-tag--lit,
+  .q-tool {
     transition: none;
   }
 }
