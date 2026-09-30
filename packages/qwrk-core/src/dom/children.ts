@@ -7,6 +7,7 @@ import {
   own,
   peek,
   retain,
+  track,
   type Computation,
   type State,
 } from "#qwrk/reactivity/state.js";
@@ -151,25 +152,36 @@ function createLabel(
   };
 }
 
-/** Updates a {@link Label}. */
+/**
+ * Updates a {@link Label}. Once it read a state `b`, through its key, and a
+ * state `g`, those are its two dependencies, in that order: only the half
+ * whose version moved runs again, and the other one is only read again.
+ */
 function updateLabel(this: Label) {
-  const element = this.a;
+  const { a: element, b: source, s } = this;
+  const split = s.length == 6 && isReactive(source);
 
   if (element) {
-    const source = this.b as any;
-    const cls = (
-      isReactive(source) ? is(source, this.k) : source.value === this.k
-    )
-      ? this.y!
-      : this.x!;
-    if (cls !== this.u) {
-      if (cls || element.hasAttribute("class")) {
-        element.setAttribute("class", cls);
+    if (split && s[1] === s[0].v) {
+      track(s[0]);
+    } else {
+      const cls = (
+        isReactive(source)
+          ? is(source, this.k)
+          : (source as any).value === this.k
+      )
+        ? this.y!
+        : this.x!;
+      if (cls !== this.u) {
+        if (cls || element.hasAttribute("class")) {
+          element.setAttribute("class", cls);
+        }
+        this.u = cls;
       }
-      this.u = cls;
     }
   }
   if (this.t === undefined) return;
+  if (split && s[4] === s[3].v) return track(s[3]);
 
   const value = read(this.g);
   const parent = this.h;

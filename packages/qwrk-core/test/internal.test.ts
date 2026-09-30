@@ -401,6 +401,32 @@ describe("fused", () => {
     expect(a.textContent).toBe("two");
   });
 
+  it("rewrites the text only when the label changed", () => {
+    const selected = state(1);
+    const label = state("one");
+    const tr = document.createElement("tr");
+    const a = document.createElement("a");
+    a.append(" ");
+    tr.append(a);
+    fused(tr, selected, 1, "danger", "", a, label);
+    const writes = new MutationObserver(() => {});
+    writes.observe(a, { characterData: true, subtree: true });
+
+    selected.value = 2;
+    expect(tr.className).toBe("");
+    expect(writes.takeRecords()).toHaveLength(0);
+
+    label.value = "two";
+    expect(writes.takeRecords()).toHaveLength(1);
+    expect(tr.className).toBe("");
+
+    selected.value = 1;
+    expect(tr.className).toBe("danger");
+    expect(writes.takeRecords()).toHaveLength(0);
+    expect(a.textContent).toBe("two");
+    writes.disconnect();
+  });
+
   it("hands non-text labels to a full slot", () => {
     const selected = state(1);
     const label = state<unknown>("one");
