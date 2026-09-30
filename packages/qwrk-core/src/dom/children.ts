@@ -41,20 +41,12 @@ export function append(parent: Node, children: unknown, marker?: Node | null) {
  * {@link append}.
  */
 export function text(parent: Node, value: unknown) {
-  if (isReactive(value)) {
-    if (isTextValue(peek(value))) {
-      bind(new Label(null, null, null, "", "", parent, value));
-    } else {
-      append(parent, value);
-    }
-  } else if (
-    value instanceof Node ||
-    Array.isArray(value) ||
-    typeof value === "function"
-  ) {
-    append(parent, value);
-  } else {
+  if (isReactive(value) && isTextValue(peek(value))) {
+    bind(new Label(null, null, null, "", "", parent, value));
+  } else if (isTextValue(value)) {
     parent.textContent = toText(value);
+  } else {
+    append(parent, value);
   }
 }
 
@@ -89,27 +81,41 @@ export function fused(
  * nodes, a {@link Slot} owned by the same owner takes it over.
  */
 class Label extends Binding {
+  /** The element whose class it sets, or `null` for text only. */
+  declare readonly a: Element | null;
+  /** The state compared to `k`. */
+  declare readonly b: unknown;
+  declare readonly k: unknown;
+  /** The class when `b` is `k`. */
+  declare readonly y: string;
+  /** The class otherwise. */
+  declare readonly x: string;
+  /** The element whose text it writes. */
+  declare readonly h: Node;
+  /** The text: a state, or a plain value. */
+  declare readonly g: unknown;
   /** The class written last. */
   u: string | null = null;
   /** The text node it writes, or `undefined` once a slot took the text over. */
   t: ChildNode | null | undefined = null;
 
   constructor(
-    /** The element whose class it sets, or `null` for text only. */
-    readonly a: Element | null,
-    /** The state compared to `k`. */
-    readonly b: unknown,
-    readonly k: unknown,
-    /** The class when `b` is `k`. */
-    readonly y: string,
-    /** The class otherwise. */
-    readonly x: string,
-    /** The element whose text it writes. */
-    readonly h: Node,
-    /** The text: a state, or a plain value. */
-    readonly g: unknown,
+    a: Element | null,
+    b: unknown,
+    k: unknown,
+    y: string,
+    x: string,
+    h: Node,
+    g: unknown,
   ) {
     super();
+    this.a = a;
+    this.b = b;
+    this.k = k;
+    this.y = y;
+    this.x = x;
+    this.h = h;
+    this.g = g;
   }
 
   f() {
@@ -135,20 +141,18 @@ class Label extends Binding {
     const parent = this.h;
 
     if (isTextValue(value)) {
-      const text = toText(value);
-      const node = this.t;
+      let node = this.t;
 
-      if (node && node.parentNode === parent) (node as Text).data = text;
-      else {
-        const first = parent.firstChild;
-        if (first && first === parent.lastChild && first.nodeType === 3) {
-          (first as Text).data = text;
-          this.t = first;
-        } else {
-          parent.textContent = text;
+      if (node?.parentNode !== parent) {
+        node = parent.firstChild;
+        if (node?.nodeType !== 3 || node !== parent.lastChild) {
+          parent.textContent = toText(value);
           this.t = parent.firstChild;
+          return;
         }
+        this.t = node;
       }
+      (node as Text).data = toText(value);
       return;
     }
 
@@ -168,7 +172,7 @@ class Label extends Binding {
  */
 class Slot extends Binding {
   /** The nodes it renders as, which keep it alive. */
-  l!: ChildNode[];
+  declare l: ChildNode[];
 
   constructor(
     /** Where it inserts its first nodes, cleared once they are in. */
@@ -182,8 +186,7 @@ class Slot extends Binding {
 
   f() {
     const g = this.g;
-    const value =
-      typeof g === "function" ? read(g()) : (g as State<unknown>).value;
+    const value = read(typeof g === "function" ? g() : g);
     if (this.l) return update(this, value);
     this.l = render(value);
     for (const node of this.l) this.h!.insertBefore(node, this.m ?? null);
