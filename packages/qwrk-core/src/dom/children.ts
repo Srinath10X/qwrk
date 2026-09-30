@@ -43,7 +43,7 @@ export function append(parent: Node, children: unknown, marker?: Node | null) {
  */
 export function text(parent: Node, value: unknown) {
   if (isReactive(value) && isTextValue(peek(value))) {
-    bind(createLabel(parent, value));
+    bind(createLabel(parent, value, null));
   } else if (isTextValue(value)) {
     parent.textContent = toText(value);
   } else {
@@ -63,6 +63,11 @@ function isTextValue(value: unknown) {
  * one object, one run and one subscription for both, so rows with a selected
  * class and a state label skip a binding each. The class is tracked on that
  * key only, like {@link State.is}, and written only when it changes.
+ *
+ * The compiled template leaves a text node in `parent` for the label, taken
+ * here rather than in its runs: they then never check `parent`, whose
+ * delegated handlers give it a shape V8 drops once the rows are cleared,
+ * along with the optimized code that checked it.
  */
 export function fused(
   element: Element,
@@ -73,7 +78,19 @@ export function fused(
   parent: Node,
   label: unknown,
 ) {
-  bind(createLabel(parent, label, element, source, key, yes, no), element);
+  bind(
+    createLabel(
+      parent,
+      label,
+      parent.firstChild,
+      element,
+      source,
+      key,
+      yes,
+      no,
+    ),
+    element,
+  );
 }
 
 /**
@@ -108,6 +125,7 @@ interface Label extends Computation {
 function createLabel(
   h: Node,
   g: unknown,
+  t: ChildNode | null,
   a?: Element,
   b?: unknown,
   k?: unknown,
@@ -129,7 +147,7 @@ function createLabel(
     h,
     g,
     u: null,
-    t: null,
+    t,
   };
 }
 
@@ -158,18 +176,14 @@ function updateLabel(this: Label) {
 
   if (isTextValue(value)) {
     const text = toText(value);
-    let node = this.t;
+    const node = this.t;
 
-    if (node?.parentNode !== parent) {
-      node = parent.firstChild;
-      if (node?.nodeType !== 3 || node !== parent.lastChild) {
-        parent.textContent = text;
-        this.t = parent.firstChild;
-        return;
-      }
-      this.t = node;
+    if (node?.parentNode === parent) {
+      (node as Text).data = text;
+    } else {
+      parent.textContent = text;
+      this.t = parent.firstChild;
     }
-    (node as Text).data = text;
     return;
   }
 

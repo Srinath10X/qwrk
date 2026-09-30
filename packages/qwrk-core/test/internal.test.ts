@@ -385,6 +385,22 @@ describe("fused", () => {
     expect(a.textContent).toBe("one");
   });
 
+  it("writes into the text node the template left", () => {
+    const selected = state(1);
+    const label = state("one");
+    const tr = document.createElement("tr");
+    const a = document.createElement("a");
+    a.append(" ");
+    tr.append(a);
+    const node = a.firstChild;
+
+    fused(tr, selected, 1, "danger", "", a, label);
+    label.value = "two";
+
+    expect(a.firstChild).toBe(node);
+    expect(a.textContent).toBe("two");
+  });
+
   it("hands non-text labels to a full slot", () => {
     const selected = state(1);
     const label = state<unknown>("one");
