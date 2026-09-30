@@ -713,14 +713,16 @@ export function trackKey(
  * once it has none.
  */
 export class Key {
+  declare k: any;
+  declare m: Map<unknown, Key> | WeakMap<object, Key>;
   v = 0;
   o: Computation[] = NONE;
   w: Entry[] = NONE;
 
-  constructor(
-    public k: any,
-    public m: Map<unknown, Key> | WeakMap<object, Key>,
-  ) {}
+  constructor(k: any, m: Map<unknown, Key> | WeakMap<object, Key>) {
+    this.k = k;
+    this.m = m;
+  }
 }
 
 /**

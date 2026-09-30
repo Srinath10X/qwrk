@@ -51,13 +51,17 @@ function bindWith(element: Element, name: string, value: unknown, set: Setter) {
 
 /** An attribute set from a function, again whenever a state it read changes. */
 class Attribute extends Binding {
-  constructor(
-    readonly a: Element,
-    readonly b: string,
-    readonly g: () => unknown,
-    readonly h: Setter,
-  ) {
+  declare readonly a: Element;
+  declare readonly b: string;
+  declare readonly g: () => unknown;
+  declare readonly h: Setter;
+
+  constructor(a: Element, b: string, g: () => unknown, h: Setter) {
     super();
+    this.a = a;
+    this.b = b;
+    this.g = g;
+    this.h = h;
   }
 
   f() {

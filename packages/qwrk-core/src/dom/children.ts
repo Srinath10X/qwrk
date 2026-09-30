@@ -171,17 +171,19 @@ class Label extends Binding {
  * without a parent is left to the collector.
  */
 class Slot extends Binding {
+  /** Where it inserts its first nodes, cleared once they are in. */
+  declare h: Node | null;
+  declare m: Node | null | undefined;
+  /** A state, or a function. */
+  declare readonly g: unknown;
   /** The nodes it renders as, which keep it alive. */
   declare l: ChildNode[];
 
-  constructor(
-    /** Where it inserts its first nodes, cleared once they are in. */
-    private h: Node | null,
-    private m: Node | null | undefined,
-    /** A state, or a function. */
-    readonly g: unknown,
-  ) {
+  constructor(h: Node, m: Node | null | undefined, g: unknown) {
     super();
+    this.h = h;
+    this.m = m;
+    this.g = g;
   }
 
   f() {
@@ -214,9 +216,17 @@ function toText(value: unknown): string {
 }
 
 function toNode(value: unknown): ChildNode {
-  return value instanceof Node
-    ? (value as ChildNode)
-    : document.createTextNode(toText(value));
+  return value instanceof Node ? (value as ChildNode) : blank(toText(value));
+}
+
+/** A new text node, empty by default, such as a marker. */
+export function blank(text = "") {
+  return document.createTextNode(text);
+}
+
+/** A new, empty `DocumentFragment`. */
+export function fragment() {
+  return document.createDocumentFragment();
 }
 
 /**
@@ -225,7 +235,7 @@ function toNode(value: unknown): ChildNode {
  */
 function render(value: unknown): ChildNode[] {
   const nodes = collect(value, []);
-  return nodes.length ? nodes : [document.createTextNode("")];
+  return nodes.length ? nodes : [blank()];
 }
 
 /**
@@ -239,7 +249,7 @@ function collect(value: unknown, nodes: ChildNode[]) {
     const kids = value.childNodes;
     for (let i = 0; i < kids.length; i++) nodes.push(kids[i]);
   } else if (typeof value === "function" || isReactive(value)) {
-    const group = document.createDocumentFragment();
+    const group = fragment();
     append(group, ["", value, ""]);
     collect(group, nodes);
   } else {
@@ -264,8 +274,8 @@ function update(slot: Slot, value: unknown) {
     return;
   }
 
-  const anchor = document.createTextNode("");
-  const group = document.createDocumentFragment();
+  const anchor = blank();
+  const group = fragment();
   first.before(anchor);
   if (last.parentNode === anchor.parentNode) relocate(first, last);
   else nodes.forEach((node) => node.remove());

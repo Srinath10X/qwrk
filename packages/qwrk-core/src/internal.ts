@@ -1,4 +1,4 @@
-import { append } from "#qwrk/dom/children.js";
+import { append, fragment } from "#qwrk/dom/children.js";
 import { is, isReactive } from "#qwrk/reactivity/state.js";
 
 export {
@@ -16,7 +16,7 @@ export { untrack as component } from "#qwrk/reactivity/state.js";
  * Returns `children` in a `DocumentFragment`, like a JSX fragment.
  */
 export function group(children: unknown[]) {
-  const nodes = document.createDocumentFragment();
+  const nodes = fragment();
   append(nodes, children);
   return nodes;
 }

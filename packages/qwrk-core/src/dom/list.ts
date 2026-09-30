@@ -1,4 +1,4 @@
-import { append, relocate } from "#qwrk/dom/children.js";
+import { append, blank, fragment, relocate } from "#qwrk/dom/children.js";
 import { toRaw } from "#qwrk/reactivity/deep.js";
 import {
   computation,
@@ -39,9 +39,9 @@ interface List extends Row {
  * {@link State.map}.
  */
 export function list(source: State<unknown>, fn: (item: any) => unknown) {
-  const nodes = document.createDocumentFragment();
+  const nodes = fragment();
   const self = computation(
-    { rs: [], k: [], h: text(), t: text() },
+    { rs: [], k: [], h: blank(), t: blank() },
     fn as () => unknown,
   ) as unknown as List;
 
@@ -50,10 +50,6 @@ export function list(source: State<unknown>, fn: (item: any) => unknown) {
   update(self, 0, peek(source));
   watch(source, self, update);
   return nodes;
-}
-
-function text() {
-  return document.createTextNode("");
 }
 
 /**
@@ -193,7 +189,7 @@ function insert(
 
   const anchor = next[to]?.h ?? self.t;
   const parent = anchor.parentNode;
-  const nodes = parent ?? document.createDocumentFragment();
+  const nodes = parent ?? fragment();
   const at = parent && anchor;
 
   for (let j = from; j < to; j++) {
@@ -203,9 +199,9 @@ function insert(
     if (result instanceof Node && result.nodeType != 11) {
       row.h = row.t = nodes.insertBefore(result as ChildNode, at);
     } else {
-      row.h = nodes.insertBefore(text(), at);
+      row.h = nodes.insertBefore(blank(), at);
       append(nodes, result, at);
-      row.t = nodes.insertBefore(text(), at);
+      row.t = nodes.insertBefore(blank(), at);
     }
     next[j] = row;
   }
