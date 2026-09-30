@@ -108,7 +108,7 @@ let depth = 0;
  * Stale derives, DOM bindings (with their source, or stale ones), and stale
  * effects, run in that order.
  */
-const queue: any[] = [new Set(), new Map(), new Set()];
+const queue: Map<any, any>[] = [new Map(), new Map(), new Map()];
 
 /** Effects created outside of a derive or an effect, alive until stopped. */
 const roots = new Set<Computation>();
@@ -220,13 +220,10 @@ export function track(source: Signal<any>) {
   list.push(source, source.v);
 }
 
-/** Returns the raw value of `source`, up to date, without tracking it. Signals hold their value, so only derives refresh. */
+/** Returns the raw value of `source`, up to date, without tracking it. */
 export function peek<T>(source: State<T>): T {
-  const signal = source as Signal<T>;
-  if ((signal as unknown as { q?: number }).q === undefined)
-    return toRaw(signal._);
-  refresh(signal as any);
-  return toRaw(signal._);
+  refresh(source as any);
+  return toRaw((source as Signal<T>)._);
 }
 
 /**
@@ -262,12 +259,10 @@ function notify(source: Signal<any>, deep?: boolean) {
 function stale(node: Computation) {
   node.q = 1;
   if (node.o) {
-    queue[0].add(node);
+    queue[0].set(node, 0);
     notify(node as any, true);
-  } else if (node.e) {
-    queue[2].add(node);
   } else {
-    queue[1].set(node);
+    queue[node.e ? 2 : 1].set(node, 0);
   }
 }
 
@@ -301,7 +296,7 @@ function drain(last: number) {
 
     if (jobs.size) {
       if (++passes > 1e3) throw Error("qwrk: update loop");
-      queue[i] = i == 1 ? new Map() : new Set();
+      queue[i] = new Map();
 
       for (const job of jobs.keys()) {
         if (i > 1 && queue[0].size + queue[1].size) {
@@ -598,9 +593,7 @@ function link(source: Signal<any> | Key, owner: Computation): number {
   } else {
     subs.push(owner);
   }
-  if (source instanceof Key && !source.m.has(source.k)) {
-    source.m.set(source.k, source);
-  }
+  if (source instanceof Key) source.m.set(source.k, source);
   return source.o.length - 1;
 }
 
@@ -632,30 +625,9 @@ function unlinkSource(
 }
 
 /**
- * Subscribes `owner` to `source` for as long as `owner` is alive, calling
- * `fn` with the owner, `data` and the raw new value on every change. Unlike
- * a computation, it is never unlinked by disposal, only by the collector.
- */
-function watchLink(
-  source: Signal<any>,
-  owner: object,
-  f: Listener,
-  d: unknown,
-): Entry {
-  const entry: Entry = {} as Entry;
-  entry.r = new WeakRef(owner);
-  entry.f = f;
-  entry.d = d;
-
-  const subs = source.w;
-  entry.o = subs === NONE ? (source.w = [entry]) : (subs.push(entry), subs);
-  entry.i = entry.o.length - 1;
-  registry.register(owner, entry, entry);
-  return entry;
-}
-
-/**
- * Drops a listener, moving the last one into its place.
+ * Drops a listener, moving the last one into its place. Only a listener
+ * whose owner was collected is dropped, so the registry calls it at most
+ * once more, when it no longer holds its place.
  */
 function unwatch(entry: Entry) {
   const entries = entry.o;
@@ -665,7 +637,6 @@ function unwatch(entry: Entry) {
     const last = entries.pop()!;
     if (last !== entry) (entries[i] = last).i = i;
   }
-  registry.unregister(entry);
 }
 
 /** Keeps `target` alive for as long as `holder` is. */
@@ -692,8 +663,18 @@ export function watch<T, O extends object, D = undefined>(
   fn: (owner: O, data: D, value: T) => void,
   data?: D,
 ) {
+  const signal = source as unknown as Signal<T>;
+  const subs = signal.w;
+  const entry: Entry = {
+    r: new WeakRef(owner),
+    o: subs === NONE ? (signal.w = []) : subs,
+    i: 0,
+    f: fn,
+    d: data,
+  };
+  entry.i = entry.o.push(entry) - 1;
   retain(owner, source);
-  watchLink(source as any, owner, fn, data);
+  registry.register(owner, entry);
 }
 
 /**
@@ -709,39 +690,22 @@ export function untrack<A, T>(fn: (arg: A) => T, arg?: A): T {
  */
 export function is(source: State<unknown>, key: unknown): boolean {
   const value = peek(source);
-
-  const list = reads;
-  if (!list) return Object.is(value, toRaw(key));
-
-  const signal = source as Signal<unknown>;
   key = toRaw(key);
-
-  const keys = (signal.k ??= new Map());
-  let found = keys.get(key);
-
-  if (!found) keys.set(key, (found = new Key(key, keys)));
-
-  for (let i = 0; i < list.length; i += 2) {
-    if (list[i] === found) return Object.is(value, key);
-  }
-  list.push(found, found.v);
-
+  if (reads) trackKey(((source as Signal<unknown>).k ??= new Map()), key);
   return Object.is(value, key);
 }
 
 /**
  * Tracks the key `keys` holds for `key`, created on first use, as a
- * dependency of the running computation.
+ * dependency of the running computation, which the caller checked there is.
  */
 export function trackKey(
   keys: Map<unknown, Key> | WeakMap<object, Key>,
   key: any,
 ) {
-  if (reads) {
-    let found = keys.get(key);
-    if (!found) keys.set(key, (found = new Key(key, keys)));
-    track(found as any);
-  }
+  let found = keys.get(key);
+  if (!found) keys.set(key, (found = new Key(key, keys)));
+  track(found as any);
 }
 
 /**
