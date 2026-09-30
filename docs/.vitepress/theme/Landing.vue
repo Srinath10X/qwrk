@@ -1685,15 +1685,16 @@ const links = [
 }
 
 /*
- * A comet of light that runs the length of its curve, then waits off the
- * end. Four dashes share one head and grow longer and fainter, so the tail
- * fades out behind it. Each curve gets its own delay and pace, so the beams
- * never march in step.
+ * A streak of light that runs the length of its curve, then waits off the
+ * end. Four thin dashes share one centre and grow longer and fainter, so the
+ * streak is brightest in the middle and fades out at both ends. Each curve
+ * gets its own delay and pace, so the streaks never move in step.
  */
 .q-beam path {
   fill: none;
-  stroke: var(--q-accent);
-  stroke-linecap: round;
+  stroke: #cfe0fd;
+  stroke-width: 1.2;
+  stroke-linecap: butt;
   animation-duration: var(--pace);
   animation-timing-function: linear;
   animation-delay: var(--delay);
@@ -1701,62 +1702,58 @@ const links = [
 }
 
 .q-beam .q-beam__1 {
-  stroke: #dbe7fe;
-  stroke-width: 2;
-  stroke-dasharray: 1.5 400;
-  stroke-dashoffset: 1.5;
+  opacity: 0.55;
+  stroke-dasharray: 4 400;
+  stroke-dashoffset: 17;
   animation-name: q-beam-1;
 }
 
 .q-beam .q-beam__2 {
-  stroke-width: 1.6;
-  opacity: 0.55;
-  stroke-dasharray: 6 400;
-  stroke-dashoffset: 6;
+  opacity: 0.3;
+  stroke-dasharray: 10 400;
+  stroke-dashoffset: 20;
   animation-name: q-beam-2;
 }
 
 .q-beam .q-beam__3 {
-  stroke-width: 1.4;
-  opacity: 0.25;
-  stroke-dasharray: 12 400;
-  stroke-dashoffset: 12;
+  opacity: 0.16;
+  stroke-dasharray: 18 400;
+  stroke-dashoffset: 24;
   animation-name: q-beam-3;
 }
 
 .q-beam .q-beam__4 {
-  stroke-width: 1.2;
-  opacity: 0.1;
-  stroke-dasharray: 20 400;
-  stroke-dashoffset: 20;
+  opacity: 0.08;
+  stroke-dasharray: 28 400;
+  stroke-dashoffset: 29;
   animation-name: q-beam-4;
 }
 
 @keyframes q-beam-1 {
   55%,
   100% {
-    stroke-dashoffset: -123.5;
+    stroke-dashoffset: -113;
   }
 }
 
 @keyframes q-beam-2 {
   55%,
   100% {
-    stroke-dashoffset: -119;
+    stroke-dashoffset: -110;
   }
 }
 
 @keyframes q-beam-3 {
   55%,
   100% {
-    stroke-dashoffset: -113;
+    stroke-dashoffset: -106;
   }
 }
 
 @keyframes q-beam-4 {
   55%,
   100% {
-    stroke-dashoffset: -105;
+    stroke-dashoffset: -101;
   }
 }
 
