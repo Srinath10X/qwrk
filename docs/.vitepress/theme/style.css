@@ -180,19 +180,13 @@
 }
 
 /*
- * Page: the drafting hatch fills only the side margins. The site sits on a
- * solid column, framed by hairlines, that runs from the top of the page to
- * its bottom, so no hatch shows above or below it.
+ * Page: the site sits in a column framed by hairlines that runs from the top
+ * of the page to its bottom, on a plain background.
  */
 html {
   min-height: 100%;
   color-scheme: dark;
-  background:
-    repeating-linear-gradient(45deg, var(--q-border) 0 1px, transparent 1px 8px)
-      left top / var(--q-rail) 100% repeat-y fixed,
-    repeating-linear-gradient(45deg, var(--q-border) 0 1px, transparent 1px 8px)
-      right top / var(--q-rail) 100% repeat-y fixed,
-    var(--q-bg);
+  background: var(--q-bg);
   scrollbar-color: var(--q-border-strong) var(--q-bg);
   -webkit-tap-highlight-color: transparent;
 }
