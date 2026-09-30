@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { withBase } from "vitepress";
-import { onBeforeUnmount, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const install = "npm create qwrk-app@latest";
 const github = "https://github.com/Srinath10X/qwrk";
@@ -17,7 +17,23 @@ async function copy(where: string, text = install) {
   reset = setTimeout(() => (copied.value = ""), 1800);
 }
 
-onBeforeUnmount(() => clearTimeout(reset));
+const aurora = ref<HTMLElement>();
+let settle: ReturnType<typeof setTimeout> | undefined;
+
+/** Holds the aurora still while the page scrolls, so a scroll frame never waits on it to repaint. */
+function pause() {
+  aurora.value?.classList.add("is-paused");
+  clearTimeout(settle);
+  settle = setTimeout(() => aurora.value?.classList.remove("is-paused"), 200);
+}
+
+onMounted(() => addEventListener("scroll", pause, { passive: true }));
+
+onBeforeUnmount(() => {
+  removeEventListener("scroll", pause);
+  clearTimeout(settle);
+  clearTimeout(reset);
+});
 
 /** Runs the demo: a click writes the state, and both the binding in the code and the text it updates flash. */
 function bump() {
@@ -435,7 +451,7 @@ const links = [
 
 <template>
   <div class="q-landing">
-    <div class="q-aurora" aria-hidden="true"></div>
+    <div ref="aurora" class="q-aurora" aria-hidden="true"></div>
     <section class="q-hero">
       <div class="q-hero__copy enter">
         <p class="q-label q-label--muted">
@@ -839,9 +855,12 @@ const links = [
   inset: 0;
   background-image: var(--q-stripes), var(--q-rainbow);
   background-size: 200%, 100%;
-  background-attachment: fixed;
   mix-blend-mode: difference;
   animation: q-aurora 60s linear infinite;
+}
+
+.q-aurora.is-paused::after {
+  animation-play-state: paused;
 }
 
 @keyframes q-aurora {
@@ -1601,6 +1620,9 @@ const links = [
   stroke-linejoin: round;
   opacity: 0.85;
   vector-effect: non-scaling-stroke;
+}
+
+.q-bento__cell:hover .q-flow {
   animation: q-flow 1.2s linear infinite;
 }
 
@@ -1632,7 +1654,7 @@ const links = [
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .q-flow {
+  .q-bento__cell:hover .q-flow {
     animation: none;
   }
 
