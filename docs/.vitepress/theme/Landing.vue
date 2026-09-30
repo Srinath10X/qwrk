@@ -17,14 +17,27 @@ async function copy(where: string, text = install) {
   reset = setTimeout(() => (copied.value = ""), 1800);
 }
 
-const aurora = ref<HTMLElement>();
+const landing = ref<HTMLElement>();
 let settle: ReturnType<typeof setTimeout> | undefined;
+let still = false;
 
-/** Holds the aurora still while the page scrolls, so a scroll frame never waits on it to repaint. */
+/** Starts or stops the aurora and the art's pulses together. */
+function hold(paused: boolean) {
+  still = paused;
+  landing.value?.classList.toggle("is-scrolling", paused);
+  for (const svg of landing.value?.querySelectorAll<SVGSVGElement>(
+    ".q-bento__art svg",
+  ) ?? []) {
+    if (paused) svg.pauseAnimations();
+    else svg.unpauseAnimations();
+  }
+}
+
+/** Holds every animation still while the page scrolls, so a scroll frame never waits on a repaint. */
 function pause() {
-  aurora.value?.classList.add("is-paused");
+  if (!still) hold(true);
   clearTimeout(settle);
-  settle = setTimeout(() => aurora.value?.classList.remove("is-paused"), 200);
+  settle = setTimeout(() => hold(false), 200);
 }
 
 onMounted(() => addEventListener("scroll", pause, { passive: true }));
@@ -150,7 +163,7 @@ type Point = [number, number, number];
  */
 type Item =
   | { box: [...Point, number, number, number]; kind?: "wire" | "lit" | "ghost" }
-  | { path: Point[]; arc?: number; bare?: boolean }
+  | { path: Point[]; arc?: number; pulse?: boolean }
   | { lattice: number; size: number }
   | { logo: string; at: Point; size: number }
   | { label: string; at: Point; lit?: boolean };
@@ -247,8 +260,7 @@ function draw(items: Item[], font: number) {
         item.arc === undefined
           ? `M${item.path.map(pt).join(" L")}`
           : `M${pt(a)} Q${pt([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2 + item.arc])} ${pt(b)}`;
-      const [cx, cy] = iso(a);
-      return { d, dot: item.bare ? undefined : { cx, cy, r: font * 0.28 } };
+      return { d, pulse: item.pulse ? font * 0.24 : 0 };
     }
     if ("logo" in item) {
       const [x, y] = at(item.at);
@@ -339,11 +351,17 @@ function keyedRows(): Item[] {
   return items;
 }
 
-/** Plates for each writer, wired along the floor into one lit block. */
-function wired(from: number[], x: number, into: Point, bus: number): Item[] {
-  return from.map((y): Item => ({
-    path: [[x, y, into[2]], [bus, y, into[2]], [bus, into[1], into[2]], into],
-  }));
+/**
+ * Hairlines fanning out from both front corners of each plate and meeting
+ * inside the block, with one pulse running along a single line.
+ */
+function fan(plates: number[], x: number, into: Point): Item[] {
+  return plates.flatMap((y, i) =>
+    [y, y + 1.6].map((edge, j): Item => ({
+      path: [[x, edge, 0.3], into],
+      pulse: i === 1 && j === 0,
+    })),
+  );
 }
 
 const bento = [
@@ -395,7 +413,6 @@ const bento = [
           [0.25, y, z],
           [4.8, y, z],
         ],
-        bare: true,
       })),
       { box: [1.6, 0, 0, 0.25, 2.2, 2.8] },
       { box: [3.2, 0, 0, 0.25, 2.2, 2.8] },
@@ -428,7 +445,7 @@ const bento = [
       { logo: "vite", at: [0.8, 3, 0.3], size: 0.95 },
       { box: [0, 4.4, 0, 1.6, 1.6, 0.3] },
       { logo: "esbuild", at: [0.8, 5.2, 0.3], size: 0.95 },
-      ...wired([0.8, 3, 5.2], 1.6, [4, 3, 0.15], 2.8),
+      ...fan([0, 2.2, 4.4], 1.6, [4.4, 3, 0.8]),
       { box: [4, 2.2, 0, 1.6, 1.6, 1.6], kind: "lit" },
     ]),
   },
@@ -443,8 +460,8 @@ const links = [
 </script>
 
 <template>
-  <div class="q-landing">
-    <div ref="aurora" class="q-aurora" aria-hidden="true"></div>
+  <div ref="landing" class="q-landing">
+    <div class="q-aurora" aria-hidden="true"></div>
     <section class="q-hero">
       <div class="q-hero__copy enter">
         <h1 class="q-hero__title">
@@ -643,11 +660,13 @@ const links = [
                 />
                 <g v-else-if="'d' in shape">
                   <path class="q-flow" :d="shape.d" />
-                  <circle
-                    v-if="shape.dot"
-                    class="q-flow__dot"
-                    v-bind="shape.dot"
-                  />
+                  <circle v-if="shape.pulse" class="q-pulse" :r="shape.pulse">
+                    <animateMotion
+                      :path="shape.d"
+                      dur="3.2s"
+                      repeatCount="indefinite"
+                    />
+                  </circle>
                 </g>
                 <image
                   v-else-if="'logo' in shape"
@@ -848,7 +867,7 @@ const links = [
   animation: q-aurora 60s linear infinite;
 }
 
-.q-aurora.is-paused::after {
+.q-landing.is-scrolling .q-aurora::after {
   animation-play-state: paused;
 }
 
@@ -1600,11 +1619,10 @@ const links = [
 
 .q-flow {
   fill: none;
-  stroke: var(--q-accent);
+  stroke: rgb(246 245 244 / 0.26);
   stroke-width: 1;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.7;
   vector-effect: non-scaling-stroke;
 }
 
@@ -1615,8 +1633,14 @@ const links = [
   vector-effect: non-scaling-stroke;
 }
 
-.q-flow__dot {
+.q-pulse {
   fill: var(--q-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-pulse {
+    display: none;
+  }
 }
 
 .q-tag {
