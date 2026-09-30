@@ -538,7 +538,34 @@ const links = [
           <pre
             class="q-editor__code"
           ><code><span v-for="(line, i) in code" :key="i" class="q-editor__line"><span v-for="([kind, text], j) in line" :key="kind === 'b' || kind === 'w' ? `${kind}${flash}` : j" :class="['t-' + kind, (kind === 'b' || kind === 'w') && flash ? 'is-flash' : '']">{{ text }}</span></span></code></pre>
-          <figcaption class="q-editor__run">
+        </figure>
+        <div class="q-output" role="group" aria-label="Output">
+          <div class="q-output__bar">
+            <span class="q-output__lights" aria-hidden="true">
+              <i></i><i></i><i></i>
+            </span>
+            <svg class="q-output__nav" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m14.5 6-6 6 6 6" />
+            </svg>
+            <svg
+              class="q-output__nav is-off"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path d="m9.5 6 6 6-6 6" />
+            </svg>
+            <svg class="q-output__nav" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19 12a7 7 0 1 1-2.05-4.95M19 4.5v4h-4" />
+            </svg>
+            <span class="q-output__address">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5.5" y="10.5" width="13" height="9" rx="2" />
+                <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+              </svg>
+              localhost:5173
+            </span>
+          </div>
+          <div class="q-output__view">
             <button type="button" class="q-demo" @click="bump">
               clicked
               <span
@@ -548,11 +575,8 @@ const links = [
               >
               times
             </button>
-            <span class="q-editor__note">
-              Only <code>{count}</code> updates. The component never runs again.
-            </span>
-          </figcaption>
-        </figure>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -911,6 +935,7 @@ const links = [
  */
 .q-install::before,
 .q-editor::before,
+.q-output::before,
 .q-term::before,
 .q-bento__cell::before {
   content: "";
@@ -1197,26 +1222,125 @@ const links = [
   }
 }
 
-.q-editor__run {
+/*
+ * The output window sits in front of the editor, over its lower right
+ * corner, and casts a shadow onto it.
+ */
+.q-hero__code {
+  position: relative;
+}
+
+.q-output {
+  position: relative;
+  z-index: 2;
+  width: min(320px, 88%);
+  margin: -24px 0 0 auto;
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgb(22 21 19 / 0.86);
+  -webkit-backdrop-filter: blur(24px) saturate(130%);
+  backdrop-filter: blur(24px) saturate(130%);
+  box-shadow:
+    0 24px 48px -12px rgb(0 0 0 / 0.7),
+    0 8px 16px -8px rgb(0 0 0 / 0.5);
+}
+
+@media (min-width: 640px) {
+  .q-editor {
+    margin-right: 64px;
+  }
+
+  .q-output {
+    margin-top: -96px;
+    margin-right: -8px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .q-output {
+    margin-right: -24px;
+  }
+}
+
+.q-output__bar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 12px 16px;
-  padding: 14px 18px;
-  border-top: 1px solid var(--q-border);
-  background: rgb(15 14 13 / 0.35);
+  gap: 10px;
+  height: 40px;
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid var(--q-border);
+  background: rgb(33 32 30 / 0.9);
 }
 
-.q-editor__note {
-  font-size: 13px;
-  line-height: 1.5;
+.q-output__lights {
+  display: flex;
+  gap: 6px;
+  margin-right: 4px;
+}
+
+.q-output__lights i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff5f57;
+}
+
+.q-output__lights i:nth-child(2) {
+  background: #febc2e;
+}
+
+.q-output__lights i:nth-child(3) {
+  background: #28c840;
+}
+
+.q-output__nav {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--q-muted);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.q-output__nav.is-off {
+  stroke: var(--q-border-strong);
+}
+
+.q-output__address {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  height: 26px;
+  margin-left: 2px;
+  border-radius: 7px;
+  background: rgb(15 14 13 / 0.7);
+  font-size: 12px;
   color: var(--q-muted);
+  white-space: nowrap;
 }
 
-.q-editor__note code {
-  font-family: var(--vp-font-family-mono);
-  font-size: 12.5px;
-  color: var(--q-fg);
+.q-output__address svg {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.q-output__view {
+  display: grid;
+  place-items: center;
+  min-height: 140px;
+  padding: 24px 16px;
+  background: var(--q-bg);
 }
 
 .q-demo {
