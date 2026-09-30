@@ -633,12 +633,12 @@ const links = [
 }
 
 .q-install__tab {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 7px;
   margin-bottom: -1px;
   padding: 8px 12px 7px;
-  border-bottom: 1px solid transparent;
   font-family: var(--vp-font-family-base);
   font-size: 13px;
   font-weight: 500;
@@ -646,12 +646,29 @@ const links = [
   transition: color 0.15s;
 }
 
+.q-install__tab::after,
+.q-term__tab::after,
+.q-editor__tab::after {
+  content: "";
+  position: absolute;
+  right: 10%;
+  bottom: -1px;
+  left: 10%;
+  height: 1px;
+  background: transparent;
+}
+
+.q-install__tab[aria-pressed="true"]::after,
+.q-term__tab[aria-pressed="true"]::after,
+.q-editor__tab::after {
+  background: var(--q-accent);
+}
+
 .q-install__tab:hover {
   color: var(--q-fg);
 }
 
 .q-install__tab[aria-pressed="true"] {
-  border-bottom-color: var(--q-accent);
   color: var(--q-fg);
 }
 
@@ -776,13 +793,13 @@ const links = [
 }
 
 .q-editor__tab {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   margin-bottom: -1px;
   padding: 10px 18px 9px;
   border-right: 1px solid var(--q-border);
-  border-bottom: 1px solid var(--q-accent);
   background: transparent;
   font-family: var(--vp-font-family-mono);
   font-size: 13.5px;
@@ -1168,13 +1185,13 @@ const links = [
 }
 
 .q-term__tab {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   margin-bottom: -1px;
   padding: 10px 16px 9px;
   border-right: 1px solid var(--q-border);
-  border-bottom: 1px solid transparent;
   font-size: 13.5px;
   font-weight: 500;
   color: var(--q-muted);
@@ -1192,7 +1209,6 @@ const links = [
 }
 
 .q-term__tab[aria-pressed="true"] {
-  border-bottom-color: var(--q-accent);
   color: var(--q-fg);
 }
 
