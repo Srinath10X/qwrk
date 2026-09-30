@@ -459,6 +459,9 @@ const links = [
       <div class="q-hero__code">
         <figure class="q-editor">
           <div class="q-editor__bar">
+            <span class="q-lights" aria-hidden="true">
+              <i></i><i></i><i></i>
+            </span>
             <span class="q-editor__tab"
               ><img
                 :src="withBase('/qwrk.svg')"
@@ -471,10 +474,15 @@ const links = [
           <pre
             class="q-editor__code"
           ><code><span v-for="(line, i) in code" :key="i" class="q-editor__line"><span v-for="([kind, text], j) in line" :key="kind === 'b' || kind === 'w' ? `${kind}${flash}` : j" :class="['t-' + kind, (kind === 'b' || kind === 'w') && flash ? 'is-flash' : '']">{{ text }}</span></span></code></pre>
+          <div class="q-editor__status" aria-hidden="true">
+            <span>TypeScript JSX</span>
+            <span>Ln 8, Col 22</span>
+            <span>Spaces: 2</span>
+          </div>
         </figure>
         <div class="q-output" role="group" aria-label="Output">
           <div class="q-output__bar">
-            <span class="q-output__lights" aria-hidden="true">
+            <span class="q-lights" aria-hidden="true">
               <i></i><i></i><i></i>
             </span>
             <svg
@@ -489,13 +497,36 @@ const links = [
               <path d="m14.5 6-6 6 6 6" />
             </svg>
             <svg
-              class="q-output__nav is-off"
+              class="q-output__nav q-output__nav--wide is-off"
               viewBox="0 0 24 24"
               aria-hidden="true"
             >
               <path d="m9.5 6 6 6-6 6" />
             </svg>
-            <span class="q-output__address">localhost:5173</span>
+            <svg
+              class="q-output__nav q-output__nav--wide"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                d="M12 3.5 5.5 6v5.5c0 4 2.8 7.4 6.5 8.5 3.7-1.1 6.5-4.5 6.5-8.5V6Z"
+              />
+              <path d="M12 3.5v16.5" />
+            </svg>
+            <span class="q-output__address">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="5.5" y="10.5" width="13" height="9" rx="2" />
+                <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" />
+              </svg>
+              localhost:5173
+              <svg
+                class="q-output__reload"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M19 12a7 7 0 1 1-2.05-4.95M19 4.5v4h-4" />
+              </svg>
+            </span>
             <svg
               class="q-output__nav q-output__nav--wide"
               viewBox="0 0 24 24"
@@ -1069,6 +1100,31 @@ const links = [
   border-bottom: 1px solid var(--q-border);
 }
 
+.q-editor__bar .q-lights {
+  align-self: center;
+  margin: 0;
+  padding: 0 14px 0 16px;
+}
+
+.q-editor__status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 28px;
+  padding: 0 16px;
+  border-top: 1px solid var(--q-border);
+  font-family: var(--vp-font-family-mono);
+  font-size: 11.5px;
+  color: var(--q-label);
+  white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+  .q-editor__status {
+    display: none;
+  }
+}
+
 .q-editor__tab {
   position: relative;
   display: inline-flex;
@@ -1174,7 +1230,7 @@ const links = [
 .q-output {
   position: relative;
   z-index: 2;
-  width: min(380px, 92%);
+  width: min(420px, 94%);
   margin: -24px 0 0 auto;
   overflow: hidden;
   border-radius: 12px;
@@ -1206,31 +1262,31 @@ const links = [
 .q-output__bar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: 40px;
-  padding: 0 16px 0 14px;
+  padding: 0 14px 0 14px;
   border-bottom: 1px solid var(--q-border);
   background: rgb(33 32 30 / 0.9);
 }
 
-.q-output__lights {
+.q-lights {
   display: flex;
   gap: 6px;
   margin-right: 4px;
 }
 
-.q-output__lights i {
+.q-lights i {
   width: 10px;
   height: 10px;
   border-radius: 50%;
   background: #ff5f57;
 }
 
-.q-output__lights i:nth-child(2) {
+.q-lights i:nth-child(2) {
   background: #febc2e;
 }
 
-.q-output__lights i:nth-child(3) {
+.q-lights i:nth-child(3) {
   background: #28c840;
 }
 
@@ -1256,7 +1312,7 @@ const links = [
 }
 
 .q-output__address ~ .q-output__nav {
-  margin-left: 8px;
+  margin-left: 6px;
 }
 
 .q-output__nav.is-off {
@@ -1264,18 +1320,47 @@ const links = [
 }
 
 .q-output__address {
+  position: relative;
   display: flex;
   flex: 1;
   align-items: center;
   justify-content: center;
+  gap: 5px;
   min-width: 0;
   height: 26px;
-  margin: 0 6px;
+  margin: 0 2px;
+  padding: 0 26px;
   border-radius: 7px;
   background: rgb(15 14 13 / 0.7);
   font-size: 12px;
   color: var(--q-muted);
   white-space: nowrap;
+}
+
+.q-output__address svg {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.q-output__address .q-output__reload {
+  position: absolute;
+  right: 9px;
+}
+
+@media (max-width: 639px) {
+  .q-output__address {
+    padding: 0 8px;
+  }
+
+  .q-output__address .q-output__reload {
+    display: none;
+  }
 }
 
 .q-output__view {
