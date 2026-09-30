@@ -62,11 +62,13 @@ export interface Computation {
   f: () => unknown;
   /**
    * The states it depends on, each followed by the version it saw and its
-   * slot in their subscribers, so dropping one is a swap with the last.
+   * slot in their subscribers, so dropping one is a swap with the last. A
+   * running one reorders them as it reads them, and one it didn't subscribe
+   * to yet has the slot -1.
    */
   s: any[];
   /** Explicit dependencies, instead of tracking reads. */
-  d?: Set<Signal<any>>;
+  d?: Signal<any>[];
   /** The first of what its last run created, linked through `n`. */
   c?: Computation;
   /** The next sibling its owner created, if any. */
@@ -89,14 +91,19 @@ const KEEP = Symbol();
 export const NONE: any[] = [];
 
 /**
- * States read while a derive or an effect runs, each followed by its version
- * when first read, or `null` outside of one. Read by the deep proxy too.
+ * The dependencies of the derive or effect running now, see
+ * {@link Computation.s}, while it tracks what it reads, or `null`. Read by
+ * the deep proxy too.
  */
 export let reads: any[] | null = null;
 
+/** How many of the running computation's dependencies it read so far. */
+let at = 0;
+
 /**
- * The reads of the derive or effect running now, even inside {@link untrack}:
- * its own writes update their versions, so they don't make it stale.
+ * The dependencies of the derive or effect running now, even inside
+ * {@link untrack}: its own writes update their versions, so they don't make
+ * it stale.
  */
 let seen: any[] | null = null;
 
@@ -189,9 +196,8 @@ export function touch(source: Signal<any>) {
 export function mark(source: Signal<any>) {
   source.v++;
 
-  const list = seen;
-  const i = list ? list.indexOf(source) : -1;
-  if (i >= 0) list![i + 1] = source.v;
+  const i = seen?.indexOf(source) ?? -1;
+  if (i >= 0) seen![i + 1] = source.v;
 
   notify(source);
 }
@@ -206,13 +212,24 @@ function select(source: Signal<any>, old: unknown) {
 }
 
 /**
- * Tracks `source` as a dependency of the running derive or effect. Read
- * lists alternate states and numbers, so a search for a state only ever
- * finds a state.
+ * Tracks `source` as a dependency of the running derive or effect, in place:
+ * its entry moves up to follow those read before it in this run, which
+ * allocates only when the order changed, or a new one, subscribed when the
+ * run ends, joins there. Entries alternate states and numbers, so a search
+ * for a state only ever finds a state.
  */
 export function track(source: Signal<any>) {
   const list = reads;
-  if (list && list.indexOf(source) < 0) list.push(source, source.v);
+
+  if (list) {
+    let i = list.indexOf(source);
+    if (i < 0) i = list.push(source, 0, -1) - 3;
+    else if (i < at) return;
+
+    if (i > at) list.splice(at, 0, ...list.splice(i, 3));
+    list[at + 1] = source.v;
+    at += 3;
+  }
 }
 
 /** Returns the raw value of `source`, up to date, without tracking it. */
@@ -354,9 +371,11 @@ function refresh(node: Computation) {
 
 /**
  * Runs a derive or an effect: disposes what its last run created, tracks what
- * it reads, then subscribes to new dependencies and drops old ones. Changes
- * it makes wait until it's done, and don't re-run it. A state another derive
- * wrote after this one read it makes it stale again.
+ * it reads in its own dependencies, then subscribes to the new ones and drops
+ * those it didn't read, so a run that reads the same states allocates
+ * nothing. A first run keeps an array of the exact size. Changes it makes
+ * wait until it's done, and don't re-run it. A state another derive wrote
+ * after this one read it makes it stale again.
  *
  * An unowned effect left with no dependencies never runs again, so it hands
  * the effects it created over to the roots, and stops being one.
@@ -364,18 +383,21 @@ function refresh(node: Computation) {
 export function run(node: Computation) {
   if (node.q == 3) return;
   const old = node._;
-  const reading: any[] = [];
+  const fresh = node.s === NONE;
+  const list = fresh ? (node.s = []) : node.s;
   const outerReads = reads;
   const outerSeen = seen;
   const outerOwner = owner;
+  const outerAt = at;
 
   depth++;
 
   try {
     release(node);
     node.q = 2;
-    reads = node.d ? null : reading;
-    seen = reading;
+    reads = node.d ? null : list;
+    seen = list;
+    at = 0;
     owner = node;
     const value = node.f();
     if (node.o && (!Object.is(old, value) || isPlain(value))) {
@@ -384,59 +406,33 @@ export function run(node: Computation) {
       touch(node as any);
     }
   } finally {
+    reads = list;
+    node.d?.forEach(track);
+    const n = at;
     reads = outerReads;
     seen = outerSeen;
     owner = outerOwner;
+    at = outerAt;
 
     if (node.q == 2) {
       node.q = 0;
-      node.d?.forEach((source) => reading.push(source, source.v));
-      subscribe(node, reading);
 
-      if (!node.s.length && node.e && !node.p) {
+      for (let i = 0; i < n; i += 3) {
+        if (list[i + 2] < 0) list[i + 2] = link(list[i], node);
+        if (list[i + 1] !== list[i].v && !node.q) stale(node);
+      }
+      for (let i = n; i < list.length; i += 3) {
+        unlinkSource(list[i], node, list[i + 2]);
+      }
+      if (fresh || n < list.length) node.s = list.slice(0, n);
+
+      if (!n && node.e && !node.p) {
         release(node, null);
         roots.delete(node);
       }
     }
 
     --depth || flush();
-  }
-}
-
-/**
- * Replaces the dependencies of `node` with the states it just read, keeping
- * the subscriptions it still needs, in an array of the exact size. Each one
- * is its source, the version it saw, and its slot in the source's
- * subscribers. A read it kept is marked by clearing its source slot.
- */
-function subscribe(node: Computation, reading: any[]) {
-  const old = node.s;
-  const s = (node.s = reading.length ? Array((reading.length / 2) * 3) : NONE);
-  let n = 0;
-
-  for (let i = 0; i < old.length; i += 3) {
-    const j = reading.indexOf(old[i]);
-
-    if (j < 0) {
-      unlinkSource(old[i], node, old[i + 2]);
-    } else {
-      s[n++] = old[i];
-      s[n++] = reading[j + 1];
-      s[n++] = old[i + 2];
-      reading[j] = null;
-    }
-  }
-
-  for (let i = 0; i < reading.length; i += 2) {
-    if (reading[i]) {
-      s[n++] = reading[i];
-      s[n++] = reading[i + 1];
-      s[n++] = link(reading[i], node);
-    }
-  }
-
-  for (let i = 0; i < n; i += 3) {
-    if (s[i + 1] !== s[i].v && !node.q) stale(node);
   }
 }
 
@@ -496,7 +492,7 @@ export function computation<T extends object>(
   const created = Object.assign(node, {
     f: fn,
     s: NONE,
-    d: deps && new Set(deps.filter(isReactive) as Signal<any>[]),
+    d: deps?.filter(isReactive) as Signal<any>[] | undefined,
     p: parent,
     q: 0,
   });
