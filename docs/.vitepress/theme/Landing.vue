@@ -71,10 +71,9 @@ const code: [string, string][][] = [
     ["t", " onClick"],
     ["p", "={() "],
     ["k", "=>"],
-    ["t", " count"],
-    ["p", "."],
-    ["t", "value"],
-    ["p", "++}>"],
+    ["t", " "],
+    ["w", "count.value++"],
+    ["p", "}>"],
   ],
   [
     ["t", "      clicked "],
@@ -95,10 +94,34 @@ const code: [string, string][][] = [
 ];
 
 const managers = [
-  { name: "npm", label: "npm", install: "npm install", dev: "npm run dev" },
-  { name: "bun", label: "Bun", install: "bun install", dev: "bun run dev" },
-  { name: "pnpm", label: "pnpm", install: "pnpm install", dev: "pnpm dev" },
-  { name: "yarn", label: "Yarn", install: "yarn install", dev: "yarn dev" },
+  {
+    name: "npm",
+    label: "npm",
+    add: "npm i",
+    install: "npm install",
+    dev: "npm run dev",
+  },
+  {
+    name: "bun",
+    label: "Bun",
+    add: "bun add",
+    install: "bun install",
+    dev: "bun run dev",
+  },
+  {
+    name: "pnpm",
+    label: "pnpm",
+    add: "pnpm add",
+    install: "pnpm install",
+    dev: "pnpm dev",
+  },
+  {
+    name: "yarn",
+    label: "Yarn",
+    add: "yarn add",
+    install: "yarn install",
+    dev: "yarn dev",
+  },
 ];
 const manager = ref(managers[0]);
 
@@ -203,34 +226,56 @@ const links = [
           </a>
         </div>
         <div class="q-install">
-          <span class="q-install__prompt" aria-hidden="true">$</span>
-          <code class="q-install__cmd">{{ install }}</code>
-          <button
-            type="button"
-            class="q-install__copy"
-            :aria-label="
-              copied === 'hero' ? 'Copied' : 'Copy the install command'
-            "
-            @click="copy('hero')"
-          >
-            <svg
-              v-if="copied !== 'hero'"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
+          <div class="q-install__tabs" aria-label="Package manager">
+            <button
+              v-for="m in managers"
+              :key="m.name"
+              type="button"
+              class="q-install__tab"
+              :aria-pressed="manager.name === m.name"
+              @click="manager = m"
             >
-              <rect x="8.5" y="8.5" width="12" height="12" rx="2" />
-              <path
-                d="M15.5 8.5v-3a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"
+              <img
+                :src="withBase(`/logos/${m.name}.svg`)"
+                alt=""
+                width="14"
+                height="14"
               />
-            </svg>
-            <svg v-else viewBox="0 0 24 24" aria-hidden="true">
-              <path d="m5 12.5 4.5 4.5L19 7.5" />
-            </svg>
-          </button>
+              {{ m.label }}
+            </button>
+          </div>
+          <div class="q-install__row">
+            <span class="q-install__prompt" aria-hidden="true">$</span>
+            <code class="q-install__cmd"
+              >{{ manager.name }} create qwrk-app@latest</code
+            >
+            <button
+              type="button"
+              class="q-install__copy"
+              :aria-label="
+                copied === 'hero' ? 'Copied' : 'Copy the install command'
+              "
+              @click="copy('hero', `${manager.name} create qwrk-app@latest`)"
+            >
+              <svg
+                v-if="copied !== 'hero'"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <rect x="8.5" y="8.5" width="12" height="12" rx="2" />
+                <path
+                  d="M15.5 8.5v-3a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"
+                />
+              </svg>
+              <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m5 12.5 4.5 4.5L19 7.5" />
+              </svg>
+            </button>
+          </div>
         </div>
         <p class="q-hero__beta">
           Qwrk 0.4 is in beta:
-          <code>npm i qwrk@next qwrk-vite@next</code>
+          <code>{{ manager.add }} qwrk@next qwrk-vite@next</code>
           <a :href="withBase('/guide/getting-started#try-the-0-4-beta')">
             Try the beta
           </a>
@@ -240,11 +285,18 @@ const links = [
       <div class="q-hero__code">
         <figure class="q-editor">
           <div class="q-editor__bar">
-            <span class="q-editor__tab">Counter.jsx</span>
+            <span class="q-editor__tab"
+              ><img
+                :src="withBase('/qwrk.svg')"
+                alt=""
+                width="14"
+                height="14"
+              />Counter.tsx</span
+            >
           </div>
           <pre
             class="q-editor__code"
-          ><code><span v-for="(line, i) in code" :key="i" class="q-editor__line"><span v-for="([kind, text], j) in line" :key="kind === 'b' ? `b${flash}` : j" :class="['t-' + kind, kind === 'b' && flash ? 'is-flash' : '']">{{ text }}</span></span></code></pre>
+          ><code><span v-for="(line, i) in code" :key="i" class="q-editor__line"><span v-for="([kind, text], j) in line" :key="kind === 'b' || kind === 'w' ? `${kind}${flash}` : j" :class="['t-' + kind, (kind === 'b' || kind === 'w') && flash ? 'is-flash' : '']">{{ text }}</span></span></code></pre>
           <figcaption class="q-editor__run">
             <button type="button" class="q-demo" @click="bump">
               clicked
@@ -563,13 +615,8 @@ const links = [
 }
 
 .q-install {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   width: 100%;
-  max-width: 380px;
-  height: 46px;
-  padding: 0 6px 0 16px;
+  max-width: 420px;
   border: 1px solid var(--q-border);
   border-radius: 8px;
   background: rgb(15 14 13 / 0.45);
@@ -578,6 +625,48 @@ const links = [
   font-family: var(--vp-font-family-mono);
   font-size: 13.5px;
   text-align: left;
+}
+
+.q-install__tabs {
+  display: flex;
+  border-bottom: 1px solid var(--q-border);
+}
+
+.q-install__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: -1px;
+  padding: 8px 12px 7px;
+  border-bottom: 1px solid transparent;
+  font-family: var(--vp-font-family-base);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--q-muted);
+  transition: color 0.15s;
+}
+
+.q-install__tab:hover {
+  color: var(--q-fg);
+}
+
+.q-install__tab[aria-pressed="true"] {
+  border-bottom-color: var(--q-accent);
+  color: var(--q-fg);
+}
+
+.q-install__tab img {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.q-install__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 46px;
+  padding: 0 6px 0 16px;
 }
 
 .q-install__prompt {
@@ -687,6 +776,9 @@ const links = [
 }
 
 .q-editor__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: -1px;
   padding: 10px 18px 9px;
   border-right: 1px solid var(--q-border);
@@ -754,11 +846,13 @@ const links = [
 }
 
 .t-f,
-.t-b {
+.t-b,
+.t-w {
   color: var(--q-fg);
 }
 
-.t-b {
+.t-b,
+.t-w {
   border-radius: 3px;
 }
 
