@@ -1570,13 +1570,11 @@ const links = [
 }
 
 .q-box--ghost .q-face {
-  fill: rgb(137 180 250 / 0.025);
-  stroke: rgb(246 245 244 / 0.42);
-  stroke-dasharray: 3 4;
+  fill: rgb(246 245 244 / 0.02);
+  stroke: rgb(246 245 244 / 0.3);
 }
 
 .q-box--lit {
-  filter: drop-shadow(0 0 14px rgb(137 180 250 / 0.45));
   transition: translate 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1603,16 +1601,11 @@ const links = [
 .q-flow {
   fill: none;
   stroke: var(--q-accent);
-  stroke-width: 1.5;
-  stroke-dasharray: 3 4;
+  stroke-width: 1;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.85;
+  opacity: 0.7;
   vector-effect: non-scaling-stroke;
-}
-
-.q-bento__cell:hover .q-flow {
-  animation: q-flow 1.2s linear infinite;
 }
 
 .q-lattice {
@@ -1636,17 +1629,7 @@ const links = [
   fill: #0f1a2c;
 }
 
-@keyframes q-flow {
-  to {
-    stroke-dashoffset: -14;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .q-bento__cell:hover .q-flow {
-    animation: none;
-  }
-
   .q-box--lit {
     transition: none;
   }
