@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { withBase } from "vitepress";
 import { onBeforeUnmount, ref } from "vue";
+import { logos } from "./pm-logos";
 
 const install = "npm create qwrk-app@latest";
 const github = "https://github.com/Srinath10X/qwrk";
@@ -342,6 +343,9 @@ const links = [
               :aria-pressed="manager.name === m.name"
               @click="manager = m"
             >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :fill="logos[m.name].color" :d="logos[m.name].path" />
+              </svg>
               {{ m.name }}
             </button>
           </div>
@@ -980,6 +984,9 @@ const links = [
 }
 
 .q-term__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: -1px;
   padding: 10px 16px 9px;
   border-right: 1px solid var(--q-border);
@@ -988,6 +995,12 @@ const links = [
   font-size: 12.5px;
   color: var(--q-muted);
   transition: color 0.15s;
+}
+
+.q-term__tab svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
 }
 
 .q-term__tab:hover {

@@ -10,16 +10,16 @@ Scaffold a new Vite + Qwrk project with your package manager:
 npm create qwrk-app@latest
 ```
 
+```sh [bun]
+bun create qwrk-app@latest
+```
+
 ```sh [pnpm]
-pnpm create qwrk-app
+pnpm create qwrk-app@latest
 ```
 
 ```sh [yarn]
-yarn create qwrk-app
-```
-
-```sh [bun]
-bun create qwrk-app
+yarn create qwrk-app@latest
 ```
 
 :::
@@ -34,16 +34,16 @@ To skip the prompts, pass a name and `--template js` or `--template ts`:
 npm create qwrk-app@latest my-app -- --template ts
 ```
 
+```sh [bun]
+bun create qwrk-app@latest my-app --template ts
+```
+
 ```sh [pnpm]
-pnpm create qwrk-app my-app --template ts
+pnpm create qwrk-app@latest my-app --template ts
 ```
 
 ```sh [yarn]
-yarn create qwrk-app my-app --template ts
-```
-
-```sh [bun]
-bun create qwrk-app my-app --template ts
+yarn create qwrk-app@latest my-app --template ts
 ```
 
 :::
@@ -60,16 +60,16 @@ Qwrk 0.4 is in beta on the `next` tag. It brings the [compiler](/guide/compiler)
 npm i qwrk@next qwrk-vite@next
 ```
 
+```sh [bun]
+bun add qwrk@next qwrk-vite@next
+```
+
 ```sh [pnpm]
 pnpm add qwrk@next qwrk-vite@next
 ```
 
 ```sh [yarn]
 yarn add qwrk@next qwrk-vite@next
-```
-
-```sh [bun]
-bun add qwrk@next qwrk-vite@next
 ```
 
 :::
