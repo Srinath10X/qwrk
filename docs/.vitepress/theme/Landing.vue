@@ -397,11 +397,16 @@ const bento = [
     title: "Batched writes",
     text: "batch() turns several writes into one update. Derives, the DOM and effects settle once, glitch-free.",
     art: scene([
-      { box: [0, 0, 0, 0.8, 0.8, 0.8] },
-      { box: [0, 1.8, 0, 0.8, 0.8, 0.8] },
-      { box: [0, 3.6, 0, 0.8, 0.8, 0.8] },
-      ...wired([0.4, 2.2, 4], 0.8, [3.9, 2.2, 0.4], 2.4),
-      { box: [3.9, 1.4, 0, 1.6, 1.6, 1.6], kind: "lit" },
+      { box: [0, 0, 0, 3, 3, 0.3], kind: "lit" },
+      {
+        path: [
+          [1.5, 1.5, 4.6],
+          [1.5, 1.5, 0.3],
+        ],
+      },
+      { box: [0, 0, 1.5, 3, 3, 0.15], kind: "ghost" },
+      { box: [0, 0, 2.9, 3, 3, 0.15], kind: "ghost" },
+      { box: [0, 0, 4.3, 3, 3, 0.15], kind: "ghost" },
     ]),
   },
   {
@@ -1564,7 +1569,7 @@ const links = [
 
 .q-box--ghost .q-face {
   fill: rgb(137 180 250 / 0.025);
-  stroke: rgb(246 245 244 / 0.3);
+  stroke: rgb(246 245 244 / 0.42);
   stroke-dasharray: 3 4;
 }
 
