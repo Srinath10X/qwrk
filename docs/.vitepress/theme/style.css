@@ -26,7 +26,7 @@
   --q-warning: #f7b955;
   --q-danger: #f28b82;
 
-  --q-gutter: 0px;
+  --q-gutter: 12px;
   --q-rail-max: 1440px;
   --q-rail: max(var(--q-gutter), calc((100% - var(--q-rail-max)) / 2));
 
@@ -179,20 +179,26 @@
   }
 }
 
-/* Page: drafting hatch in the margins, the site on a solid column between two hairline rails. */
+/*
+ * Page: the drafting hatch is the canvas, so it fills every margin, the area
+ * under a short page and the over-scroll area. The site sits on a solid
+ * column framed by hairlines on all four sides.
+ */
 html {
+  min-height: 100%;
   color-scheme: dark;
-  scrollbar-color: var(--q-border-strong) var(--q-bg);
-  -webkit-tap-highlight-color: transparent;
-}
-
-body {
   background-color: var(--q-bg);
   background-image: repeating-linear-gradient(
     45deg,
     var(--q-border) 0 1px,
     transparent 1px 8px
   );
+  scrollbar-color: var(--q-border-strong) var(--q-bg);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: transparent;
   caret-color: var(--q-accent);
 }
 
@@ -217,16 +223,16 @@ html.dark .DocSearch-Button:focus:not(:focus-visible) {
   outline: none;
 }
 
-.Layout {
-  margin-inline: var(--q-rail);
-  border-inline: 1px solid var(--q-border);
+html.dark .Layout {
+  min-height: calc(100vh - var(--q-gutter));
+  margin: 0 var(--q-rail) var(--q-gutter);
+  border: 1px solid var(--q-border);
   background: var(--q-bg);
 }
 
-@media (max-width: 639px) {
-  .Layout {
-    border-inline: 0;
-  }
+/* The landing page ends at its footer, with the hatch below it. */
+html.dark .Layout.q-home {
+  min-height: 0;
 }
 
 /* Shared primitives, used by the landing page and doc pages. */
@@ -245,20 +251,6 @@ html.dark .DocSearch-Button:focus:not(:focus-visible) {
 }
 
 .q-signal {
-  color: var(--q-accent);
-}
-
-.q-pill {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  border: 1px solid rgb(137 180 250 / 0.4);
-  border-radius: 999px;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
   color: var(--q-accent);
 }
 
@@ -411,6 +403,7 @@ html.dark .VPNavBarTitle .logo {
     left: calc(var(--q-rail) + 1px);
     right: calc(var(--q-rail) + 1px);
     width: auto;
+    border-top: 1px solid var(--q-border);
   }
 
   html.dark .VPNavBarTitle.has-sidebar::after {
@@ -453,24 +446,6 @@ html.dark .VPNavBarMenuLink.active {
   color: var(--q-fg);
 }
 
-html.dark .VPNavBarMenuGroup .text {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 9px;
-  border: 1px solid rgb(137 180 250 / 0.4);
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--q-accent);
-}
-
-html.dark .VPNavBarMenuGroup .text-icon {
-  margin-left: 4px;
-}
-
 html.dark .VPMenu {
   border: 1px solid var(--q-border);
   border-radius: 8px;
@@ -502,12 +477,26 @@ html.dark .VPMenuLink .link:hover {
 }
 
 html.dark .DocSearch-Button .DocSearch-Button-Key {
-  border-color: var(--q-border);
+  margin: 2px 0 0;
+  border: 0;
+  padding: 0;
+  font-size: 12px;
+}
+
+html.dark .DocSearch-Button .DocSearch-Button-Key + .DocSearch-Button-Key {
+  border: 0;
+  padding: 0 0 0 3px;
 }
 
 html.dark .VPNavScreen {
-  left: var(--q-rail);
-  right: var(--q-rail);
+  left: calc(var(--q-rail) + 1px);
+  right: calc(var(--q-rail) + 1px);
+}
+
+html.dark .VPLocalNav.fixed {
+  left: calc(var(--q-rail) + 1px);
+  right: calc(var(--q-rail) + 1px);
+  width: auto;
 }
 
 html.dark .VPNavScreenMenuLink,
@@ -524,14 +513,21 @@ html.dark .VPLocalNav {
 @media (min-width: 960px) {
   html.dark .VPSidebar {
     left: calc(var(--q-rail) + 1px);
+    bottom: calc(var(--q-gutter) + 1px);
     width: var(--vp-sidebar-width);
     padding-left: 32px;
     border-right: 1px solid var(--q-border);
   }
 
+  html.dark .VPDoc .aside-curtain {
+    display: none;
+  }
+
   html.dark .VPContent.has-sidebar {
     padding-right: 0;
     padding-left: var(--vp-sidebar-width);
+    background: linear-gradient(var(--q-border), var(--q-border)) no-repeat
+      calc(var(--vp-sidebar-width) - 1px) 0 / 1px 100%;
   }
 }
 
@@ -737,9 +733,8 @@ html.dark .VPHome {
 }
 
 .vp-doc :not(pre) > code {
-  padding: 2px 6px;
-  border: 1px solid var(--q-border);
-  border-radius: 5px;
+  padding: 2px 5px;
+  border-radius: 4px;
 }
 
 .vp-doc a > code {
@@ -929,12 +924,4 @@ html.dark .VPLocalSearchBox .search-keyboard-shortcuts kbd {
   border: 3px solid transparent;
   border-radius: 999px;
   background: var(--q-border-strong) padding-box;
-}
-
-/* The benchmark grid inside a doc page gets its own hairline frame. */
-.vp-doc .bench-page {
-  margin: 28px 0 8px;
-  overflow: hidden;
-  border: 1px solid var(--q-border);
-  border-radius: 8px;
 }
