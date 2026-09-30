@@ -400,6 +400,17 @@ html.dark .VPNavBarTitle .logo {
     border-top: 1px solid var(--q-border);
   }
 
+  /*
+   * On the landing page the header scrolls away with the page. It sits inside
+   * the framed layout, so the frame already draws its top edge.
+   */
+  html.dark .Layout.q-home .VPNav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 0;
+  }
+
   html.dark .VPNavBar.has-sidebar .wrapper {
     padding: 0 32px;
   }
