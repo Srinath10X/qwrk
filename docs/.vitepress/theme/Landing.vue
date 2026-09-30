@@ -125,63 +125,247 @@ const managers = [
 ];
 const manager = ref(managers[0]);
 
-const steps = [
-  {
-    label: "Run once",
-    title: "Components run once",
-    text: "A component is a plain function that returns real DOM nodes. After that first call, it never runs again.",
-    code: "document.body.append(<Counter />)",
-  },
-  {
-    label: "Bind",
-    title: "Reads become bindings",
-    text: "Each place that reads a state, a text node, an attribute or a list row, subscribes to that state on its own.",
-    code: "<p>{count.value * 2}</p>",
-  },
-  {
-    label: "Update",
-    title: "Writes reach only readers",
-    text: "A write re-runs the bindings that read that state, and nothing else. There is no tree to diff.",
-    code: "count.value++",
-  },
-];
+type Point = [number, number, number];
 
-const features = [
+/** One piece of isometric art: a block, a flow line, an arc, or a logo printed on a block's top. */
+type Item =
+  | { box: [...Point, number, number, number]; kind?: "wire" | "lit" | "ghost" }
+  | { line: [Point, Point] }
+  | { arc: [Point, Point]; lift: number }
+  | { logo: string; at: Point; size: number };
+
+const unit = 20;
+const cos30 = Math.cos(Math.PI / 6);
+
+/** Projects a point in block units onto the page, x running down and right, y down and left. */
+function iso([x, y, z]: Point): [number, number] {
+  return [(x - y) * cos30 * unit, ((x + y) / 2 - z) * unit];
+}
+
+/** Turns items into SVG shapes, painted in order, and a viewBox that fits them all. */
+function scene(items: Item[]) {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  const pt = (p: Point) => {
+    const [x, y] = iso(p);
+    xs.push(x);
+    ys.push(y);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  };
+  const shapes = items.map((item) => {
+    if ("box" in item) {
+      const [x, y, z, w, d, h] = item.box;
+      const top = z + h;
+      return {
+        kind: item.kind ?? "wire",
+        faces: [
+          [
+            [x, y, top],
+            [x + w, y, top],
+            [x + w, y + d, top],
+            [x, y + d, top],
+          ],
+          [
+            [x + w, y, z],
+            [x + w, y + d, z],
+            [x + w, y + d, top],
+            [x + w, y, top],
+          ],
+          [
+            [x, y + d, z],
+            [x + w, y + d, z],
+            [x + w, y + d, top],
+            [x, y + d, top],
+          ],
+        ].map((face) => face.map((p) => pt(p as Point)).join(" ")),
+      };
+    }
+    if ("line" in item) {
+      return { d: `M${pt(item.line[0])} L${pt(item.line[1])}` };
+    }
+    if ("arc" in item) {
+      const [a, b] = item.arc;
+      const mid: Point = [
+        (a[0] + b[0]) / 2,
+        (a[1] + b[1]) / 2,
+        (a[2] + b[2]) / 2 + item.lift,
+      ];
+      return { d: `M${pt(a)} Q${pt(mid)} ${pt(b)}` };
+    }
+    const [x, y] = iso(item.at);
+    const half = (item.size * unit) / 2;
+    return {
+      logo: item.logo,
+      size: half * 2,
+      offset: -half,
+      transform: `matrix(${cos30} 0.5 ${-cos30} 0.5 ${x.toFixed(1)} ${y.toFixed(1)})`,
+    };
+  });
+  const pad = 14;
+  const left = Math.min(...xs) - pad;
+  const top = Math.min(...ys) - pad;
+  const width = Math.max(...xs) + pad - left;
+  const height = Math.max(...ys) + pad - top;
+  return { view: `${left} ${top} ${width} ${height}`, shapes };
+}
+
+/** A floor of slabs, back to front, with one raised and lit under the state it reads. */
+function fineGrained(): Item[] {
+  const items: Item[] = [];
+  for (let sum = 0; sum <= 7; sum++) {
+    for (let i = 0; i <= 5; i++) {
+      const j = sum - i;
+      if (j < 0 || j > 2) continue;
+      const lit = i === 3 && j === 1;
+      items.push({
+        box: [i * 1.3, j * 1.3, 0, 1, 1, lit ? 1.1 : 0.3],
+        kind: lit ? "lit" : "wire",
+      });
+    }
+  }
+  items.push(
+    {
+      line: [
+        [4.4, 1.8, 3.1],
+        [4.4, 1.8, 1.25],
+      ],
+    },
+    { box: [4.1, 1.5, 3.1, 0.6, 0.6, 0.6], kind: "lit" },
+  );
+  return items;
+}
+
+/** Rows along a line, back to front, with two lit rows trading places. */
+function keyedRows(): Item[] {
+  const items: Item[] = [];
+  for (let i = 0; i < 7; i++) {
+    const lit = i === 1 || i === 5;
+    items.push({
+      box: [i * 1.25, 0, 0, 0.9, 2.4, 0.3],
+      kind: lit ? "lit" : "wire",
+    });
+  }
+  items.push({
+    arc: [
+      [1.7, 1.2, 0.3],
+      [6.7, 1.2, 0.3],
+    ],
+    lift: 3.2,
+  });
+  return items;
+}
+
+const bento = [
   {
-    label: "State",
-    title: "Fine-grained state",
-    text: "state() holds any value. Arrays and plain objects notify when you change them in place, at any depth.",
-    code: "todos.value.push(todo)",
+    title: "Fine-grained by default",
+    text: "A write re-runs only the bindings that read that state: one text node, one attribute, one row. There is no tree to diff.",
+    wide: true,
+    art: scene(fineGrained()),
   },
   {
-    label: "Derive",
-    title: "Glitch-free derives",
-    text: "derive() recomputes once per change, after the derives it reads, so it never sees a half-updated state.",
-    code: "derive(() => price.value * 2)",
+    title: "A tiny runtime",
+    text: "The compiler does its work at build time, so only a few kilobytes of runtime reach the browser.",
+    art: scene([
+      { box: [0, 0, 0, 4, 4, 4], kind: "ghost" },
+      { box: [1.6, 1.6, 0, 0.9, 0.9, 0.9], kind: "lit" },
+    ]),
   },
   {
-    label: "Batch",
-    title: "Grouped writes",
-    text: "batch() turns several writes into one update: derives, the DOM and effects settle once, when it ends.",
-    code: "batch(() => { … })",
+    title: "Components run once",
+    text: "A component is a plain function that returns real DOM. It never runs again; its bindings keep the DOM current.",
+    art: scene([
+      { box: [0, 0, 0, 3, 3, 0.4] },
+      { box: [0.6, 0.6, 0.4, 1.8, 1.8, 0.4] },
+      { box: [1.1, 1.1, 0.8, 0.8, 0.8, 0.4], kind: "lit" },
+      {
+        line: [
+          [1.5, 1.5, 3],
+          [1.5, 1.5, 1.3],
+        ],
+      },
+      { box: [0.7, 0.7, 3, 1.6, 1.6, 1.6], kind: "ghost" },
+    ]),
   },
   {
-    label: "Lists",
-    title: "Keyed rows with .map()",
-    text: "Rows are keyed by the items themselves. A push inserts one row, and a sort moves the existing nodes.",
-    code: "todos.map((todo) => <li />)",
+    title: "Compiled templates",
+    text: "Static JSX becomes a template cloned with cloneNode(true), and each .value read is wired to its own binding.",
+    art: scene([
+      { box: [0, 0, 0, 0.25, 2.2, 2.8], kind: "lit" },
+      {
+        line: [
+          [0.25, 0, 2.8],
+          [3.55, 0, 2.8],
+        ],
+      },
+      { box: [1.1, 0, 0, 0.25, 2.2, 2.8] },
+      { box: [2.2, 0, 0, 0.25, 2.2, 2.8] },
+      { box: [3.3, 0, 0, 0.25, 2.2, 2.8] },
+    ]),
   },
   {
-    label: "Compiler",
-    title: "JSX, compiled",
-    text: "Static markup becomes a template cloned with cloneNode(true), and each .value read becomes its own binding.",
-    code: "selected.value === todo.id",
+    title: "Batched writes",
+    text: "batch() turns several writes into one update. Derives, the DOM and effects settle once, glitch-free.",
+    art: scene([
+      {
+        line: [
+          [0.4, 0.4, 0.8],
+          [4.7, 2.2, 1.6],
+        ],
+      },
+      {
+        line: [
+          [0.4, 2.2, 0.8],
+          [4.7, 2.2, 1.6],
+        ],
+      },
+      {
+        line: [
+          [0.4, 4, 0.8],
+          [4.7, 2.2, 1.6],
+        ],
+      },
+      { box: [0, 0, 0, 0.8, 0.8, 0.8] },
+      { box: [0, 1.8, 0, 0.8, 0.8, 0.8] },
+      { box: [0, 3.6, 0, 0.8, 0.8, 0.8] },
+      { box: [3.9, 1.4, 0, 1.6, 1.6, 1.6], kind: "lit" },
+    ]),
   },
   {
-    label: "Tooling",
+    title: "Keyed lists",
+    text: ".map() keys each row by its item. A push inserts one row, and a sort or swap moves the nodes that already exist.",
+    wide: true,
+    art: scene(keyedRows()),
+  },
+  {
     title: "TypeScript, Vite, esbuild",
-    text: "Typed states and JSX, a Vite plugin and an esbuild plugin. SVG files import as components.",
-    code: 'import qwrk from "qwrk-vite"',
+    text: "Typed state and JSX, with plugins for Vite and esbuild. SVG files import as components.",
+    art: scene([
+      {
+        line: [
+          [0.8, 0.8, 0.3],
+          [4.8, 3, 0.8],
+        ],
+      },
+      {
+        line: [
+          [0.8, 3, 0.3],
+          [4.8, 3, 0.8],
+        ],
+      },
+      {
+        line: [
+          [0.8, 5.2, 0.3],
+          [4.8, 3, 0.8],
+        ],
+      },
+      { box: [0, 0, 0, 1.6, 1.6, 0.3] },
+      { logo: "typescript", at: [0.8, 0.8, 0.3], size: 0.95 },
+      { box: [0, 2.2, 0, 1.6, 1.6, 0.3] },
+      { logo: "vite", at: [0.8, 3, 0.3], size: 0.95 },
+      { box: [0, 4.4, 0, 1.6, 1.6, 0.3] },
+      { logo: "esbuild", at: [0.8, 5.2, 0.3], size: 0.95 },
+      { box: [4, 2.2, 0, 1.6, 1.6, 1.6], kind: "lit" },
+    ]),
   },
 ];
 
@@ -315,48 +499,62 @@ const links = [
       </div>
     </section>
 
-    <section class="q-how">
-      <div class="q-how__intro">
-        <p class="q-label">How it works</p>
+    <section class="q-features">
+      <div class="q-head">
+        <p class="q-label">Features</p>
         <h2 class="q-h2">
-          One write, one update<span class="q-signal">.</span>
+          A small core, and sharp tools<span class="q-signal">.</span>
         </h2>
         <p class="q-lede">
-          There is no render step to repeat. The work happens where a state is
-          read, and the compiler wires those reads up at build time.
+          Reactive state, derives, effects and keyed lists in the runtime. The
+          rest happens in the compiler, before your code ships.
         </p>
       </div>
-      <ol class="q-how__steps">
-        <li v-for="step in steps" :key="step.title" class="q-step">
-          <p class="q-label">{{ step.label }}</p>
-          <div class="q-step__body">
-            <h3 class="q-cell__title">{{ step.title }}</h3>
-            <p class="q-cell__text">{{ step.text }}</p>
+
+      <div class="q-bento">
+        <article
+          v-for="cell in bento"
+          :key="cell.title"
+          :class="['q-bento__cell', cell.wide && 'q-bento__cell--wide']"
+        >
+          <div class="q-bento__art">
+            <svg
+              :viewBox="cell.art.view"
+              preserveAspectRatio="xMidYMid meet"
+              aria-hidden="true"
+            >
+              <template v-for="(shape, k) in cell.art.shapes" :key="k">
+                <g
+                  v-if="'faces' in shape"
+                  :class="`q-box q-box--${shape.kind}`"
+                >
+                  <polygon
+                    v-for="(face, n) in shape.faces"
+                    :key="n"
+                    :class="`q-face q-face--${n}`"
+                    :points="face"
+                  />
+                </g>
+                <path v-else-if="'d' in shape" class="q-flow" :d="shape.d" />
+                <image
+                  v-else
+                  :href="withBase(`/logos/${shape.logo}.svg`)"
+                  :x="shape.offset"
+                  :y="shape.offset"
+                  :width="shape.size"
+                  :height="shape.size"
+                  :transform="shape.transform"
+                />
+              </template>
+            </svg>
           </div>
-          <code class="q-step__code">{{ step.code }}</code>
-        </li>
-      </ol>
+          <div class="q-bento__body">
+            <h3 class="q-bento__title">{{ cell.title }}</h3>
+            <p class="q-bento__text">{{ cell.text }}</p>
+          </div>
+        </article>
+      </div>
     </section>
-
-    <section class="q-head">
-      <p class="q-label">Features</p>
-      <h2 class="q-h2">
-        A small core, and sharp tools<span class="q-signal">.</span>
-      </h2>
-      <p class="q-lede">
-        Reactive state, derives, effects and keyed lists in the runtime. The
-        rest happens in the compiler, before your code ships.
-      </p>
-    </section>
-
-    <div class="q-grid q-grid--3">
-      <article v-for="feature in features" :key="feature.title" class="q-cell">
-        <p class="q-label">{{ feature.label }}</p>
-        <h3 class="q-cell__title">{{ feature.title }}</h3>
-        <p class="q-cell__text">{{ feature.text }}</p>
-        <code class="q-cell__code">{{ feature.code }}</code>
-      </article>
-    </div>
 
     <section class="q-start">
       <div class="q-start__copy">
@@ -638,7 +836,8 @@ const links = [
  */
 .q-install::before,
 .q-editor::before,
-.q-term::before {
+.q-term::before,
+.q-bento__cell::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -976,93 +1175,8 @@ const links = [
   border-radius: 3px;
 }
 
-.q-how {
-  display: grid;
-  gap: 1px;
+.q-features {
   border-bottom: 1px solid var(--q-border);
-  background: var(--q-border);
-}
-
-@media (min-width: 1024px) {
-  .q-how {
-    grid-template-columns: minmax(0, 7fr) minmax(0, 6fr);
-  }
-}
-
-.q-how__intro {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 16px;
-  padding: 56px 20px;
-  background: var(--q-bg);
-}
-
-@media (min-width: 640px) {
-  .q-how__intro {
-    padding: 64px 40px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .q-how__intro {
-    padding: 88px 48px;
-  }
-}
-
-.q-how__steps {
-  display: grid;
-  gap: 1px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  background: var(--q-border);
-}
-
-.q-step {
-  display: grid;
-  gap: 10px;
-  padding: 28px 20px;
-  background: var(--q-bg);
-}
-
-@media (min-width: 640px) {
-  .q-step {
-    grid-template-columns: 120px minmax(0, 1fr);
-    gap: 10px 24px;
-    padding: 32px 40px;
-  }
-
-  .q-step .q-label {
-    padding-top: 6px;
-  }
-
-  .q-step__code {
-    grid-column: 2;
-  }
-}
-
-@media (min-width: 1024px) {
-  .q-step {
-    padding: 36px 48px;
-  }
-}
-
-.q-step__body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.q-step__body .q-cell__title {
-  margin: 0;
-}
-
-.q-step__code {
-  font-family: var(--vp-font-family-mono);
-  font-size: 12.5px;
-  color: var(--q-fg);
-  overflow-wrap: anywhere;
 }
 
 .q-head {
@@ -1070,19 +1184,18 @@ const links = [
   flex-direction: column;
   align-items: flex-start;
   gap: 16px;
-  padding: 56px 20px;
-  border-bottom: 1px solid var(--q-border);
+  padding: 56px 20px 32px;
 }
 
 @media (min-width: 640px) {
   .q-head {
-    padding: 64px 40px;
+    padding: 72px 40px 40px;
   }
 }
 
 @media (min-width: 1024px) {
   .q-head {
-    padding: 88px 48px 72px;
+    padding: 96px 48px 48px;
   }
 }
 
@@ -1105,70 +1218,187 @@ const links = [
   text-wrap: pretty;
 }
 
-.q-grid {
+.q-bento {
   display: grid;
-  gap: 1px;
-  border-bottom: 1px solid var(--q-border);
-  background: var(--q-border);
+  gap: 12px;
+  padding: 0 20px 56px;
 }
 
 @media (min-width: 768px) {
-  .q-grid--3 {
+  .q-bento {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0 40px 72px;
+  }
+
+  .q-bento__cell--wide,
+  .q-bento__cell:last-child {
+    grid-column: span 2;
   }
 }
 
 @media (min-width: 1024px) {
-  .q-grid--3 {
+  .q-bento {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 0 48px 96px;
+  }
+
+  .q-bento__cell:last-child:not(.q-bento__cell--wide) {
+    grid-column: auto;
   }
 }
 
-.q-cell {
+.q-bento__cell {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 32px 20px;
-  background: var(--q-bg);
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: linear-gradient(
+    180deg,
+    rgb(28 27 25 / 0.72),
+    rgb(17 16 15 / 0.9)
+  );
 }
 
-@media (min-width: 640px) {
-  .q-cell {
-    padding: 36px 40px;
-  }
+/*
+ * Art well: a faint dot floor that fades out toward the edges, with the
+ * isometric scene drawn over it in hairlines.
+ */
+.q-bento__art {
+  position: relative;
+  height: 220px;
+  padding: 24px 24px 4px;
 }
 
-@media (min-width: 1024px) {
-  .q-cell {
-    padding: 40px 48px 44px;
-  }
+.q-bento__art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    rgb(246 245 244 / 0.09) 1px,
+    transparent 1px
+  );
+  background-size: 14px 14px;
+  -webkit-mask-image: radial-gradient(
+    ellipse at 50% 55%,
+    black 10%,
+    transparent 70%
+  );
+  mask-image: radial-gradient(ellipse at 50% 55%, black 10%, transparent 70%);
 }
 
-.q-cell__title {
-  margin: 4px 0 0;
-  font-size: 21px;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.025em;
+.q-bento__art svg {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.q-bento__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 24px 24px;
+}
+
+.q-bento__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
   color: var(--q-fg);
 }
 
-.q-cell__text {
-  flex: 1;
+.q-bento__text {
+  max-width: 52ch;
   margin: 0;
   font-size: 14.5px;
   line-height: 1.6;
   color: var(--q-muted);
+  text-wrap: pretty;
 }
 
-.q-cell__code {
-  margin-top: 10px;
-  padding-top: 14px;
-  border-top: 1px solid var(--q-border);
-  font-family: var(--vp-font-family-mono);
-  font-size: 12.5px;
-  color: var(--q-fg);
-  overflow-wrap: anywhere;
+.q-face {
+  stroke-width: 1;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.q-box--wire .q-face {
+  stroke: rgb(246 245 244 / 0.24);
+}
+
+.q-box--wire .q-face--0 {
+  fill: #22211f;
+}
+
+.q-box--wire .q-face--1 {
+  fill: #181715;
+}
+
+.q-box--wire .q-face--2 {
+  fill: #121110;
+}
+
+.q-box--ghost .q-face {
+  fill: rgb(137 180 250 / 0.025);
+  stroke: rgb(246 245 244 / 0.3);
+  stroke-dasharray: 3 4;
+}
+
+.q-box--lit {
+  filter: drop-shadow(0 0 14px rgb(137 180 250 / 0.45));
+  transition: translate 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.q-box--lit .q-face {
+  stroke: rgb(214 228 253 / 0.8);
+}
+
+.q-box--lit .q-face--0 {
+  fill: #bcd4fd;
+}
+
+.q-box--lit .q-face--1 {
+  fill: #89b4fa;
+}
+
+.q-box--lit .q-face--2 {
+  fill: #5877ab;
+}
+
+.q-bento__cell:hover .q-box--lit {
+  translate: 0 -4px;
+}
+
+.q-flow {
+  fill: none;
+  stroke: var(--q-accent);
+  stroke-width: 1.25;
+  stroke-dasharray: 2 5;
+  stroke-linecap: round;
+  opacity: 0.7;
+  vector-effect: non-scaling-stroke;
+  animation: q-flow 1.6s linear infinite;
+}
+
+@keyframes q-flow {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .q-flow {
+    animation: none;
+  }
+
+  .q-box--lit {
+    transition: none;
+  }
 }
 
 .q-start {
