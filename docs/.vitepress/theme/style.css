@@ -1,0 +1,981 @@
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("/fonts/InstrumentSans.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * Tokens. The site is dark only, so these also override the default theme's
+ * `.dark` values: same specificity, later in the cascade.
+ */
+:root {
+  --q-bg: #0f0e0d;
+  --q-fg: #f6f5f4;
+  --q-prose: #d9d5d0;
+  --q-muted: #9d9791;
+  --q-label: #7e7a73;
+  --q-border: #2b2a27;
+  --q-border-strong: #3b3935;
+  --q-surface: #1a1917;
+  --q-code: #131211;
+  --q-accent: #89b4fa;
+  --q-accent-deep: #516b94;
+  --q-accent-soft: rgb(137 180 250 / 0.14);
+  --q-warning: #f7b955;
+  --q-danger: #f28b82;
+
+  --q-gutter: 0px;
+  --q-rail-max: 1440px;
+  --q-rail: max(var(--q-gutter), calc((100% - var(--q-rail-max)) / 2));
+
+  --vp-font-family-base:
+    "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Helvetica, Arial, sans-serif;
+  --vp-font-family-mono:
+    ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --vp-c-bg: var(--q-bg);
+  --vp-c-bg-alt: var(--q-bg);
+  --vp-c-bg-elv: var(--q-surface);
+  --vp-c-bg-soft: var(--q-surface);
+
+  --vp-c-border: var(--q-border-strong);
+  --vp-c-divider: var(--q-border);
+  --vp-c-gutter: var(--q-border);
+
+  --vp-c-text-1: var(--q-fg);
+  --vp-c-text-2: var(--q-muted);
+  --vp-c-text-3: var(--q-label);
+
+  --vp-c-default-1: var(--q-border-strong);
+  --vp-c-default-2: #2f2d2a;
+  --vp-c-default-3: var(--q-surface);
+  --vp-c-default-soft: rgb(246 245 244 / 0.05);
+
+  --vp-c-brand-1: var(--q-accent);
+  --vp-c-brand-2: #a9c8fb;
+  --vp-c-brand-3: var(--q-accent-deep);
+  --vp-c-brand-soft: var(--q-accent-soft);
+
+  --vp-c-tip-1: var(--q-accent);
+  --vp-c-tip-soft: transparent;
+  --vp-c-note-1: var(--q-muted);
+  --vp-c-warning-1: var(--q-warning);
+  --vp-c-warning-soft: transparent;
+  --vp-c-danger-1: var(--q-danger);
+  --vp-c-danger-soft: transparent;
+  --vp-c-caution-1: var(--q-danger);
+  --vp-c-caution-soft: transparent;
+  --vp-c-important-1: var(--q-accent);
+  --vp-c-important-soft: transparent;
+
+  --vp-shadow-1: none;
+  --vp-shadow-2: 0 8px 24px -8px rgb(0 0 0 / 0.6);
+  --vp-shadow-3: 0 16px 40px -12px rgb(0 0 0 / 0.7);
+
+  --vp-code-font-size: 0.86em;
+  --vp-code-color: #ece9e5;
+  --vp-code-bg: var(--q-surface);
+  --vp-code-link-color: var(--q-accent);
+  --vp-code-link-hover-color: #a9c8fb;
+  --vp-code-block-color: #d8d4cf;
+  --vp-code-block-bg: var(--q-code);
+  --vp-code-block-divider-color: var(--q-border);
+  --vp-code-lang-color: var(--q-label);
+  --vp-code-line-highlight-color: rgb(137 180 250 / 0.08);
+  --vp-code-copy-code-border-color: var(--q-border);
+  --vp-code-copy-code-bg: var(--q-surface);
+  --vp-code-copy-code-hover-border-color: var(--q-border-strong);
+  --vp-code-copy-code-hover-bg: var(--q-surface);
+  --vp-code-copy-code-active-text: var(--q-muted);
+  --vp-code-tab-divider: var(--q-border);
+  --vp-code-tab-bg: var(--q-code);
+  --vp-code-tab-text-color: var(--q-label);
+  --vp-code-tab-hover-text-color: var(--q-fg);
+  --vp-code-tab-active-text-color: var(--q-fg);
+  --vp-code-tab-active-bar-color: var(--q-accent);
+
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: var(--q-bg);
+  --vp-button-brand-bg: var(--q-fg);
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-hover-text: var(--q-bg);
+  --vp-button-brand-hover-bg: #d6d3cf;
+  --vp-button-brand-active-border: transparent;
+  --vp-button-brand-active-text: var(--q-bg);
+  --vp-button-brand-active-bg: #c4c0bb;
+  --vp-button-alt-border: transparent;
+  --vp-button-alt-text: var(--q-fg);
+  --vp-button-alt-bg: var(--q-surface);
+  --vp-button-alt-hover-border: transparent;
+  --vp-button-alt-hover-text: var(--q-fg);
+  --vp-button-alt-hover-bg: #232220;
+
+  --vp-custom-block-font-size: 15px;
+  --vp-custom-block-code-font-size: 13px;
+  --vp-custom-block-info-border: var(--q-border);
+  --vp-custom-block-info-bg: transparent;
+  --vp-custom-block-info-code-bg: var(--q-surface);
+  --vp-custom-block-note-border: var(--q-border);
+  --vp-custom-block-note-bg: transparent;
+  --vp-custom-block-note-code-bg: var(--q-surface);
+  --vp-custom-block-tip-border: var(--q-border);
+  --vp-custom-block-tip-bg: transparent;
+  --vp-custom-block-tip-code-bg: var(--q-surface);
+  --vp-custom-block-important-border: var(--q-border);
+  --vp-custom-block-important-bg: transparent;
+  --vp-custom-block-important-code-bg: var(--q-surface);
+  --vp-custom-block-warning-border: var(--q-border);
+  --vp-custom-block-warning-bg: transparent;
+  --vp-custom-block-warning-code-bg: var(--q-surface);
+  --vp-custom-block-danger-border: var(--q-border);
+  --vp-custom-block-danger-bg: transparent;
+  --vp-custom-block-danger-code-bg: var(--q-surface);
+  --vp-custom-block-caution-border: var(--q-border);
+  --vp-custom-block-caution-bg: transparent;
+  --vp-custom-block-caution-code-bg: var(--q-surface);
+  --vp-custom-block-details-border: var(--q-border);
+  --vp-custom-block-details-bg: transparent;
+
+  --vp-input-border-color: var(--q-border);
+  --vp-input-bg-color: var(--q-bg);
+
+  --vp-nav-height: 64px;
+  --vp-nav-logo-height: 24px;
+  --vp-nav-bg-color: transparent;
+  --vp-nav-screen-bg-color: var(--q-bg);
+  --vp-local-nav-bg-color: rgb(15 14 13 / 0.62);
+  --vp-sidebar-bg-color: var(--q-bg);
+  --vp-backdrop-bg-color: rgb(8 7 6 / 0.72);
+
+  --vp-badge-info-border: var(--q-border);
+  --vp-badge-info-text: var(--q-muted);
+  --vp-badge-info-bg: transparent;
+  --vp-badge-tip-border: rgb(137 180 250 / 0.4);
+  --vp-badge-tip-text: var(--q-accent);
+  --vp-badge-tip-bg: transparent;
+
+  --vp-local-search-bg: var(--q-bg);
+  --vp-local-search-result-bg: var(--q-bg);
+  --vp-local-search-result-border: var(--q-border);
+  --vp-local-search-result-selected-bg: var(--q-surface);
+  --vp-local-search-result-selected-border: var(--q-accent);
+  --vp-local-search-highlight-bg: var(--q-accent);
+  --vp-local-search-highlight-text: var(--q-bg);
+}
+
+@media (min-width: 640px) {
+  :root {
+    --q-gutter: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --q-gutter: 32px;
+  }
+}
+
+/*
+ * Page: the site sits in a column framed by hairlines that runs from the top
+ * of the page to its bottom, on a plain background.
+ */
+html {
+  min-height: 100%;
+  color-scheme: dark;
+  background: var(--q-bg);
+  scrollbar-color: var(--q-border-strong) var(--q-bg);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: transparent;
+  caret-color: var(--q-accent);
+}
+
+::selection {
+  background: var(--q-accent);
+  color: var(--q-bg);
+}
+
+:where(a, button, input, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+html.dark .DocSearch-Button:focus,
+html.dark .DocSearch-Button:focus-visible {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 2px;
+}
+
+html.dark .DocSearch-Button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+html.dark .Layout {
+  position: relative;
+  min-height: 100vh;
+  margin: 0 var(--q-rail);
+  border: 1px solid var(--q-border);
+  background: var(--q-bg);
+}
+
+@media (max-width: 639px) {
+  html.dark .Layout {
+    border-right: 0;
+    border-left: 0;
+  }
+}
+
+/* Shared primitives, used by the landing page and doc pages. */
+.q-label {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--q-label);
+}
+
+.q-label--muted {
+  color: var(--q-muted);
+}
+
+.q-signal {
+  color: var(--q-accent);
+}
+
+.q-btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+  user-select: none;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.q-btn:active {
+  translate: 0 1px;
+}
+
+.q-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.q-btn--lg {
+  height: 40px;
+  padding: 0 18px;
+}
+
+.q-btn--primary {
+  border-color: rgb(255 255 255 / 0.18);
+  background: linear-gradient(180deg, #f6f5f4, #d9d5cf);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6);
+  color: var(--q-bg);
+}
+
+.q-btn--primary:hover {
+  background: linear-gradient(180deg, #ffffff, #e4e0da);
+}
+
+.q-btn--secondary {
+  border-color: var(--q-border-strong);
+  background: rgb(26 25 23 / 0.6);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: var(--q-fg);
+}
+
+.q-btn--secondary:hover {
+  background: rgb(35 34 32 / 0.8);
+}
+
+.q-btn--outline {
+  border-color: var(--q-border);
+  color: var(--q-fg);
+}
+
+.q-btn--outline:hover {
+  background: var(--q-surface);
+}
+
+.enter {
+  animation: q-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes q-enter {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+    transform: translateY(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Nav: solid, inside the rails, with a hairline under it. It stays put on every page. */
+html.dark .VPNavBar {
+  background-color: rgb(15 14 13 / 0.55);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+}
+
+html.dark .VPNavBar.screen-open {
+  background-color: var(--q-bg);
+}
+
+html.dark .VPNavBar .content-body,
+html.dark .VPNavBar .container > .title {
+  background-color: transparent;
+}
+
+html.dark .VPNavBar .divider-line,
+html.dark .VPNavBar:not(.has-sidebar) .divider {
+  background-color: var(--q-border);
+}
+
+html.dark .VPNavBarTitle .title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+html.dark .VPNavBarTitle .logo {
+  margin-right: 10px;
+}
+
+@media (min-width: 768px) {
+  html.dark .VPNavBarTitle::after {
+    content: "";
+    width: 1px;
+    height: 20px;
+    margin-left: 24px;
+    background: var(--q-border);
+  }
+
+  html.dark .VPNavBarTitle {
+    display: flex;
+    align-items: center;
+  }
+
+  html.dark .VPNavBarSearch {
+    order: -1;
+    flex-grow: 0;
+    margin-right: auto;
+    padding-left: 24px;
+  }
+
+  html.dark .VPNavBar .content-body .menu {
+    margin-right: 8px;
+  }
+}
+
+@media (min-width: 960px) {
+  html.dark .VPNav {
+    left: calc(var(--q-rail) + 1px);
+    right: calc(var(--q-rail) + 1px);
+    width: auto;
+    border-top: 1px solid var(--q-border);
+  }
+
+  /*
+   * On the landing page the header scrolls away with the page. It sits inside
+   * the framed layout, so the frame already draws its top edge.
+   */
+  html.dark .Layout.q-home .VPNav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 0;
+  }
+
+  html.dark .VPNavBar.has-sidebar .wrapper {
+    padding: 0 32px;
+  }
+
+  html.dark .VPNavBar.has-sidebar .container > .title {
+    position: static;
+    width: auto;
+    height: var(--vp-nav-height);
+    padding: 0;
+    border-right: 0;
+  }
+
+  html.dark .VPNavBar.has-sidebar .content {
+    padding: 0;
+  }
+
+  html.dark .VPNavBar.has-sidebar .divider {
+    padding-left: 0;
+  }
+
+  html.dark .VPNavBar.has-sidebar .divider-line {
+    background-color: var(--q-border);
+  }
+}
+
+html.dark .VPNavBarMenuLink,
+html.dark .VPNavBarMenuGroup .button {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--q-muted);
+}
+
+html.dark .VPNavBarMenuLink:not(.active):hover,
+html.dark .VPNavBarMenuGroup .button:hover {
+  color: var(--q-fg);
+}
+
+html.dark .VPNavBarMenuLink.active {
+  color: var(--q-fg);
+}
+
+html.dark .VPMenu {
+  border: 1px solid var(--q-border);
+  border-radius: 8px;
+  background: var(--q-surface);
+}
+
+html.dark .VPMenuLink .link {
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--q-muted);
+}
+
+html.dark .VPMenuLink .link:hover {
+  color: var(--q-fg);
+  background: rgb(246 245 244 / 0.05);
+}
+
+@media (min-width: 768px) {
+  html.dark .DocSearch-Button {
+    height: 36px;
+    border: 1px solid var(--q-border);
+    background: transparent;
+  }
+
+  html.dark .DocSearch-Button:hover {
+    border-color: var(--q-border-strong);
+    background: var(--q-surface);
+  }
+}
+
+html.dark .DocSearch-Button .DocSearch-Button-Key {
+  margin: 2px 0 0;
+  border: 0;
+  padding: 0;
+  font-size: 12px;
+}
+
+html.dark .DocSearch-Button .DocSearch-Button-Key + .DocSearch-Button-Key {
+  border: 0;
+  padding: 0 0 0 3px;
+}
+
+html.dark .VPNavScreen {
+  left: calc(var(--q-rail) + 1px);
+  right: calc(var(--q-rail) + 1px);
+}
+
+html.dark .VPLocalNav.fixed {
+  left: calc(var(--q-rail) + 1px);
+  right: calc(var(--q-rail) + 1px);
+  width: auto;
+}
+
+html.dark .VPNavScreenMenuLink,
+html.dark .VPNavScreenMenuGroup {
+  border-bottom-color: var(--q-border);
+}
+
+html.dark .VPLocalNav {
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+/* Sidebar: same surface as the page, a hairline rail on its right. */
+@media (min-width: 960px) {
+  html.dark .VPSidebar {
+    left: calc(var(--q-rail) + 1px);
+    bottom: 0;
+    width: var(--vp-sidebar-width);
+    padding-left: 32px;
+    border-right: 1px solid var(--q-border);
+  }
+
+  html.dark .VPDoc .aside-curtain {
+    display: none;
+  }
+
+  html.dark .VPContent.has-sidebar {
+    padding-right: 0;
+    padding-left: var(--vp-sidebar-width);
+    background: linear-gradient(var(--q-border), var(--q-border)) no-repeat
+      calc(var(--vp-sidebar-width) - 1px) 0 / 1px 100%;
+  }
+}
+
+html.dark .VPSidebar {
+  scrollbar-width: thin;
+}
+
+html.dark .VPSidebarItem.level-0 {
+  padding-bottom: 20px;
+}
+
+html.dark .VPSidebarItem.level-0 > .item > .text,
+html.dark .VPSidebarItem.level-0 > .item > .link > .text {
+  padding: 6px 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--q-label);
+}
+
+html.dark .VPSidebarItem.level-1 .text {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--q-muted);
+}
+
+html.dark .VPSidebarItem.level-1.is-link > .item > .link:hover .text {
+  color: var(--q-fg);
+}
+
+html.dark .VPSidebarItem.level-1.is-active > .item .link > .text {
+  color: var(--q-accent);
+}
+
+html.dark .VPSidebarItem.level-1 > .item > .indicator {
+  left: -32px;
+  width: 2px;
+  border-radius: 0;
+}
+
+html.dark .VPSidebarItem .indicator {
+  display: none;
+}
+
+html.dark .VPSidebar .group + .group {
+  border-top-color: var(--q-border);
+  padding-top: 16px;
+}
+
+/* Outline and doc footer. */
+html.dark .VPDocAsideOutline .outline-title {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 32px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--q-label);
+}
+
+html.dark .VPDocAsideOutline .content {
+  border-left-color: var(--q-border);
+}
+
+html.dark .VPDocAsideOutline .outline-marker {
+  display: none;
+}
+
+html.dark .VPDocOutlineItem .outline-link {
+  font-size: 13.5px;
+  color: var(--q-muted);
+}
+
+html.dark .VPDocOutlineItem .outline-link:hover,
+html.dark .VPDocOutlineItem .outline-link.active {
+  color: var(--q-fg);
+}
+
+html.dark .VPDocFooter .edit-link-button {
+  color: var(--q-muted);
+}
+
+html.dark .VPDocFooter .edit-link-button:hover {
+  color: var(--q-fg);
+}
+
+html.dark .VPDocFooterLastUpdated {
+  font-size: 13px;
+  color: var(--q-label);
+}
+
+html.dark .VPDocFooter .prev-next {
+  border-top-color: var(--q-border);
+}
+
+html.dark .VPDocFooter .pager-link {
+  border-color: var(--q-border);
+  padding: 14px 18px 16px;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+html.dark .VPDocFooter .pager-link:hover {
+  border-color: var(--q-border-strong);
+  background: var(--q-surface);
+}
+
+html.dark .VPDocFooter .pager-link .desc {
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--q-label);
+}
+
+html.dark .VPDocFooter .pager-link .title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--q-fg);
+}
+
+/* Home: the landing page draws its own sections and footer. */
+html.dark .VPHome {
+  margin-bottom: 0;
+}
+
+/* Doc content. */
+.vp-doc {
+  color: var(--q-prose);
+}
+
+.vp-doc p,
+.vp-doc li {
+  line-height: 1.75;
+}
+
+.vp-doc strong {
+  color: var(--q-fg);
+}
+
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.vp-doc h4 {
+  color: var(--q-fg);
+  text-wrap: balance;
+}
+
+.vp-doc h1 {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+}
+
+@media (min-width: 768px) {
+  .vp-doc h1 {
+    font-size: 44px;
+  }
+}
+
+.vp-doc h2 {
+  margin: 56px 0 16px;
+  padding-top: 32px;
+  border-top-color: var(--q-border);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.vp-doc h3 {
+  margin: 36px 0 0;
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.vp-doc .header-anchor,
+.vp-doc h2 .header-anchor,
+.vp-doc h3 .header-anchor {
+  position: static;
+  top: auto;
+  margin: 0 0 0 0.3em;
+  font-size: 0.8em;
+  font-weight: 500;
+  color: var(--q-label);
+}
+
+.vp-doc a {
+  color: var(--q-accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: rgb(137 180 250 / 0.35);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s;
+}
+
+.vp-doc a:hover {
+  color: var(--q-accent);
+  text-decoration-color: var(--q-accent);
+}
+
+.vp-doc a.header-anchor,
+.vp-doc a.header-anchor:hover {
+  text-decoration: none;
+  color: var(--q-label);
+}
+
+.vp-doc :not(pre) > code {
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.vp-doc a > code {
+  color: var(--q-accent);
+}
+
+.vp-doc hr {
+  border-top-color: var(--q-border);
+}
+
+.vp-doc blockquote {
+  border-left: 1px solid var(--q-border-strong);
+  color: var(--q-muted);
+}
+
+/* Code blocks: a hairline border on the dark surface. */
+.vp-doc div[class*="language-"] {
+  border: 1px solid var(--q-border);
+  border-radius: 8px;
+}
+
+@media (max-width: 639px) {
+  .vp-doc div[class*="language-"] {
+    border-inline: 0;
+    border-radius: 0;
+  }
+}
+
+.vp-doc [class*="language-"] > span.lang {
+  top: 4px;
+  right: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.vp-doc [class*="language-"] > button.copy {
+  border-radius: 6px;
+}
+
+.vp-code-group .tabs {
+  border: 1px solid var(--q-border);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  box-shadow: inset 0 -1px var(--q-border);
+}
+
+.vp-code-group .tabs label {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.vp-code-group .tabs label::after {
+  right: 12px;
+  left: 12px;
+  height: 2px;
+  border-radius: 2px;
+}
+
+.vp-doc .vp-code-group div[class*="language-"] {
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+}
+
+@media (max-width: 639px) {
+  .vp-code-group .tabs {
+    border-inline: 0;
+    border-radius: 0;
+  }
+
+  .vp-doc .vp-code-group div[class*="language-"] {
+    border-radius: 0;
+  }
+}
+
+/* Custom containers: hairline boxes with a micro-label title. */
+.custom-block {
+  border-radius: 8px;
+}
+
+.custom-block .custom-block-title {
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.custom-block.tip .custom-block-title,
+.custom-block.important .custom-block-title {
+  color: var(--q-accent);
+}
+
+.custom-block.info .custom-block-title,
+.custom-block.note .custom-block-title {
+  color: var(--q-label);
+}
+
+.custom-block.warning .custom-block-title {
+  color: var(--q-warning);
+}
+
+.custom-block.danger .custom-block-title,
+.custom-block.caution .custom-block-title {
+  color: var(--q-danger);
+}
+
+.custom-block p,
+.custom-block li {
+  color: var(--q-prose);
+}
+
+.custom-block a {
+  color: var(--q-accent);
+}
+
+/* Tables: hairlines only, no stripes, micro-label headers. */
+.vp-doc table {
+  border-collapse: collapse;
+}
+
+.vp-doc tr,
+.vp-doc tr:nth-child(2n) {
+  background: transparent;
+  border-top-color: var(--q-border);
+}
+
+.vp-doc th,
+.vp-doc td {
+  border-color: var(--q-border);
+  padding: 10px 16px;
+}
+
+.vp-doc th {
+  background: transparent;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--q-label);
+}
+
+.vp-doc td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Search modal. */
+html.dark .VPLocalSearchBox .shell {
+  border: 1px solid var(--q-border);
+  border-radius: 10px;
+  box-shadow: 0 24px 64px -16px rgb(0 0 0 / 0.8);
+}
+
+html.dark .VPLocalSearchBox .search-bar {
+  border-color: var(--q-border);
+  border-radius: 8px;
+}
+
+html.dark .VPLocalSearchBox .search-bar:focus-within {
+  border-color: var(--q-accent);
+}
+
+html.dark .VPLocalSearchBox .result {
+  border-radius: 8px;
+}
+
+html.dark .VPLocalSearchBox .titles {
+  font-weight: 600;
+}
+
+html.dark .VPLocalSearchBox .search-keyboard-shortcuts kbd {
+  border-color: var(--q-border);
+  background: var(--q-surface);
+}
+
+/* Browser surfaces. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--q-border-strong) padding-box;
+}
+
+/* Package manager logos on code-group tabs, the official marks. */
+html.dark .vp-code-group .tabs label[data-title="npm"]::before,
+html.dark .vp-code-group .tabs label[data-title="Bun"]::before,
+html.dark .vp-code-group .tabs label[data-title="pnpm"]::before,
+html.dark .vp-code-group .tabs label[data-title="Yarn"]::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  vertical-align: -3px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+html.dark .vp-code-group .tabs label[data-title="npm"]::before {
+  background-image: url("/logos/npm.svg");
+}
+
+html.dark .vp-code-group .tabs label[data-title="Bun"]::before {
+  background-image: url("/logos/bun.svg");
+}
+
+html.dark .vp-code-group .tabs label[data-title="pnpm"]::before {
+  background-image: url("/logos/pnpm.svg");
+}
+
+html.dark .vp-code-group .tabs label[data-title="Yarn"]::before {
+  background-image: url("/logos/yarn.svg");
+}
