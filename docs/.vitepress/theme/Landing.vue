@@ -148,15 +148,15 @@ type Point = [number, number, number];
 
 /**
  * One piece of isometric art, painted in order: a block (a flat one is a
- * shadow), a curve that leaves and enters along the x axis, or a logo or a
- * label printed on a top face.
+ * shadow, a ghost is only its edges), a curve that leaves and enters along
+ * the x axis and may carry a beam, or a logo or a label on a top face.
  */
 type Item =
   | {
       box: [...Point, number, number, number];
-      kind?: "wire" | "lit" | "shadow";
+      kind?: "wire" | "lit" | "shadow" | "ghost";
     }
-  | { path: [Point, Point]; sweep: number }
+  | { path: [Point, Point]; sweep: number; beam?: number }
   | { logo: string; at: Point; size: number }
   | { label: string; at: Point; lit?: boolean };
 
@@ -186,6 +186,24 @@ function draw(items: Item[], font: number) {
     if ("box" in item) {
       const [x, y, z, w, d, h] = item.box;
       const top = z + h;
+      if (item.kind === "ghost") {
+        const edge = (a: Point, b: Point) => `M${pt(a)} L${pt(b)}`;
+        return {
+          hidden: [
+            edge([x, y, z], [x + w, y, z]),
+            edge([x, y, z], [x, y + d, z]),
+            edge([x, y, z], [x, y, top]),
+          ].join(" "),
+          edges: [
+            `M${pt([x, y, top])} L${pt([x + w, y, top])} L${pt([x + w, y + d, top])} L${pt([x, y + d, top])} Z`,
+            edge([x + w, y, z], [x + w, y, top]),
+            edge([x + w, y + d, z], [x + w, y + d, top]),
+            edge([x, y + d, z], [x, y + d, top]),
+            edge([x + w, y, z], [x + w, y + d, z]),
+            edge([x, y + d, z], [x + w, y + d, z]),
+          ].join(" "),
+        };
+      }
       return {
         kind: item.kind ?? "wire",
         faces: [
@@ -214,6 +232,7 @@ function draw(items: Item[], font: number) {
       const [a, b] = item.path;
       return {
         d: `M${pt(a)} C${pt([a[0] + item.sweep, a[1], a[2]])} ${pt([b[0] - item.sweep, b[1], b[2]])} ${pt(b)}`,
+        beam: item.beam,
       };
     }
     if ("logo" in item) {
@@ -283,7 +302,7 @@ function keyedRows(): Item[] {
 /**
  * One curve from the middle of each plate's front edge, along the floor,
  * bending into a parallel bundle that runs into the block. They stay in
- * order end to end, so they never cross.
+ * order end to end, so they never cross, and each carries a beam of light.
  */
 function sweep(plates: number[], x: number, into: Point): Item[] {
   return plates.map((y, i): Item => ({
@@ -292,6 +311,7 @@ function sweep(plates: number[], x: number, into: Point): Item[] {
       [into[0], into[1] - 0.4 + (i * 0.8) / (plates.length - 1), 0.15],
     ],
     sweep: 1.1,
+    beam: i,
   }));
 }
 
@@ -306,9 +326,8 @@ const bento = [
     title: "As low as 2.9 KB",
     text: "A counter app, runtime included, is 2.9 KB gzipped when built with esbuild and the Qwrk plugin.",
     art: scene([
-      { box: [0, 0, 0, 4, 4, 0.3] },
-      { box: [1.5, 1.5, 0.3, 1, 1, 0], kind: "shadow" },
-      { box: [1.6, 1.6, 1.1, 0.8, 0.8, 0.8], kind: "lit" },
+      { box: [0, 0, 0, 3.2, 3.2, 3.2], kind: "ghost" },
+      { box: [4.8, 1.4, 0, 0.9, 0.9, 0.9], kind: "lit" },
     ]),
   },
   {
@@ -584,8 +603,12 @@ const links = [
               aria-hidden="true"
             >
               <template v-for="(shape, k) in cell.art.shapes" :key="k">
+                <g v-if="'edges' in shape" class="q-ghost">
+                  <path class="q-ghost__hidden" :d="shape.hidden" />
+                  <path :d="shape.edges" />
+                </g>
                 <g
-                  v-if="'faces' in shape"
+                  v-else-if="'faces' in shape"
                   :class="`q-box q-box--${shape.kind}`"
                 >
                   <polygon
@@ -595,7 +618,19 @@ const links = [
                     :points="face"
                   />
                 </g>
-                <path v-else-if="'d' in shape" class="q-flow" :d="shape.d" />
+                <template v-else-if="'d' in shape">
+                  <path class="q-flow" :d="shape.d" />
+                  <path
+                    v-if="shape.beam !== undefined"
+                    class="q-beam"
+                    :d="shape.d"
+                    pathLength="100"
+                    :style="{
+                      animationDelay: `${shape.beam * 0.9}s`,
+                      animationDuration: `${3 + shape.beam * 0.55}s`,
+                    }"
+                  />
+                </template>
                 <image
                   v-else-if="'logo' in shape"
                   :href="withBase(`/logos/${shape.logo}.svg`)"
@@ -951,8 +986,7 @@ const links = [
 }
 
 .q-install__tab::after,
-.q-term__tab::after,
-.q-editor__tab::after {
+.q-term__tab::after {
   content: "";
   position: absolute;
   right: var(--q-tab-x);
@@ -964,8 +998,7 @@ const links = [
 }
 
 .q-install__tab[aria-pressed="true"]::after,
-.q-term__tab[aria-pressed="true"]::after,
-.q-editor__tab::after {
+.q-term__tab[aria-pressed="true"]::after {
   background: var(--q-accent);
 }
 
@@ -1263,10 +1296,10 @@ const links = [
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 40px;
-  padding: 0 14px 0 14px;
-  border-bottom: 1px solid var(--q-border);
-  background: rgb(33 32 30 / 0.9);
+  height: 42px;
+  padding: 0 14px;
+  border-bottom: 1px solid rgb(0 0 0 / 0.4);
+  background: #252422;
 }
 
 .q-lights {
@@ -1276,8 +1309,8 @@ const links = [
 }
 
 .q-lights i {
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   background: #ff5f57;
 }
@@ -1295,8 +1328,8 @@ const links = [
   width: 15px;
   height: 15px;
   fill: none;
-  stroke: var(--q-muted);
-  stroke-width: 1.8;
+  stroke: #aaa49e;
+  stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -1316,7 +1349,7 @@ const links = [
 }
 
 .q-output__nav.is-off {
-  stroke: var(--q-border-strong);
+  stroke: #56524d;
 }
 
 .q-output__address {
@@ -1327,13 +1360,13 @@ const links = [
   justify-content: center;
   gap: 5px;
   min-width: 0;
-  height: 26px;
+  height: 28px;
   margin: 0 2px;
   padding: 0 26px;
-  border-radius: 7px;
-  background: rgb(15 14 13 / 0.7);
-  font-size: 12px;
-  color: var(--q-muted);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.07);
+  font-size: 12.5px;
+  color: #dcd8d3;
   white-space: nowrap;
 }
 
@@ -1593,6 +1626,18 @@ const links = [
   fill: #121110;
 }
 
+.q-ghost path {
+  fill: none;
+  stroke: rgb(246 245 244 / 0.34);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.q-ghost .q-ghost__hidden {
+  stroke: rgb(246 245 244 / 0.12);
+}
+
 .q-box--shadow .q-face {
   fill: rgb(0 0 0 / 0.5);
   stroke: none;
@@ -1633,6 +1678,32 @@ const links = [
   vector-effect: non-scaling-stroke;
 }
 
+/*
+ * A short dash of light that runs the length of its curve, then waits off
+ * the end. Each curve gets its own delay and pace, so the beams never march
+ * in step.
+ */
+.q-beam {
+  fill: none;
+  stroke: var(--q-accent);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 12 188;
+  stroke-dashoffset: 12;
+  animation: q-beam 3s linear infinite;
+}
+
+@keyframes q-beam {
+  70%,
+  100% {
+    stroke-dashoffset: -100;
+  }
+}
+
+.q-landing.is-scrolling .q-beam {
+  animation-play-state: paused;
+}
+
 .q-tag {
   font-family: var(--vp-font-family-mono);
   font-weight: 600;
@@ -1644,6 +1715,10 @@ const links = [
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .q-beam {
+    display: none;
+  }
+
   .q-box--lit,
   .q-tag--lit {
     transition: none;
