@@ -180,19 +180,19 @@
 }
 
 /*
- * Page: the drafting hatch is the canvas, so it fills every margin, the area
- * under a short page and the over-scroll area. The site sits on a solid
- * column framed by hairlines on all four sides.
+ * Page: the drafting hatch fills only the side margins. The site sits on a
+ * solid column, framed by hairlines, that runs from the top of the page to
+ * its bottom, so no hatch shows above or below it.
  */
 html {
   min-height: 100%;
   color-scheme: dark;
-  background-color: var(--q-bg);
-  background-image: repeating-linear-gradient(
-    45deg,
-    var(--q-border) 0 1px,
-    transparent 1px 8px
-  );
+  background:
+    repeating-linear-gradient(45deg, var(--q-border) 0 1px, transparent 1px 8px)
+      left top / var(--q-rail) 100% repeat-y fixed,
+    repeating-linear-gradient(45deg, var(--q-border) 0 1px, transparent 1px 8px)
+      right top / var(--q-rail) 100% repeat-y fixed,
+    var(--q-bg);
   scrollbar-color: var(--q-border-strong) var(--q-bg);
   -webkit-tap-highlight-color: transparent;
 }
@@ -224,15 +224,10 @@ html.dark .DocSearch-Button:focus:not(:focus-visible) {
 }
 
 html.dark .Layout {
-  min-height: calc(100vh - var(--q-gutter));
-  margin: 0 var(--q-rail) var(--q-gutter);
+  min-height: 100vh;
+  margin: 0 var(--q-rail);
   border: 1px solid var(--q-border);
   background: var(--q-bg);
-}
-
-/* The landing page ends at its footer, with the hatch below it. */
-html.dark .Layout.q-home {
-  min-height: 0;
 }
 
 /* Shared primitives, used by the landing page and doc pages. */
