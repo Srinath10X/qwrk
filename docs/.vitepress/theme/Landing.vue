@@ -1285,7 +1285,7 @@ const links = [
   align-items: center;
   gap: 10px;
   height: 40px;
-  padding: 0 10px 0 14px;
+  padding: 0 16px 0 14px;
   border-bottom: 1px solid var(--q-border);
   background: rgb(33 32 30 / 0.9);
 }
@@ -1330,6 +1330,10 @@ const links = [
   .q-output__nav--wide {
     display: none;
   }
+}
+
+.q-output__address ~ .q-output__nav {
+  margin-left: 8px;
 }
 
 .q-output__nav.is-off {
