@@ -789,7 +789,10 @@ html.dark .VPHome {
 }
 
 .vp-code-group .tabs label::after {
-  height: 1px;
+  right: 12px;
+  left: 12px;
+  height: 2px;
+  border-radius: 2px;
 }
 
 .vp-doc .vp-code-group div[class*="language-"] {

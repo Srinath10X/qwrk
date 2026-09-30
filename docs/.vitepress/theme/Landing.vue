@@ -638,7 +638,8 @@ const links = [
   align-items: center;
   gap: 7px;
   margin-bottom: -1px;
-  padding: 8px 12px 7px;
+  --q-tab-x: 14px;
+  padding: 9px 14px 8px;
   font-family: var(--vp-font-family-base);
   font-size: 13px;
   font-weight: 500;
@@ -651,10 +652,11 @@ const links = [
 .q-editor__tab::after {
   content: "";
   position: absolute;
-  right: 10%;
+  right: var(--q-tab-x);
   bottom: -1px;
-  left: 10%;
-  height: 1px;
+  left: var(--q-tab-x);
+  height: 2px;
+  border-radius: 2px;
   background: transparent;
 }
 
@@ -798,6 +800,7 @@ const links = [
   align-items: center;
   gap: 8px;
   margin-bottom: -1px;
+  --q-tab-x: 18px;
   padding: 10px 18px 9px;
   border-right: 1px solid var(--q-border);
   background: transparent;
@@ -1190,8 +1193,8 @@ const links = [
   align-items: center;
   gap: 8px;
   margin-bottom: -1px;
+  --q-tab-x: 16px;
   padding: 10px 16px 9px;
-  border-right: 1px solid var(--q-border);
   font-size: 13.5px;
   font-weight: 500;
   color: var(--q-muted);
