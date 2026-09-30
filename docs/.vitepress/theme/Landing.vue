@@ -1126,7 +1126,8 @@ const links = [
 
 @media (min-width: 1024px) {
   .q-hero__code {
-    padding: 48px 48px 48px 24px;
+    margin-left: -40px;
+    padding: 48px 112px 48px 0;
   }
 }
 
