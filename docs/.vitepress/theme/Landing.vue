@@ -163,7 +163,7 @@ type Point = [number, number, number];
  */
 type Item =
   | { box: [...Point, number, number, number]; kind?: "wire" | "lit" | "ghost" }
-  | { path: Point[]; arc?: number; pulse?: boolean }
+  | { path: Point[]; arc?: number }
   | { lattice: number; size: number }
   | { logo: string; at: Point; size: number }
   | { label: string; at: Point; lit?: boolean };
@@ -260,7 +260,7 @@ function draw(items: Item[], font: number) {
         item.arc === undefined
           ? `M${item.path.map(pt).join(" L")}`
           : `M${pt(a)} Q${pt([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2 + item.arc])} ${pt(b)}`;
-      return { d, pulse: item.pulse ? font * 0.24 : 0 };
+      return { d };
     }
     if ("logo" in item) {
       const [x, y] = at(item.at);
@@ -352,17 +352,14 @@ function keyedRows(): Item[] {
 }
 
 /**
- * Hairlines fanning out from both front corners of each plate and meeting
- * inside the block, with one pulse running along a single line.
+ * Source files for the build diagram: lines sweeping in from the left edge
+ * that bend flat as they reach the compiler box.
  */
-function fan(plates: number[], x: number, into: Point): Item[] {
-  return plates.flatMap((y, i) =>
-    [y, y + 1.6].map((edge, j): Item => ({
-      path: [[x, edge, 0.3], into],
-      pulse: i === 1 && j === 0,
-    })),
-  );
-}
+const sources = Array.from({ length: 9 }, (_, i) => {
+  const from = 8 + i * 23;
+  const to = 86 + i * 3.5;
+  return `M0 ${from} C96 ${from + (to - from) * 0.6} 120 ${to} 168 ${to}`;
+});
 
 const bento = [
   {
@@ -438,16 +435,7 @@ const bento = [
   {
     title: "TypeScript, Vite, esbuild",
     text: "Types ship with the package. There are plugins for Vite and esbuild, and .svg files import as components.",
-    art: scene([
-      { box: [0, 0, 0, 1.6, 1.6, 0.3] },
-      { logo: "typescript", at: [0.8, 0.8, 0.3], size: 0.95 },
-      { box: [0, 2.2, 0, 1.6, 1.6, 0.3] },
-      { logo: "vite", at: [0.8, 3, 0.3], size: 0.95 },
-      { box: [0, 4.4, 0, 1.6, 1.6, 0.3] },
-      { logo: "esbuild", at: [0.8, 5.2, 0.3], size: 0.95 },
-      ...fan([0, 2.2, 4.4], 1.6, [4.4, 3, 0.8]),
-      { box: [4, 2.2, 0, 1.6, 1.6, 1.6], kind: "lit" },
-    ]),
+    art: null,
   },
 ];
 
@@ -636,7 +624,68 @@ const links = [
           :class="['q-bento__cell', cell.wide && 'q-bento__cell--wide']"
         >
           <div class="q-bento__art">
+            <svg v-if="!cell.art" viewBox="0 0 400 200" aria-hidden="true">
+              <defs>
+                <linearGradient
+                  id="q-source"
+                  gradientUnits="userSpaceOnUse"
+                  x1="0"
+                  x2="168"
+                  y1="0"
+                  y2="0"
+                >
+                  <stop offset="0" stop-color="#f6f5f4" stop-opacity="0" />
+                  <stop offset="1" stop-color="#f6f5f4" stop-opacity="0.38" />
+                </linearGradient>
+              </defs>
+              <path v-for="d in sources" :key="d" class="q-source" :d="d" />
+              <path class="q-wire" d="M216 68V42a8 8 0 0 1 8-8h26" />
+              <path class="q-wire" d="M184 132v26a8 8 0 0 1-8 8h-26" />
+              <path class="q-wire" d="M216 132v26a8 8 0 0 0 8 8h26" />
+              <path class="q-output" d="M232 100H400" />
+              <circle class="q-output__dot" cx="292" cy="100" r="3" />
+              <circle class="q-output__dot" cx="364" cy="100" r="3" />
+              <text class="q-output__label" x="292" y="120">template</text>
+              <text class="q-output__label" x="364" y="120">.js</text>
+              <circle class="q-pulse" r="2.5">
+                <animateMotion
+                  path="M0 100H400"
+                  dur="4s"
+                  repeatCount="indefinite"
+                />
+              </circle>
+              <g
+                v-for="node in [
+                  { logo: 'vite', x: 250, y: 22 },
+                  { logo: 'esbuild', x: 126, y: 154 },
+                  { logo: 'typescript', x: 250, y: 154 },
+                ]"
+                :key="node.logo"
+                class="q-node"
+                :transform="`translate(${node.x} ${node.y})`"
+              >
+                <rect width="24" height="24" rx="6" />
+                <image
+                  :href="withBase(`/logos/${node.logo}.svg`)"
+                  x="5"
+                  y="5"
+                  width="14"
+                  height="14"
+                />
+              </g>
+              <g class="q-chip" transform="translate(168 68)">
+                <rect width="64" height="64" rx="14" />
+                <image
+                  :href="withBase('/qwrk.svg')"
+                  x="17"
+                  y="17"
+                  width="30"
+                  height="30"
+                />
+              </g>
+            </svg>
             <svg
+              v-else
               :viewBox="cell.art.view"
               preserveAspectRatio="xMidYMid meet"
               aria-hidden="true"
@@ -658,16 +707,7 @@ const links = [
                   class="q-lattice"
                   :d="shape.lattice"
                 />
-                <g v-else-if="'d' in shape">
-                  <path class="q-flow" :d="shape.d" />
-                  <circle v-if="shape.pulse" class="q-pulse" :r="shape.pulse">
-                    <animateMotion
-                      :path="shape.d"
-                      dur="3.2s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
-                </g>
+                <path v-else-if="'d' in shape" class="q-flow" :d="shape.d" />
                 <image
                   v-else-if="'logo' in shape"
                   :href="withBase(`/logos/${shape.logo}.svg`)"
@@ -1633,8 +1673,52 @@ const links = [
   vector-effect: non-scaling-stroke;
 }
 
+/*
+ * The build diagram: faint source lines feeding the compiler box, wires out
+ * to the tools it plugs into, and one output line with what comes out.
+ */
+.q-source {
+  fill: none;
+  stroke: url(#q-source);
+  stroke-width: 1;
+}
+
+.q-wire {
+  fill: none;
+  stroke: rgb(246 245 244 / 0.2);
+  stroke-width: 1;
+}
+
+.q-output {
+  stroke: var(--q-accent);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+.q-output__dot,
 .q-pulse {
   fill: var(--q-accent);
+}
+
+.q-output__label {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  fill: var(--q-muted);
+  text-anchor: middle;
+}
+
+.q-node rect {
+  fill: #1f1e1c;
+  stroke: rgb(246 245 244 / 0.14);
+}
+
+.q-chip rect {
+  fill: #1d1c1a;
+  stroke: rgb(246 245 244 / 0.16);
+}
+
+.q-chip {
+  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.55));
 }
 
 @media (prefers-reduced-motion: reduce) {
