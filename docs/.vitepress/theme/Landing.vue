@@ -620,16 +620,22 @@ const links = [
                 </g>
                 <template v-else-if="'d' in shape">
                   <path class="q-flow" :d="shape.d" />
-                  <path
+                  <g
                     v-if="shape.beam !== undefined"
                     class="q-beam"
-                    :d="shape.d"
-                    pathLength="100"
                     :style="{
-                      animationDelay: `${shape.beam * 0.9}s`,
-                      animationDuration: `${3 + shape.beam * 0.55}s`,
+                      '--delay': `${shape.beam * 0.7}s`,
+                      '--pace': `${2.2 + shape.beam * 0.4}s`,
                     }"
-                  />
+                  >
+                    <path
+                      v-for="n in 4"
+                      :key="n"
+                      :class="`q-beam__${n}`"
+                      :d="shape.d"
+                      pathLength="100"
+                    />
+                  </g>
                 </template>
                 <image
                   v-else-if="'logo' in shape"
@@ -1679,28 +1685,82 @@ const links = [
 }
 
 /*
- * A short dash of light that runs the length of its curve, then waits off
- * the end. Each curve gets its own delay and pace, so the beams never march
- * in step.
+ * A comet of light that runs the length of its curve, then waits off the
+ * end. Four dashes share one head and grow longer and fainter, so the tail
+ * fades out behind it. Each curve gets its own delay and pace, so the beams
+ * never march in step.
  */
-.q-beam {
+.q-beam path {
   fill: none;
   stroke: var(--q-accent);
-  stroke-width: 1.6;
   stroke-linecap: round;
-  stroke-dasharray: 12 188;
-  stroke-dashoffset: 12;
-  animation: q-beam 3s linear infinite;
+  animation-duration: var(--pace);
+  animation-timing-function: linear;
+  animation-delay: var(--delay);
+  animation-iteration-count: infinite;
 }
 
-@keyframes q-beam {
-  70%,
+.q-beam .q-beam__1 {
+  stroke: #dbe7fe;
+  stroke-width: 2;
+  stroke-dasharray: 1.5 400;
+  stroke-dashoffset: 1.5;
+  animation-name: q-beam-1;
+}
+
+.q-beam .q-beam__2 {
+  stroke-width: 1.6;
+  opacity: 0.55;
+  stroke-dasharray: 6 400;
+  stroke-dashoffset: 6;
+  animation-name: q-beam-2;
+}
+
+.q-beam .q-beam__3 {
+  stroke-width: 1.4;
+  opacity: 0.25;
+  stroke-dasharray: 12 400;
+  stroke-dashoffset: 12;
+  animation-name: q-beam-3;
+}
+
+.q-beam .q-beam__4 {
+  stroke-width: 1.2;
+  opacity: 0.1;
+  stroke-dasharray: 20 400;
+  stroke-dashoffset: 20;
+  animation-name: q-beam-4;
+}
+
+@keyframes q-beam-1 {
+  55%,
   100% {
-    stroke-dashoffset: -100;
+    stroke-dashoffset: -123.5;
   }
 }
 
-.q-landing.is-scrolling .q-beam {
+@keyframes q-beam-2 {
+  55%,
+  100% {
+    stroke-dashoffset: -119;
+  }
+}
+
+@keyframes q-beam-3 {
+  55%,
+  100% {
+    stroke-dashoffset: -113;
+  }
+}
+
+@keyframes q-beam-4 {
+  55%,
+  100% {
+    stroke-dashoffset: -105;
+  }
+}
+
+.q-landing.is-scrolling .q-beam path {
   animation-play-state: paused;
 }
 
