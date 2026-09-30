@@ -785,7 +785,7 @@ const links = [
   border-bottom: 1px solid var(--q-accent);
   background: transparent;
   font-family: var(--vp-font-family-mono);
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--q-fg);
 }
 
@@ -795,7 +795,7 @@ const links = [
   overflow-x: auto;
   counter-reset: line;
   font-family: var(--vp-font-family-mono);
-  font-size: 12px;
+  font-size: 12.5px;
   line-height: 1.75;
   color: #d8d4cf;
   tab-size: 2;
@@ -803,7 +803,7 @@ const links = [
 
 @media (min-width: 640px) {
   .q-editor__code {
-    font-size: 13px;
+    font-size: 14.5px;
   }
 }
 
