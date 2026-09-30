@@ -26,7 +26,7 @@
   --q-warning: #f7b955;
   --q-danger: #f28b82;
 
-  --q-gutter: 12px;
+  --q-gutter: 0px;
   --q-rail-max: 1440px;
   --q-rail: max(var(--q-gutter), calc((100% - var(--q-rail-max)) / 2));
 
@@ -223,6 +223,13 @@ html.dark .Layout {
   margin: 0 var(--q-rail);
   border: 1px solid var(--q-border);
   background: var(--q-bg);
+}
+
+@media (max-width: 639px) {
+  html.dark .Layout {
+    border-right: 0;
+    border-left: 0;
+  }
 }
 
 /* Shared primitives, used by the landing page and doc pages. */
