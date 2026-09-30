@@ -188,14 +188,8 @@ export function mark(source: Signal<any>) {
   source.v++;
 
   const list = seen;
-  if (list) {
-    for (let i = 0; i < list.length; i += 2) {
-      if (list[i] === source) {
-        list[i + 1] = source.v;
-        break;
-      }
-    }
-  }
+  const i = list ? list.indexOf(source) : -1;
+  if (i >= 0) list![i + 1] = source.v;
 
   notify(source);
 }
@@ -209,15 +203,14 @@ function select(source: Signal<any>, old: unknown) {
   if (after && after !== before) mark(after as any);
 }
 
-/** Tracks `source` as a dependency of the running derive or effect. */
+/**
+ * Tracks `source` as a dependency of the running derive or effect. Read
+ * lists alternate states and numbers, so a search for a state only ever
+ * finds a state.
+ */
 export function track(source: Signal<any>) {
   const list = reads;
-  if (!list) return;
-
-  for (let i = 0; i < list.length; i += 2) {
-    if (list[i] === source) return;
-  }
-  list.push(source, source.v);
+  if (list && list.indexOf(source) < 0) list.push(source, source.v);
 }
 
 /** Returns the raw value of `source`, up to date, without tracking it. */
@@ -419,23 +412,16 @@ function subscribe(node: Computation, reading: any[]) {
   const s = (node.s = reading.length ? Array((reading.length / 2) * 3) : NONE);
   let n = 0;
 
-  for (let i = 0; old !== NONE && i < old.length; i += 3) {
-    let version: number | undefined;
+  for (let i = 0; i < old.length; i += 3) {
+    const j = reading.indexOf(old[i]);
 
-    for (let j = 0; j < reading.length; j += 2) {
-      if (reading[j] === old[i]) {
-        version = reading[j + 1];
-        reading[j] = null;
-        break;
-      }
-    }
-
-    if (version === undefined) {
+    if (j < 0) {
       unlinkSource(old[i], node, old[i + 2]);
     } else {
       s[n++] = old[i];
-      s[n++] = version;
+      s[n++] = reading[j + 1];
       s[n++] = old[i + 2];
+      reading[j] = null;
     }
   }
 
@@ -612,13 +598,8 @@ function unlinkSource(
     const last = subs.pop()!;
     if (last !== owner) {
       subs[slot] = last;
-      const s = last.s;
-      for (let i = 0; i < s.length; i += 3) {
-        if (s[i] === source) {
-          s[i + 2] = slot;
-          break;
-        }
-      }
+      const i = last.s.indexOf(source);
+      if (i >= 0) last.s[i + 2] = slot;
     }
     if (!subs.length && source instanceof Key) source.m.delete(source.k);
   }
