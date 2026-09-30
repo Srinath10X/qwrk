@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { withBase } from "vitepress";
 import { onBeforeUnmount, ref } from "vue";
-import { logos } from "./pm-logos";
 
 const install = "npm create qwrk-app@latest";
 const github = "https://github.com/Srinath10X/qwrk";
@@ -96,10 +95,10 @@ const code: [string, string][][] = [
 ];
 
 const managers = [
-  { name: "npm", install: "npm install", dev: "npm run dev" },
-  { name: "bun", install: "bun install", dev: "bun run dev" },
-  { name: "pnpm", install: "pnpm install", dev: "pnpm dev" },
-  { name: "yarn", install: "yarn install", dev: "yarn dev" },
+  { name: "npm", label: "npm", install: "npm install", dev: "npm run dev" },
+  { name: "bun", label: "Bun", install: "bun install", dev: "bun run dev" },
+  { name: "pnpm", label: "pnpm", install: "pnpm install", dev: "pnpm dev" },
+  { name: "yarn", label: "Yarn", install: "yarn install", dev: "yarn dev" },
 ];
 const manager = ref(managers[0]);
 
@@ -344,10 +343,13 @@ const links = [
               :aria-pressed="manager.name === m.name"
               @click="manager = m"
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path :fill="logos[m.name].color" :d="logos[m.name].path" />
-              </svg>
-              {{ m.name }}
+              <img
+                :src="withBase(`/logos/${m.name}.svg`)"
+                alt=""
+                width="16"
+                height="16"
+              />
+              {{ m.label }}
             </button>
           </div>
           <button
@@ -1079,15 +1081,15 @@ const links = [
   padding: 10px 16px 9px;
   border-right: 1px solid var(--q-border);
   border-bottom: 1px solid transparent;
-  font-family: var(--vp-font-family-mono);
-  font-size: 12.5px;
+  font-size: 13.5px;
+  font-weight: 500;
   color: var(--q-muted);
   transition: color 0.15s;
 }
 
-.q-term__tab svg {
-  width: 14px;
-  height: 14px;
+.q-term__tab img {
+  width: 16px;
+  height: 16px;
   flex: none;
 }
 
