@@ -269,6 +269,33 @@ describe("compile", () => {
     );
   });
 
+  it("writes props that are strings in every call without bindings", () => {
+    const code = output(
+      `function B({ id, text, n }) { return <p id={id} class={id} data-n={n}>{text}</p>; }
+       const a = <B id="a" text="x" n="1" />, b = <B id={"b"} text={\`y\`} n={2} />;`,
+    );
+
+    expect(code).toContain('_el$2.setAttribute("id", id);');
+    expect(code).toContain("_el$2.textContent = text;");
+    expect(code).toContain('_$attribute(_el$2, "class", id);');
+    expect(code).toContain('_$attribute(_el$2, "data-n", n);');
+  });
+
+  it("keeps bindings for props of components called otherwise", () => {
+    const sources = [
+      `export function B({ id }) { return <p id={id} />; } const a = <B id="a" />;`,
+      `function B({ id }) { return <p id={id} />; } const a = <B id="a" />; f(B);`,
+      `function B({ id }) { return <p id={id} />; } const a = <B id="a" />, b = <B {...p} />;`,
+      `function B({ id }) { return <p id={id} />; } const a = <B id="a" />, b = <B />;`,
+      `function B({ id }) { id = id + "!"; return <p id={id} />; } const a = <B id="a" />;`,
+      `function B({ id }) { return <p id={id} />; } function C({ B }) { return <B id="a" />; }`,
+    ];
+
+    for (const source of sources) {
+      expect(output(source), source).toContain('_$attribute(_el$2, "id", id);');
+    }
+  });
+
   it("uses createElement for JSX that awaits", () => {
     const code = output(
       `async function f() { return <p class={await c}>{await t}</p>; }`,

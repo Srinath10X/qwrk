@@ -82,6 +82,8 @@ interface Context {
   handlers: string[];
   /** The bindings each scope declares, read once per scope. */
   scopes: Map<Node, Map<string, Declared>>;
+  /** The props that are always strings, per component, see {@link strings}. */
+  fixed: Map<Node, Set<string>>;
 }
 
 /**
@@ -285,6 +287,7 @@ export function compile(
     path: [],
     handlers: [],
     scopes: new Map(),
+    fixed: strings(program as unknown as Node),
   };
   visit(context, program as unknown as Node, false);
   if (!context.changed) return null;
@@ -1372,6 +1375,26 @@ function needs(slot: Slot): boolean {
 function render(context: Context, operation: Operation): Part[] {
   const target = operation.target.ref!;
 
+  if (
+    operation.kind === "insert" &&
+    operation.text &&
+    isString(context, operation.value)
+  ) {
+    return [`${target}.textContent = `, ...operation.value, "; "];
+  }
+  if (
+    operation.kind === "attr" &&
+    operation.name !== "class" &&
+    operation.name !== "style" &&
+    !PROPERTIES.has(operation.name) &&
+    isString(context, operation.value)
+  ) {
+    return [
+      `${target}.setAttribute(${quote(operation.name)}, `,
+      ...operation.value,
+      "); ",
+    ];
+  }
   if (operation.kind === "insert") {
     const marker = operation.marker ? `, ${operation.marker.ref}` : "";
     const name = operation.text ? "text" : "insert";
@@ -1413,6 +1436,117 @@ function render(context: Context, operation: Operation): Part[] {
     ...operation.value,
     "); ",
   ];
+}
+
+/**
+ * Whether `value` is a prop that is a string in every call of its component,
+ * see {@link strings}, so the DOM takes it as it is, without a binding.
+ */
+function isString(context: Context, value: Part[]) {
+  if (value.length !== 1 || typeof value[0] === "string") return false;
+  const { node } = value[0];
+  if (node.type !== "Identifier") return false;
+  const scope = declaring(context, node.name);
+  return (
+    scope?.declared.kind === "param" &&
+    !!context.fixed.get(scope.node)?.has(node.name)
+  );
+}
+
+/**
+ * The props that are strings in every call of their component: the module
+ * declares the component as a function whose parameter destructures its
+ * props, never refers to it but as a JSX tag, and passes a string literal
+ * for the prop in every tag, without spreads. The local the prop is bound to
+ * is never assigned. Returns the names of those locals, per function.
+ */
+function strings(program: Node) {
+  const fixed = new Map<Node, Set<string>>();
+  const components = new Map<string, Node>();
+  const uses = new Map<string, number>();
+  const tags = new Map<string, Node[]>();
+
+  for (const statement of program.body as Node[]) {
+    if (
+      statement.type === "FunctionDeclaration" &&
+      statement.id &&
+      /^[A-Z]/.test(statement.id.name) &&
+      statement.params.length === 1 &&
+      statement.params[0].type === "ObjectPattern"
+    ) {
+      components.set(statement.id.name, statement);
+    }
+  }
+  if (!components.size) return fixed;
+
+  has(
+    program,
+    (node) => {
+      if (node.type === "Identifier" && components.has(node.name)) {
+        uses.set(node.name, (uses.get(node.name) ?? 0) + 1);
+      } else if (
+        node.type === "JSXOpeningElement" &&
+        node.name.type === "JSXIdentifier" &&
+        components.has(node.name.name)
+      ) {
+        const list = tags.get(node.name.name) ?? [];
+        tags.set(node.name.name, [...list, node]);
+      }
+      return false;
+    },
+    true,
+  );
+
+  for (const [name, fn] of components) {
+    const opened = tags.get(name);
+    if (uses.get(name) !== 1 || !opened) continue;
+    if (
+      opened.some((tag) =>
+        tag.attributes.some((a: Node) => a.type === "JSXSpreadAttribute"),
+      )
+    ) {
+      continue;
+    }
+
+    const locals = new Set<string>();
+    for (const property of fn.params[0].properties as Node[]) {
+      if (
+        property.type !== "Property" ||
+        property.computed ||
+        property.key.type !== "Identifier" ||
+        property.value.type !== "Identifier" ||
+        property.key.name === "children" ||
+        IGNORED.has(property.key.name)
+      ) {
+        continue;
+      }
+      const key = property.key.name;
+      const local = property.value.name;
+      if (
+        opened.every((tag) => {
+          const found = tag.attributes.filter((a: Node) => nameOf(a) === key);
+          return found.length > 0 && found.every(isStringAttribute);
+        }) &&
+        !assigns(fn.body, local)
+      ) {
+        locals.add(local);
+      }
+    }
+    if (locals.size) fixed.set(fn, locals);
+  }
+  return fixed;
+}
+
+/** Whether a JSX attribute's value is a string literal. */
+function isStringAttribute(attribute: Node) {
+  const { value } = attribute;
+  if (value?.type === "Literal") return true;
+  if (value?.type !== "JSXExpressionContainer") return false;
+  const node = unwrap(value.expression);
+  return (
+    (node.type === "Literal" && typeof node.value === "string") ||
+    (node.type === "TemplateLiteral" && !node.expressions.length)
+  );
 }
 
 /**
