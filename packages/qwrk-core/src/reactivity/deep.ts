@@ -96,16 +96,16 @@ function changed(source: Signal<any>, target: object) {
  * Wraps arrays and plain objects, at any depth, so that changing them in place
  * (`push`, `list[0] = x`, `user.name = x`) notifies `source`, and reading
  * them tracks it. The same object always gets the same proxy, even when it's
- * stored wrapped.
+ * stored wrapped. Anything else is returned before looking for its proxy:
+ * only plain objects have one.
  *
  * @param value - Value to wrap.
  * @param source - The state it belongs to.
  */
 export function deep<T>(value: T, source: Signal<any>): T {
-  if (typeof value !== "object" || value === null) return value;
+  if (!isPlain(value)) return value;
 
   const raw = toRaw(value) as object;
-  if (raw === value && !isPlain(raw)) return value;
 
   const proxies = (source.m ??= new WeakMap());
   let proxy = proxies.get(raw);
