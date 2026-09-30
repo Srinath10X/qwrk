@@ -50,6 +50,32 @@ bun create qwrk-app my-app --template ts
 
 npm needs the extra `--` to pass flags through to the CLI.
 
+## Try the 0.4 beta
+
+Qwrk 0.4 is in beta on the `next` tag. It brings the [compiler](/guide/compiler), keyed [lists](/guide/lists), [`batch()`](/api/batch) and glitch-free [derives](/api/derive), which these docs describe. New projects start on the latest stable release; to move one to the beta, install both packages from `next`:
+
+::: code-group
+
+```sh [npm]
+npm i qwrk@next qwrk-vite@next
+```
+
+```sh [pnpm]
+pnpm add qwrk@next qwrk-vite@next
+```
+
+```sh [yarn]
+yarn add qwrk@next qwrk-vite@next
+```
+
+```sh [bun]
+bun add qwrk@next qwrk-vite@next
+```
+
+:::
+
+Install them together: the code `qwrk-vite@next` compiles imports helpers that only the 0.4 runtime has.
+
 ## Add Qwrk to an existing Vite project
 
 Install `qwrk` and the `qwrk-vite` plugin:
@@ -70,7 +96,7 @@ export default defineConfig({
 });
 ```
 
-The plugin compiles JSX with Qwrk's automatic runtime (`qwrk/jsx-runtime`), so you never import anything for JSX.
+The plugin [compiles your JSX](/guide/compiler) into templates and fine-grained DOM bindings, and hands what it leaves untouched to Qwrk's automatic runtime (`qwrk/jsx-runtime`), so you never import anything for JSX.
 
 ## TypeScript
 
@@ -89,10 +115,14 @@ Tell TypeScript to use Qwrk's JSX runtime in `tsconfig.json`:
 
 ## Other bundlers
 
-Anything that supports the automatic JSX runtime works without the plugin. Point it at `qwrk` as the import source:
+With esbuild, use the compiler's [esbuild plugin](/guide/compiler#esbuild), `qwrk-vite/esbuild`.
+
+Anything that supports the automatic JSX runtime also works without the compiler. Point it at `qwrk` as the import source:
 
 - **esbuild:** `--jsx=automatic --jsx-import-source=qwrk`
 - **Bun, tsc and other tools that read `tsconfig.json`:** the TypeScript settings above
+
+Without the compiler, JSX expressions are evaluated once: pass the state itself, or a [`derive()`](/api/derive), to keep the DOM in sync.
 
 ## Mount your app
 

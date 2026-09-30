@@ -62,7 +62,7 @@ rows.value[0].label.value = "b"; // updates the label, not the whole list
 
 ## Using it in JSX
 
-Pass the state itself to keep the DOM in sync. Reading `.value` in JSX takes a one-time snapshot.
+Pass the state itself to keep the DOM in sync. With the [compiler](/guide/compiler), any expression that reads `.value` stays in sync too. Without it, reading `.value` in JSX takes a one-time snapshot.
 
 ```jsx
 export default function App() {
@@ -71,6 +71,7 @@ export default function App() {
   return (
     <>
       <h1>Count: {count}</h1>
+      <p>Doubled: {count.value * 2}</p>
       <button onClick={() => count.value++}>Increment</button>
     </>
   );
@@ -101,8 +102,8 @@ Rows are keyed by the items themselves, compared with `===`: numbers and strings
 - A change only adds, removes and moves the rows that changed: a `push` inserts one row, swapping two items moves two rows, a `splice` removes one.
 - Replacing an item with a new object, even an equal one, rebuilds its row. Change the object in place instead, or keep the same objects when you build a new array: `todos.value = todos.value.filter((todo) => !todo.done)`.
 - The same item twice renders two rows.
-- `fn` receives the item as reading `todos.value[i]` returns it, so `todo.done = true` notifies `todos`. There is no index argument, since the index changes whenever rows move.
-- Reading `todo.text` inside a derive or an effect subscribes it to all of `todos`, like reading `todos.value` would. Read it once in `fn` when it doesn't change.
+- `fn` receives the item raw, as stored, not as a proxy. Writing a captured item, `todo.done = true`, notifies nothing: write through the state instead, as in `todos.value[i].done = true`. There is no index argument, since the index changes whenever rows move.
+- A captured item subscribes to nothing, so reading `todo.text` in a derive doesn't update it. Read fields that don't change once in `fn`, and keep changing ones in a state inside the item. See [Lists](/guide/lists#items).
 - Removing a row stops the derives and effects its `fn` created. A list created while a derive runs stops when the derive runs again.
 - `null` and `undefined` render nothing.
 
@@ -119,6 +120,8 @@ A derive that maps the array, `derive(() => todos.value.map(...))`, still works,
 ```
 
 The compiler rewrites this to `selected.is(row.id)`. States that never call `.is()` pay nothing.
+
+Without the compiler, call it yourself in a derive: `derive(() => (selected.is(id) ? "danger" : ""))`.
 
 ## Subscribing to changes
 
@@ -146,6 +149,23 @@ count.value = 3; // logs nothing
 Inside a [`batch()`](/api/batch) it runs once, with the value from before the batch as `oldValue`. A `.effect()` created while a [derive](/api/derive#ownership) or an [effect](/api/effect#stopping) runs stops when that one runs again. Derives created in `fn` keep updating after `fn` runs again.
 
 To run code once after mount as well as on changes, use [`effect()`](/api/effect).
+
+## peek()
+
+`peek(state)` returns the current value without subscribing, so a derive or an effect that calls it doesn't re-run when that state changes:
+
+```js
+import { state, derive, peek } from "qwrk";
+
+const count = state(1);
+const step = state(10);
+const next = derive(() => count.value + peek(step));
+
+step.value = 20; // next stays 11
+count.value = 2; // next recomputes: 22
+```
+
+A derive passed to `peek` is brought up to date first. The value comes back raw: arrays and objects aren't wrapped, so changing them in place doesn't notify.
 
 ## TypeScript
 

@@ -93,6 +93,8 @@ const panel = derive(() => (open.value ? <p>Details</p> : null));
 
 Every change calls `fn` again, so the element is created fresh each time, and the effects of the old one stop.
 
+With the [compiler](/guide/compiler), `{open.value && <p>Details</p>}` written inline in JSX works the same way, without a derive.
+
 ## Lists
 
 To render a list, use [`.map()`](/api/state#lists) on the state: it only updates the rows that changed.

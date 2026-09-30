@@ -2,7 +2,7 @@
 
 ## Components run once
 
-A component is a plain function that returns DOM nodes. It runs **once**, when you call it. There is no re-render: reactivity comes from passing a [`state`](/api/state) into JSX, which keeps that exact text or attribute in sync.
+A component is a plain function that returns DOM nodes. It runs **once**, when you call it. There is no re-render: reactivity comes from the [`state`](/api/state) you use in JSX, which keeps that exact text or attribute in sync.
 
 ```jsx
 import { state } from "qwrk";
@@ -12,13 +12,13 @@ function Counter() {
 
   return (
     <p>
-      live: {count}, snapshot: {count.value}
+      count: {count}, doubled: {count.value * 2}
     </p>
   );
 }
 ```
 
-After `count.value = 5`, the paragraph shows `live: 5, snapshot: 0`. Pass the state itself (`{count}`) to keep it live. `{count.value}` reads the value once.
+After `count.value = 5`, the paragraph shows `count: 5, doubled: 10`. `{count}` passes the state itself, which always stays live. With the [compiler](/guide/compiler), any expression that reads `.value`, like `{count.value * 2}`, stays live too. Without it, such an expression is evaluated once: it would keep showing `0`, so use a [`derive()`](/api/derive) there.
 
 ## Props and children
 
@@ -63,6 +63,8 @@ Any `on*` prop whose value is a function becomes an event listener. The event na
 ```jsx
 <button onClick={(event) => console.log(event)}>Click me</button>
 ```
+
+The compiler delegates bubbling events such as `click` and `input` to one listener on the document. See [Events](/guide/compiler#events).
 
 ## Attributes
 

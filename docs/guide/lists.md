@@ -19,7 +19,7 @@ function Todos() {
     <>
       <ul>
         {todos.map((todo) => (
-          <li onClick={() => (todo.done = !todo.done)}>{todo.text}</li>
+          <li>{todo.text}</li>
         ))}
       </ul>
       <button onClick={add}>Add</button>
@@ -50,7 +50,7 @@ The same item twice renders two rows.
 
 ## Items
 
-The function receives each item raw, as stored: nested states and primitives as they are. It gets no index, since the index changes when rows move. To change an item, write through the state: `todos.value[i].done = true` still notifies, since reads through the state wrap, but writing a captured item does nothing. To keep a value in a row up to date, store it in a state inside the item (below).
+The function receives each item raw, as stored: nested states and primitives as they are. It gets no index, since the index changes when rows move. To change an item, write through the state: `todos.value[i].done = true` still notifies, since reads through the state wrap, but writing a captured item does nothing.
 
 To keep a value in a row up to date, store it in a state inside the item:
 
@@ -71,6 +71,14 @@ todos.map((todo) => {
 });
 ```
 
+With the [compiler](/guide/compiler), write the comparison inline. `selected.value === todo.id` compiles to a keyed check, so changing the selection re-runs only the two rows it affects:
+
+```jsx
+todos.map((todo) => (
+  <li class={selected.value === todo.id ? "active" : ""}>{todo.id}</li>
+));
+```
+
 ## Cleanup
 
 Each row owns the derives and effects its function created. Removing the row stops them, and its DOM is freed once nothing references it. A list created while a derive runs, such as in a component the derive renders, stops with all its rows when that derive runs again.
@@ -85,4 +93,4 @@ const open = derive(() => todos.value.filter((todo) => !todo.done));
 <ul>{open.map((todo) => <li>{todo.text}</li>)}</ul>;
 ```
 
-A derive that returns the rows, `derive(() => todos.value.map(...))`, rebuilds every row on each change. It is fine for a handful of items.
+A derive that returns the rows, `derive(() => todos.value.map(...))`, rebuilds every row on each change. It is fine for a handful of items. With the compiler, `{todos.value.map(...)}` in JSX behaves the same way.
