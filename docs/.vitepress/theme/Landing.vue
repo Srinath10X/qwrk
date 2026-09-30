@@ -561,6 +561,9 @@ const links = [
   padding: 0 6px 0 16px;
   border: 1px solid var(--q-border);
   border-radius: 8px;
+  background: rgb(15 14 13 / 0.45);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   font-family: var(--vp-font-family-mono);
   font-size: 13.5px;
   text-align: left;
@@ -661,8 +664,10 @@ const links = [
 
 .q-editor {
   margin: 0;
-  border: 1px solid var(--q-border);
-  background: var(--q-code);
+  border: 1px solid rgb(246 245 244 / 0.1);
+  background: rgb(19 18 17 / 0.55);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
 }
 
 .q-editor__bar {
@@ -675,7 +680,7 @@ const links = [
   padding: 10px 18px 9px;
   border-right: 1px solid var(--q-border);
   border-bottom: 1px solid var(--q-accent);
-  background: var(--q-code);
+  background: transparent;
   font-family: var(--vp-font-family-mono);
   font-size: 12.5px;
   color: var(--q-fg);
@@ -765,7 +770,7 @@ const links = [
   gap: 12px 16px;
   padding: 14px 18px;
   border-top: 1px solid var(--q-border);
-  background: var(--q-bg);
+  background: rgb(15 14 13 / 0.35);
 }
 
 .q-editor__note {

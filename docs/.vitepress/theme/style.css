@@ -145,9 +145,9 @@
 
   --vp-nav-height: 64px;
   --vp-nav-logo-height: 24px;
-  --vp-nav-bg-color: var(--q-bg);
+  --vp-nav-bg-color: transparent;
   --vp-nav-screen-bg-color: var(--q-bg);
-  --vp-local-nav-bg-color: var(--q-bg);
+  --vp-local-nav-bg-color: rgb(15 14 13 / 0.62);
   --vp-sidebar-bg-color: var(--q-bg);
   --vp-backdrop-bg-color: rgb(8 7 6 / 0.72);
 
@@ -290,12 +290,14 @@ html.dark .Layout {
 }
 
 .q-btn--secondary {
-  background: var(--q-surface);
+  background: rgb(26 25 23 / 0.6);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   color: var(--q-fg);
 }
 
 .q-btn--secondary:hover {
-  background: #232220;
+  background: rgb(35 34 32 / 0.8);
 }
 
 .q-btn--outline {
@@ -332,7 +334,9 @@ html.dark .Layout {
 
 /* Nav: solid, inside the rails, with a hairline under it. It stays put on every page. */
 html.dark .VPNavBar {
-  background-color: var(--q-bg);
+  background-color: rgb(15 14 13 / 0.55);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
 }
 
 html.dark .VPNavBar.screen-open {
@@ -341,7 +345,7 @@ html.dark .VPNavBar.screen-open {
 
 html.dark .VPNavBar .content-body,
 html.dark .VPNavBar .container > .title {
-  background-color: var(--q-bg);
+  background-color: transparent;
 }
 
 html.dark .VPNavBar .divider-line,
